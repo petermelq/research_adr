@@ -1,0 +1,30 @@
+stages:
+  download_bbg:
+    cmd: python scripts/download_bbg_daily.py config/bbg_daily.yml data/tickers.csv data/px_last.csv
+    deps:
+      - scripts/download_bbg_daily.py
+      - data/tickers.csv
+    params:
+      - config/bbg_daily.yml:
+        - price_field
+        - start_date
+        - end_date
+    outs:
+      - data/px_last.csv
+
+  adr_trade_price:
+    class: HistoricalDailyCSVDataLoader
+    csv_path: /home/pmalonis/adr_trade/data/processed/brit_adr_daily_mid_time=13:00:00.csv
+    start_date: 2020-01-02
+  adr_signal:
+    class: HistoricalDailyCSVDataLoader
+    csv_path: /home/pmalonis/adr_trade/data/processed/brit_adr_futures_fixed_time_signal_time=13:00:00.csv
+    start_date: 2020-01-02
+  turnover_df:
+    class: HistoricalDailyCSVDataLoader
+    csv_path: /home/pmalonis/adr_trade/data/processed/adr_turnover.csv
+    start_date: 2020-01-02
+  adr_close:
+    class: HistoricalDailyCSVDataLoader
+    csv_path: /home/pmalonis/adr_trade/data/raw/adrs/adr_PX_LAST_adjust_none.csv
+    start_date: 2020-01-02

@@ -1,0 +1,88 @@
+output:
+  formats: ["csv", "json"]
+  path: "./adr_results/single_time_debug"
+
+strategy:
+  type: "single_time_ADR"  # Will map to MinimalStrategy class
+  parameters:
+    var_penalty: 0.0001
+    adr_info_filename: /home/pmalonis/adr_trade/notebooks/brit_exchange_traded_efa_adrs_detailed.csv
+    vol_lookback: 100
+    p_volume: 0.05
+    trade_time: "13:30:00"
+
+stock_split_file: /home/pmalonis/intraday_mean_reversion/data/raw/all_splits.csv
+
+data_loaders:
+  adr_trade_price: 
+    class: HistoricalDailyCSVDataLoader
+    csv_path: /home/pmalonis/adr_trade/data/processed/brit_adr_daily_mid_time=13:00:00.csv
+    start_date: 2020-01-02
+  adr_signal:
+    class: HistoricalDailyCSVDataLoader
+    csv_path: /home/pmalonis/adr_trade/data/processed/brit_adr_futures_fixed_time_signal_time=13:00:00.csv
+    start_date: 2020-01-02
+  turnover_df:
+    class: HistoricalDailyCSVDataLoader
+    csv_path: /home/pmalonis/adr_trade/data/processed/adr_turnover.csv
+    start_date: 2020-01-02
+  adr_close:
+    class: HistoricalDailyCSVDataLoader
+    csv_path: /home/pmalonis/adr_trade/data/raw/adrs/adr_PX_LAST_adjust_none.csv
+    start_date: 2020-01-02
+
+market_impact:
+  class: "MinimalMarketImpactModel"
+  slippage_bps: 0.0  # 5 basis points slippage
+
+# Initial positions (empty means starting with no positions)
+initial_positions: {}
+
+# Date range for backtest
+start_date: "2023-07-20"
+end_date: "2025-11-07"
+
+# Symbols to trade
+symbols:
+  - AZN
+  - BCS
+  - BTI
+  - BP
+  - DEO
+  - GSK
+  - HLN
+  - HSBC
+  - IHG
+  - LYG
+  - NGG
+  - NWG
+  - PSO
+  - RELX
+  - RIO
+  - RTO
+  - SHEL
+  - SNN
+  - UL
+  - VOD
+  - WPP
+
+market_calendar: NYSE
+
+evaluation:
+  plot_pnl:
+      parameters:
+        reassign_dates: False
+        price_filename: /home/pmalonis/adr_trade/data/raw/adrs/adr_PX_LAST_adjust_none.csv
+        market_calendar: NYSE
+
+  return_on_median_gmv:
+    parameters:
+      reassign_dates: False
+      price_filename: /home/pmalonis/adr_trade/data/raw/adrs/adr_PX_LAST_adjust_none.csv
+      market_calendar: NYSE
+
+  return_on_max_gmv:
+    parameters:
+      reassign_dates: False
+      price_filename: /home/pmalonis/adr_trade/data/raw/adrs/adr_PX_LAST_adjust_none.csv
+      market_calendar: NYSE
