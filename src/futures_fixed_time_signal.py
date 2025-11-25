@@ -1,9 +1,27 @@
+import argparse
 import numpy as np
 import pandas as pd
 import datetime as dt
 import pandas_market_calendars as mcal
+from . import utils
 
 if __name__ == '__main__':
+
+    domestic_close_mid = pd.read_csv('/home/pmalonis/adr_trade/data/processed/adr_mids_at_underlying_auction_adjust_none.csv')
+    afternoon_mid_df = pd.read_csv(f'/home/pmalonis/adr_trade/data/processed/adr_daily_mid_time.csv')
+    
+
+    args = parser.parse_args()
+    futures_filename = args.futures_filename
+
+    if args.tickers and len(args.tickers) == 1 and args.tickers[0].endswith(".csv"):
+        tickers = pd.read_csv(args.tickers[0]).iloc[:,0].tolist()
+    else:
+        tickers = args.tickers
+
+    # Fixed time of day to save mid price
+    time_to_save = dt.time(args.time_to_save_hrs, args.time_to_save_mins)
+
     df = pd.read_parquet('../data/processed/FTUK_close_to_usd_1min.parquet')
     df['date'] = df['timestamp'].dt.strftime('%Y-%m-%d')
     df = df.set_index('timestamp')
@@ -17,9 +35,7 @@ if __name__ == '__main__':
     time_to_save = dt.time(13,0)
     start_time = (dt.datetime.combine(dt.date.today(), time_to_save) - pd.Timedelta('30min')).time()
 
-    domestic_close_mid = pd.read_csv('/home/pmalonis/adr_trade/data/processed/adr_mids_at_underlying_auction_adjust_none.csv')
-    afternoon_mid_df = pd.read_csv(f'/home/pmalonis/adr_trade/data/processed/brit_adr_daily_mid_time={time_to_save}.csv')
-    
+
     # Read ADR info
     adr_info = pd.read_csv(adr_info_filename)
     adr_info['adr'] = adr_info['adr'].str.replace(' US Equity','')

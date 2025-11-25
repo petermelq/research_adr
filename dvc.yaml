@@ -1,30 +1,102 @@
 stages:
-  download_bbg:
-    cmd: python scripts/download_bbg_daily.py config/bbg_daily.yml data/tickers.csv data/px_last.csv
+  download_adr_close:
+    cmd: python src/download_bbg_daily.py data/raw/adr_info.csv data/raw/adrs/adr_PX_LAST_adjust_none.csv --tickers_columns=adr
     deps:
-      - scripts/download_bbg_daily.py
-      - data/tickers.csv
+      - src/download_bbg_daily.py
+      - data/raw/adr_info.csv
     params:
-      - config/bbg_daily.yml:
-        - price_field
-        - start_date
-        - end_date
+      - download.start_date
+      - download.end_date
     outs:
-      - data/px_last.csv
+      - data/raw/adrs/adr_PX_LAST_adjust_none.csv
 
-  adr_trade_price:
-    class: HistoricalDailyCSVDataLoader
-    csv_path: /home/pmalonis/adr_trade/data/processed/brit_adr_daily_mid_time=13:00:00.csv
-    start_date: 2020-01-02
-  adr_signal:
-    class: HistoricalDailyCSVDataLoader
-    csv_path: /home/pmalonis/adr_trade/data/processed/brit_adr_futures_fixed_time_signal_time=13:00:00.csv
-    start_date: 2020-01-02
-  turnover_df:
-    class: HistoricalDailyCSVDataLoader
-    csv_path: /home/pmalonis/adr_trade/data/processed/adr_turnover.csv
-    start_date: 2020-01-02
-  adr_close:
-    class: HistoricalDailyCSVDataLoader
-    csv_path: /home/pmalonis/adr_trade/data/raw/adrs/adr_PX_LAST_adjust_none.csv
-    start_date: 2020-01-02
+  download_etf_close:
+    cmd: python src/download_bbg_daily.py data/raw/adr_info.csv data/raw/etfs/etf_PX_LAST_adjust_none.csv --tickers_columns=market_etf_hedge --symbol_suffix=" US Equity"
+    deps:
+      - src/download_bbg_daily.py
+      - data/raw/adr_info.csv
+    params:
+      - download.start_date
+      - download.end_date
+    outs:
+      - data/raw/etfs/etf_PX_LAST_adjust_none.csv
+
+  download_ord_close:
+    cmd: python src/download_bbg_daily.py data/raw/adr_info.csv data/raw/ordinary/ord_PX_LAST_adjust_none.csv --tickers_columns=id --include_suffix
+    deps:
+      - src/download_bbg_daily.py
+      - data/raw/adr_info.csv
+    params:
+      - download.start_date
+      - download.end_date
+    outs:
+      - data/raw/ordinary/ord_PX_LAST_adjust_none.csv
+
+  adj_download_ord_close:
+    cmd: python src/download_bbg_daily.py data/raw/adr_info.csv data/raw/ordinary/ord_PX_LAST_adjust_all.csv --tickers_columns=id --include_suffix --adjust=all
+    deps:
+      - src/download_bbg_daily.py
+      - data/raw/adr_info.csv
+    params:
+      - download.start_date
+      - download.end_date
+    outs:
+      - data/raw/ordinary/ord_PX_LAST_adjust_all.csv
+
+  convert_ord_currency_close:
+    cmd: python src/closing_domestic_prices.py
+    deps:
+      - src/closing_domestic_prices.py
+      - data/raw/adr_info.csv
+      - data/raw/ordinary/ord_PX_LAST_adjust_none.csv
+      - data/raw/ordinary/ord_PX_LAST_adjust_all.csv
+      - data/raw/currencies/minute_bars/GBPUSD_full_1min.txt
+      - data/raw/currencies/minute_bars/EURUSD_full_1min.txt
+      - data/raw/currencies/minute_bars/JPYUSD_full_1min.txt
+    outs:
+      - data/processed/ordinary/ord_close_to_usd_adr_PX_LAST_adjust_none.csv
+      - data/processed/ordinary/ord_close_to_usd_adr_PX_LAST_adjust_all.csv
+
+  adr_adjustments:
+    cmd: python src/get_adjustments.py data/raw/adrs/adr_PX_LAST_adjust_none.csv data/processed/adrs/adr_adjustment_factors.csv --symbol_suffix=" US Equity"
+    deps:
+      - src/get_adjustments.py
+      - data/raw/adrs/adr_PX_LAST_adjust_none.csv
+    outs:
+      - data/processed/adrs/adr_adjustment_factors.csv
+
+  etf_adjustments:
+    cmd: python src/get_adjustments.py data/raw/etfs/etf_PX_LAST_adjust_none.csv data/processed/etfs/etf_adjustment_factors.csv --symbol_suffix=" US Equity"
+    deps:
+      - src/get_adjustments.py
+      - data/raw/etfs/etf_PX_LAST_adjust_none.csv
+    outs:
+      - data/processed/etfs/etf_adjustment_factors.csv
+
+  adr_mid_at_ordinary_auction:
+    cmd: python src/adr_mid_at_ordinary_auction.py
+    deps:
+      - src/adr_mid_at_ordinary_auction.py
+      - data/raw/adrs/adr_PX_LAST_adjust_none.csv
+      - data/processed/ordinary/ord_close_to_usd_adr_PX_LAST_adjust_all.csv
+      - data/processed/adrs/adr_adjustment_factors.csv
+    outs:
+      - data/processed/adr_mid_at_ordinary_auction_adjust_all.csv
+      - data/processed/adr_mids_at_ordinary_auction_adjust_none.csv
+
+  # adr_trade_price:
+  #   class: HistoricalDailyCSVDataLoader
+  #   csv_path: /home/pmalonis/adr_trade/data/processed/brit_adr_daily_mid_time=13:00:00.csv
+  #   start_date: 2020-01-02
+  # adr_signal:
+  #   class: HistoricalDailyCSVDataLoader
+  #   csv_path: /home/pmalonis/adr_trade/data/processed/brit_adr_futures_fixed_time_signal_time=13:00:00.csv
+  #   start_date: 2020-01-02
+  # turnover_df:
+  #   class: HistoricalDailyCSVDataLoader
+  #   csv_path: /home/pmalonis/adr_trade/data/processed/adr_turnover.csv
+  #   start_date: 2020-01-02
+  # adr_close:
+  #   class: HistoricalDailyCSVDataLoader
+  #   csv_path: /home/pmalonis/adr_trade/data/raw/adrs/adr_PX_LAST_adjust_none.csv
+  #   start_date: 2020-01-02
