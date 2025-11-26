@@ -57,7 +57,8 @@ if __name__=='__main__':
     start_time = (dt.datetime.combine(dt.date.today(), time_to_save) - pd.Timedelta('30min')).time()
     all_mid = {}
     for adr_ticker in tickers:
-        df = pd.read_parquet(nbbo_dir, filters=[('ticker', '==', adr_ticker)], columns=['nbbo_bid','nbbo_ask','date'])
+        df = pd.read_parquet(nbbo_dir, filters=[('ticker', '==', adr_ticker)],
+                            columns=['nbbo_bid','nbbo_ask','date'])
         df['mid'] = (df['nbbo_bid'] + df['nbbo_ask']) / 2
         df = df.merge(ny_close_times, left_on='date', right_index=True)
         df = df[df['market_close'].dt.time == dt.time(16,0)]

@@ -38,6 +38,7 @@ if __name__ == "__main__":
                 fx_df['currency'] = 'GBp'
             else:
                 fx_df['currency'] = cur
+                
             all_fx_data.append(fx_df)
         
         fx_df = pd.concat(all_fx_data, ignore_index=True)

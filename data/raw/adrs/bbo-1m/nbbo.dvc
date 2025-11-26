@@ -1,0 +1,6 @@
+outs:
+- md5: 796366a577597baee87eac2ffd1ca82d.dir
+  size: 5278544363
+  nfiles: 78100
+  hash: md5
+  path: nbbo

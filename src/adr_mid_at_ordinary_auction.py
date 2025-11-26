@@ -4,10 +4,10 @@ import pandas as pd
 import pandas_market_calendars as mcal
 from linux_xbbg import blp
 from pathlib import Path
-from utils import get_market_business_days, get_partition_dates
+from utils import get_market_business_days, load_params
 __script_dir__ = os.path.dirname(os.path.abspath(__file__))
 
-def process_adr_mids_efficiently(adr_path, ticker_close_df):
+def process_adr_mids_efficiently(adr_path, ticker_close_df, start_date=None, end_date=None):
     """
     Memory-efficient processing of partitioned ADR data using Polars.
     Processes data in chunks by ticker/date partitions.
@@ -41,6 +41,12 @@ def process_adr_mids_efficiently(adr_path, ticker_close_df):
         
         for date_dir in date_dirs:  # Process all dates
             date_str = date_dir.name.split('=')[1]
+
+            if start_date and pd.to_datetime(date_str) < pd.to_datetime(start_date):
+                continue
+            
+            if end_date and pd.to_datetime(date_str) > pd.to_datetime(end_date):
+                continue
             
             # Convert date_str to datetime for comparison
             try:
@@ -113,23 +119,22 @@ def get_daily_adj(adj_df, start_date, end_date):
     adj_df.index = [pd.to_datetime(idx) - cbday for idx in adj_df.index]
     adj_df.loc[end_date, 'cum_adj'] = 1.0
     adj_df = adj_df.sort_index().loc[:end_date]
-    adj_df = adj_df['cum_adj'].sort_index().resample('1D').bfill()
+    adj_df = adj_df[['cum_adj']].sort_index().resample('1D').bfill()
     
     return adj_df
 
 if __name__ == '__main__':
-    adr_path = os.path.join(__script_dir__, 'data', 'raw', 'adrs', 'bbo-1m', 'nbbo')
-    holdings_filename = os.path.join(__script_dir__, 'data', 'raw', 'adr_info.csv')
-    
-    dates = get_partition_dates(adr_path)
+    adr_path = os.path.join(__script_dir__, '..', 'data', 'raw', 'adrs', 'bbo-1m', 'nbbo')
+    adr_info_filename = os.path.join(__script_dir__, '..', 'data', 'raw', 'adr_info.csv')
 
-    start_date = dates[0]
-    end_date = dates[-1]
+    params = load_params()
+    start_date = params['start_date']
+    end_date = params['end_date']
         
     # Read holdings data with pandas (small dataset)
-    hold_df = pd.read_csv(holdings_filename)
-    hold_df['adr'] = hold_df['adr'].str.replace(' US Equity','')
-    exchanges = hold_df['exchange'].unique().tolist()
+    adr_info = pd.read_csv(adr_info_filename)
+    adr_info['adr'] = adr_info['adr'].str.replace(' US Equity','')
+    exchanges = adr_info['exchange'].unique().tolist()
     
     # Create close times dataframe
     close_time = pd.DataFrame({ex: mcal.get_calendar(ex).schedule(start_date=start_date, end_date=end_date)['market_close'].dt.tz_convert('America/New_York') for ex in exchanges})
@@ -143,19 +148,22 @@ if __name__ == '__main__':
         close_time['XETR'] += pd.Timedelta('5min')  # Frankfurt auction time 5 minutes after close
 
     close_time = close_time.stack().reset_index(name='close_time').rename(columns={'level_0':'date','level_1':'exchange'})
-    ticker_close = hold_df[['adr','exchange']].merge(close_time, on='exchange')
+    ticker_close = adr_info[['adr','exchange']].merge(close_time, on='exchange')
     
     # Process ADR data efficiently
     print("Processing ADR mids at ordinary close times...")
-    result_df = process_adr_mids_efficiently(adr_path, ticker_close)
+    result_df = process_adr_mids_efficiently(adr_path, 
+                                            ticker_close,
+                                            start_date=start_date,
+                                            end_date=end_date)
     result_df = result_df.pivot(on='adr',index='date',values='mid').to_pandas().set_index('date').sort_index()
 
     # adjusting prices for splits/dividends
-    adjustment_filename = '../data/raw/adrs/adr_net_adjustment_factors.csv'
+    adjustment_filename = os.path.join(__script_dir__, '..', 'data', 'processed', 'adrs', 'adr_adjustment_factors.csv')
     adj_factors = pd.read_csv(adjustment_filename)
 
     # getting end date from ordinary file
-    ord_df = pd.read_csv(os.path.join(__script_dir__, 'data', 'processed', 'ordinary', 'ord_close_to_usd_adr_PX_LAST_adjust_all.csv'), index_col=0)
+    ord_df = pd.read_csv(os.path.join(__script_dir__, '..', 'data', 'processed', 'ordinary', 'ord_close_to_usd_adr_PX_LAST_adjust_all.csv'), index_col=0)
     end_date = ord_df.index.max()
     adj_df = (adj_factors.groupby('ticker')
                 .apply(get_daily_adj, start_date=start_date, end_date=end_date)
@@ -173,13 +181,15 @@ if __name__ == '__main__':
                                    '..', 
                                    'data', 
                                    'processed', 
-                                   'adr_mids_at_ord_auction_adjust_none.csv'
+                                   'adrs',
+                                   'adr_mid_at_ord_auction_adjust_none.csv'
                                 )
         result_df.to_csv(output_file)
         adj_output_file = os.path.join(__script_dir__,
                                        '..',
                                        'data',
                                        'processed',
+                                       'adrs',
                                        'adr_mid_at_ord_auction_adjust_all.csv'
                                     )
         adj_result_df.to_csv(adj_output_file)

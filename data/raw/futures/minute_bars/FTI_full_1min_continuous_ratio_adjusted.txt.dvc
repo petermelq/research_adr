@@ -1,0 +1,5 @@
+outs:
+- md5: 55208d368dd415c91f3246d98a98abe8
+  size: 143831616
+  hash: md5
+  path: FTI_full_1min_continuous_ratio_adjusted.txt

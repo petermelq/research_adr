@@ -1,12 +1,14 @@
 stages:
+  
+
   download_adr_close:
     cmd: python src/download_bbg_daily.py data/raw/adr_info.csv data/raw/adrs/adr_PX_LAST_adjust_none.csv --tickers_columns=adr
     deps:
       - src/download_bbg_daily.py
       - data/raw/adr_info.csv
     params:
-      - download.start_date
-      - download.end_date
+      - start_date
+      - end_date
     outs:
       - data/raw/adrs/adr_PX_LAST_adjust_none.csv
 
@@ -16,8 +18,8 @@ stages:
       - src/download_bbg_daily.py
       - data/raw/adr_info.csv
     params:
-      - download.start_date
-      - download.end_date
+      - start_date
+      - end_date
     outs:
       - data/raw/etfs/etf_PX_LAST_adjust_none.csv
 
@@ -27,8 +29,8 @@ stages:
       - src/download_bbg_daily.py
       - data/raw/adr_info.csv
     params:
-      - download.start_date
-      - download.end_date
+      - start_date
+      - end_date
     outs:
       - data/raw/ordinary/ord_PX_LAST_adjust_none.csv
 
@@ -38,8 +40,8 @@ stages:
       - src/download_bbg_daily.py
       - data/raw/adr_info.csv
     params:
-      - download.start_date
-      - download.end_date
+      - start_date
+      - end_date
     outs:
       - data/raw/ordinary/ord_PX_LAST_adjust_all.csv
 
@@ -80,9 +82,35 @@ stages:
       - data/raw/adrs/adr_PX_LAST_adjust_none.csv
       - data/processed/ordinary/ord_close_to_usd_adr_PX_LAST_adjust_all.csv
       - data/processed/adrs/adr_adjustment_factors.csv
+    params:
+      - start_date
+      - end_date
     outs:
-      - data/processed/adr_mid_at_ordinary_auction_adjust_all.csv
-      - data/processed/adr_mids_at_ordinary_auction_adjust_none.csv
+      - data/processed/adrs/adr_mid_at_ord_auction_adjust_all.csv
+      - data/processed/adrs/adr_mid_at_ord_auction_adjust_none.csv
+
+  usd_index_futures:
+    cmd: python src/usd_index_futures.py
+    deps:
+      - src/usd_index_futures.py
+      - data/raw/futures/minute_bars/FTUK_full_1min_continuous_ratio_adjusted.txt
+      - data/raw/futures/minute_bars/FDAX_full_1min_continuous_ratio_adjusted.txt
+      - data/raw/futures/minute_bars/FESX_full_1min_continuous_ratio_adjusted.txt
+      - data/raw/futures/minute_bars/FXXP_full_1min_continuous_ratio_adjusted.txt
+      - data/raw/futures/minute_bars/FTI_full_1min_continuous_ratio_adjusted.txt
+      - data/raw/futures/minute_bars/FCE_full_1min_continuous_ratio_adjusted.txt
+      - data/raw/futures/minute_bars/NIY_full_1min_continuous_ratio_adjusted.txt
+      - data/raw/currencies/minute_bars/GBPUSD_full_1min.txt
+      - data/raw/currencies/minute_bars/EURUSD_full_1min.txt
+      - data/raw/currencies/minute_bars/JPYUSD_full_1min.txt
+    outs:
+      - data/processed/futures/converted_minute_bars/symbol=FTUK/FTUK_close_to_usd_1min.parquet
+      - data/processed/futures/converted_minute_bars/symbol=FDAX/FDAX_close_to_usd_1min.parquet
+      - data/processed/futures/converted_minute_bars/symbol=FESX/FESX_close_to_usd_1min.parquet
+      - data/processed/futures/converted_minute_bars/symbol=FXXP/FXXP_close_to_usd_1min.parquet
+      - data/processed/futures/converted_minute_bars/symbol=FTI/FTI_close_to_usd_1min.parquet
+      - data/processed/futures/converted_minute_bars/symbol=FCE/FCE_close_to_usd_1min.parquet
+      - data/processed/futures/converted_minute_bars/symbol=NIY/NIY_close_to_usd_1min.parquet
 
   # adr_trade_price:
   #   class: HistoricalDailyCSVDataLoader

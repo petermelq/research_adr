@@ -1,3 +1,5 @@
 .dvc/config
-data/
 *.pyc
+data/**
+!data/**/*.dvc
+!data/**/.gitignore

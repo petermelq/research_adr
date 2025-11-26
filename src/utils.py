@@ -1,9 +1,11 @@
 import re
 import os
+import yaml
 import pandas as pd
 import pandas_market_calendars as mcal
 import numpy as np
 from glob import glob
+MODULE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 def get_partition_dates(partition_path):
     s = ','.join(glob(os.path.join(partition_path,'*=*','date=*')))
@@ -20,7 +22,6 @@ def get_market_business_days(calendar='NYSE'):
     are open.
     '''
     # Define the US stock market calendar
-
     cal = mcal.get_calendar(calendar)
     # Get all holidays
     holidays = cal.holidays().holidays
@@ -31,3 +32,13 @@ def get_market_business_days(calendar='NYSE'):
     custom_bd = pd.offsets.CustomBusinessDay(holidays=holidays)
 
     return custom_bd
+
+def load_params():
+    '''
+    Load parameters from a YAML file into a dictionary.
+    '''
+    param_path = os.path.join(MODULE_DIR, '..', 'params.yaml')
+    with open(param_path, 'r') as f:
+        params = yaml.safe_load(f)
+
+    return params

@@ -25,8 +25,8 @@ if __name__ == "__main__":
     tickers = list(set([ticker for col in args.tickers_columns for ticker in tickers_df[col].to_list()]))
     bbg_tickers = [t + args.symbol_suffix for t in tickers]
     
-    start_date = args.start_date if args.start_date else params['download']['start_date']
-    end_date = args.end_date if args.end_date else params['download']['end_date']
+    start_date = args.start_date if args.start_date else params['start_date']
+    end_date = args.end_date if args.end_date else params['end_date']
     data = blp.bdh(bbg_tickers,
                     [args.field],
                     start_date=start_date,

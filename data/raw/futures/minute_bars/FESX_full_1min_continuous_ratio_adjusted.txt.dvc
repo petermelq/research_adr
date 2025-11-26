@@ -1,0 +1,5 @@
+outs:
+- md5: 34146aee531d386d19a073610464d331
+  size: 224857505
+  hash: md5
+  path: FESX_full_1min_continuous_ratio_adjusted.txt

@@ -1,0 +1,5 @@
+outs:
+- md5: 66d674de5ea9170b1e6afe7684e31fa1
+  size: 317494680
+  hash: md5
+  path: GBPUSD_full_1min.txt

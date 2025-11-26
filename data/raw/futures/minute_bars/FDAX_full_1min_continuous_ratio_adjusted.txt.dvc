@@ -1,0 +1,5 @@
+outs:
+- md5: 416dd70a8abba3466fafa68e8d0ce300
+  size: 248134839
+  hash: md5
+  path: FDAX_full_1min_continuous_ratio_adjusted.txt
