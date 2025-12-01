@@ -161,10 +161,6 @@ if __name__ == '__main__':
     # adjusting prices for splits/dividends
     adjustment_filename = os.path.join(__script_dir__, '..', 'data', 'processed', 'adrs', 'adr_adjustment_factors.csv')
     adj_factors = pd.read_csv(adjustment_filename)
-
-    # getting end date from ordinary file
-    ord_df = pd.read_csv(os.path.join(__script_dir__, '..', 'data', 'processed', 'ordinary', 'ord_close_to_usd_adr_PX_LAST_adjust_all.csv'), index_col=0)
-    end_date = ord_df.index.max()
     adj_df = (adj_factors.groupby('ticker')
                 .apply(get_daily_adj, start_date=start_date, end_date=end_date)
                 .reset_index().rename(columns={'level_1':'date'}))

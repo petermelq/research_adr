@@ -285,3 +285,40 @@ stages:
       hash: md5
       md5: 9d5ab8121b5a5cd970b341d9aa6ea10f
       size: 115649120
+  download_adr_bbo-1m:
+    cmd: python -m data_tools.cli.batch_download_to_parquet --schema=bbo-1m 
+      --datasets XNYS.PILLAR XNAS.ITCH ARCX.PILLAR 
+      --tickers=data/raw/adr_info.csv --tickers_columns=adr 
+      --output_dir=data/raw/adrs/bbo-1m/by_exchange --start_date=2020-01-02 
+      --end_date=2025-11-07
+    deps:
+    - path: data/raw/adr_info.csv
+      hash: md5
+      md5: b45a6f5e94c5a9cf1494f8bcbd1e5f0f
+      size: 4598
+    params:
+      params.yaml:
+        end_date: '2025-11-07'
+        start_date: '2020-01-02'
+    outs:
+    - path: data/raw/adrs/bbo-1m/by_exchange
+      hash: md5
+      md5: 5b6882768080845e9e7c327ab9fad81e.dir
+      size: 6511569825
+      nfiles: 234826
+  create_nbbo_adr_bbo-1m:
+    cmd: python -m data_tools.cli.nbbo_consolidate_bbo_1m 
+      --raw_data_dir=data/raw/adrs/bbo-1m/by_exchange 
+      --output_dir=data/raw/adrs/bbo-1m/nbbo --parallel --ncores=12
+    deps:
+    - path: data/raw/adrs/bbo-1m/by_exchange
+      hash: md5
+      md5: 5b6882768080845e9e7c327ab9fad81e.dir
+      size: 6511569825
+      nfiles: 234826
+    outs:
+    - path: data/raw/adrs/bbo-1m/nbbo
+      hash: md5
+      md5: 796366a577597baee87eac2ffd1ca82d.dir
+      size: 5278544363
+      nfiles: 78100

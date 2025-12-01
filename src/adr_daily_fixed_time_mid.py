@@ -18,6 +18,11 @@ if __name__=='__main__':
                         type=str,
                         help="Tickers to download, or path to CSV containing a list of tickers."
                         )
+    parser.add_argument('--tickers_columns',
+                        nargs='+',
+                        type=str,
+                        default=['ticker'],
+                        help='Column name in CSV containing tickers')
     parser.add_argument('--time_to_save_hrs', 
                         type=int,
                         help='Hour of day (24h) to save mid price (NY time)'
@@ -35,9 +40,9 @@ if __name__=='__main__':
     
     args = parser.parse_args()
     nbbo_dir = args.nbbo_dir
-    adr_info_filename = '/home/pmalonis/adr_trade/notebooks/brit_exchange_traded_efa_adrs_detailed.csv'
     if args.tickers and len(args.tickers) == 1 and args.tickers[0].endswith(".csv"):
-        tickers = pd.read_csv(args.tickers[0]).iloc[:,0].tolist()
+        tickers_df = pd.read_csv(args.tickers[0])
+        tickers = list(set([ticker.split()[0] for col in args.tickers_columns for ticker in tickers_df[col].to_list()]))
     else:
         tickers = args.tickers
 
@@ -62,7 +67,6 @@ if __name__=='__main__':
         df['mid'] = (df['nbbo_bid'] + df['nbbo_ask']) / 2
         df = df.merge(ny_close_times, left_on='date', right_index=True)
         df = df[df['market_close'].dt.time == dt.time(16,0)]
-        
         df = df.between_time(start_time, time_to_save)
         mid_df = df.groupby('date')['mid'].last()
         

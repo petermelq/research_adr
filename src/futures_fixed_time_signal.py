@@ -3,24 +3,16 @@ import numpy as np
 import pandas as pd
 import datetime as dt
 import pandas_market_calendars as mcal
-from . import utils
+import utils
 
 if __name__ == '__main__':
-
     domestic_close_mid = pd.read_csv('/home/pmalonis/adr_trade/data/processed/adr_mids_at_underlying_auction_adjust_none.csv')
     afternoon_mid_df = pd.read_csv(f'/home/pmalonis/adr_trade/data/processed/adr_daily_mid_time.csv')
-    
-
-    args = parser.parse_args()
-    futures_filename = args.futures_filename
-
-    if args.tickers and len(args.tickers) == 1 and args.tickers[0].endswith(".csv"):
-        tickers = pd.read_csv(args.tickers[0]).iloc[:,0].tolist()
-    else:
-        tickers = args.tickers
 
     # Fixed time of day to save mid price
-    time_to_save = dt.time(args.time_to_save_hrs, args.time_to_save_mins)
+    params = utils.load_params()
+    time_to_save = dt.time(params['time_to_save_hrs'], 
+                           params['time_to_save_mins'])
 
     df = pd.read_parquet('../data/processed/FTUK_close_to_usd_1min.parquet')
     df['date'] = df['timestamp'].dt.strftime('%Y-%m-%d')
@@ -28,13 +20,11 @@ if __name__ == '__main__':
     
     time_futures_after_close = pd.Timedelta(minutes=5)
     adr_info_filename = '/home/pmalonis/adr_trade/notebooks/brit_exchange_traded_efa_adrs_detailed.csv'
-
     betas = pd.read_csv('/home/pmalonis/adr_trade/data/processed/brit_underlying_betas_to_UKX.csv', index_col=0)
 
     # Fixed time of day to compute signal
     time_to_save = dt.time(13,0)
     start_time = (dt.datetime.combine(dt.date.today(), time_to_save) - pd.Timedelta('30min')).time()
-
 
     # Read ADR info
     adr_info = pd.read_csv(adr_info_filename)
@@ -54,7 +44,7 @@ if __name__ == '__main__':
     futures_df = df.merge(ny_close_times.rename('ny_market_close'), left_on='date', right_index=True)
     futures_df = futures_df[futures_df['ny_market_close'].dt.time == dt.time(16,0)]
     futures_df = futures_df[futures_df['date'] > start_date]
-
+    import IPython; IPython.embed();
     adr_info = pd.read_csv(adr_info_filename)
     adr_info['adr'] = adr_info['adr'].str.replace(' US Equity','')
     adr_tickers = adr_info['adr'].tolist()
@@ -99,4 +89,4 @@ if __name__ == '__main__':
         print(f"Processed signal for {ticker}")
 
     all_signal_df = pd.DataFrame(all_signal)
-    all_signal_df.to_csv(f'/home/pmalonis/adr_trade/data/processed/brit_adr_futures_fixed_time_signal_time={time_to_save}.csv')
+    all_signal_df.to_csv(f'/home/pmalonis/adr_trade/data/processed/fixed_time_signal_time={time_to_save}.csv')

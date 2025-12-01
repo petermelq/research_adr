@@ -4,8 +4,9 @@ import cvxpy as cp
 import numba as nb
 from datetime import datetime, date
 from typing import Dict, List
-from ..trade_types import Trade
-from ..strategies.BaseStrategy import BaseStrategy
+from backtester.trade_types import Trade
+from backtester.strategies import BaseStrategy
+from .. import utils
 
 class single_time_ADR(BaseStrategy):
     """
@@ -16,7 +17,6 @@ class single_time_ADR(BaseStrategy):
                 var_penalty: float,
                 p_volume: float,
                 vol_lookback: int,
-                trade_time: str,
         ):
         """
         Initialize the minimal strategy.
@@ -30,7 +30,9 @@ class single_time_ADR(BaseStrategy):
         self.adr_info = pd.read_csv(adr_info_filename)
         self.p_volume = p_volume
         self.vol_lookback = vol_lookback
-        self.trade_time = pd.Timedelta(trade_time)
+        params = utils.load_params()
+        self.trade_time = pd.Timedelta(hours=params['fixed_trade_time_hours'],
+                                        minutes=params['fixed_trade_time_min'])
 
     def generate_trades(self,
                         current_position: Dict[str, float],
