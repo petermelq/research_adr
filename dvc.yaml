@@ -61,7 +61,6 @@ stages:
       - data/raw/etfs/market_etf_PX_LAST_adjust_none.csv
 
   # downloading adr turnover
-
   download_adr_turnover:
     cmd: python src/download_bbg_daily.py data/raw/adr_info.csv data/raw/adrs/adr_turnover.csv --tickers_columns=adr
     deps:
