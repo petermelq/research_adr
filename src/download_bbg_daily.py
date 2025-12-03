@@ -23,7 +23,7 @@ if __name__ == "__main__":
         params = yaml.safe_load(f)
 
     tickers_df = pd.read_csv(args.tickers_filename)
-    tickers = list(set([ticker for col in args.tickers_columns for ticker in tickers_df[col].to_list()]))
+    tickers = list(set([ticker for col in args.tickers_columns for ticker in tickers_df[col].dropna().to_list()]))
     bbg_tickers = [t + args.symbol_suffix for t in tickers]
     
     start_date = args.start_date if args.start_date else params['start_date']

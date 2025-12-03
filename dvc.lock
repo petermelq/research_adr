@@ -294,8 +294,8 @@ stages:
     deps:
     - path: data/raw/adr_info.csv
       hash: md5
-      md5: b45a6f5e94c5a9cf1494f8bcbd1e5f0f
-      size: 4598
+      md5: 6ad3c95a940d0990a8aadea800096ed4
+      size: 4602
     params:
       params.yaml:
         end_date: '2025-11-07'
@@ -303,9 +303,9 @@ stages:
     outs:
     - path: data/raw/adrs/bbo-1m/by_exchange
       hash: md5
-      md5: 5b6882768080845e9e7c327ab9fad81e.dir
-      size: 6511569825
-      nfiles: 234826
+      md5: c210178ad59ad733a671a9bbd18883cc.dir
+      size: 3431554493
+      nfiles: 168
   create_nbbo_adr_bbo-1m:
     cmd: python -m data_tools.cli.nbbo_consolidate_bbo_1m 
       --raw_data_dir=data/raw/adrs/bbo-1m/by_exchange 
@@ -367,3 +367,47 @@ stages:
       hash: md5
       md5: f00af9eb2d4402b2e4d7c0ed317a8d47
       size: 252205
+  download_market_etf_close:
+    cmd: python src/download_bbg_daily.py data/raw/adr_info.csv 
+      data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv 
+      --tickers_columns=market_etf_hedge --symbol_suffix=" US Equity"
+    deps:
+    - path: data/raw/adr_info.csv
+      hash: md5
+      md5: 6ad3c95a940d0990a8aadea800096ed4
+      size: 4602
+    - path: src/download_bbg_daily.py
+      hash: md5
+      md5: aa24f2da16badb98a27680b7a4d39776
+      size: 2756
+    params:
+      params.yaml:
+        end_date: '2025-11-07'
+        start_date: '2020-01-02'
+    outs:
+    - path: data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
+      hash: md5
+      md5: a38e998a3988a1b0bd4ea03539eff343
+      size: 24893
+  download_sector_etf_close:
+    cmd: python src/download_bbg_daily.py data/raw/sector_etfs.csv 
+      data/raw/etfs/sector_etf_PX_LAST_adjust_none.csv --tickers_columns=hedge 
+      --symbol_suffix=" US Equity"
+    deps:
+    - path: data/raw/sector_etfs.csv
+      hash: md5
+      md5: 02c63679f3fe993ff61186cb5efa03e6
+      size: 176
+    - path: src/download_bbg_daily.py
+      hash: md5
+      md5: 2fc3bd45bc1c3820d1826a96e56057a7
+      size: 2765
+    params:
+      params.yaml:
+        end_date: '2025-11-07'
+        start_date: '2020-01-02'
+    outs:
+    - path: data/raw/etfs/sector_etf_PX_LAST_adjust_none.csv
+      hash: md5
+      md5: 41483aee10b1d681eb89acee0292574e
+      size: 96909

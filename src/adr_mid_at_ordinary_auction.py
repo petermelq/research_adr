@@ -10,7 +10,11 @@ __script_dir__ = os.path.dirname(os.path.abspath(__file__))
 def process_adr_mids_efficiently(adr_path, ticker_close_df, start_date=None, end_date=None):
     """
     Memory-efficient processing of partitioned ADR data using Polars.
-    Processes data in chunks by ticker/date partitions.
+    Processes data in chunks by ticker partitions. Handles various partitioning schemes:
+    - ticker/date partitions (date in partition path)
+    - ticker/year/month partitions (date in parquet file)
+    - ticker/year partitions (date in parquet file)
+    - ticker only (date in parquet file)
     """
     # Convert ticker_close to polars - avoid pandas conversion by recreating
     ticker_close_pl = pl.DataFrame({
@@ -35,40 +39,40 @@ def process_adr_mids_efficiently(adr_path, ticker_close_df, start_date=None, end
         
         if ticker_close_filtered.height == 0:
             continue  # Skip if no close times for this ticker
-            
-        # Process each date partition for this ticker
-        date_dirs = [d for d in ticker_dir.iterdir() if d.is_dir() and d.name.startswith('date=')]
         
-        for date_dir in date_dirs:  # Process all dates
-            date_str = date_dir.name.split('=')[1]
-
-            if start_date and pd.to_datetime(date_str) < pd.to_datetime(start_date):
-                continue
-            
-            if end_date and pd.to_datetime(date_str) > pd.to_datetime(end_date):
-                continue
-            
-            # Convert date_str to datetime for comparison
-            try:
-                partition_date = pd.to_datetime(date_str)
-            except:
-                continue
-                
-            # Filter ticker_close for this specific date
-            date_close_filtered = ticker_close_filtered.filter(
-                pl.col('date').dt.date() == partition_date.date()
-            )
-            
-            if date_close_filtered.height == 0:
-                continue  # Skip if no close time for this date
-                
-            parquet_file = date_dir / 'nbbo.parquet'
-            if not parquet_file.exists():
-                continue
-                
+        # Find all parquet files recursively under this ticker directory
+        parquet_files = list(ticker_dir.rglob('*.parquet'))
+        
+        if not parquet_files:
+            continue
+        
+        for parquet_file in parquet_files:
             try:
                 # Read single partition efficiently with Polars
                 adr_data = pl.read_parquet(parquet_file)
+                
+                # Check if 'date' column exists in the data
+                if 'date' not in adr_data.columns:
+                    print(f"Warning: 'date' column not found in {parquet_file}, skipping")
+                    continue
+                
+                # Ensure date column is proper datetime type
+                # The date column might be categorical or string, so cast to string first then parse
+                adr_data = adr_data.with_columns([
+                    pl.col('date').cast(pl.Utf8).str.to_date().alias('date')
+                ])
+                
+                # Apply date filtering if specified
+                if start_date:
+                    start_dt = pd.to_datetime(start_date).date()
+                    adr_data = adr_data.filter(pl.col('date') >= start_dt)
+                
+                if end_date:
+                    end_dt = pd.to_datetime(end_date).date()
+                    adr_data = adr_data.filter(pl.col('date') <= end_dt)
+                
+                if adr_data.height == 0:
+                    continue
                 
                 # Create mid column
                 adr_data = adr_data.with_columns([
@@ -77,29 +81,48 @@ def process_adr_mids_efficiently(adr_path, ticker_close_df, start_date=None, end
                 
                 # Select only necessary columns to reduce memory usage
                 # Use the Ticker column from the data itself
-                adr_data = adr_data.select(['ts_recv', 'mid', 'Ticker'])
+                adr_data = adr_data.select(['ts_recv', 'mid', 'Ticker', 'date'])
                 
-                # Convert close time to same timezone and precision as ts_recv for proper joining
-                date_close_converted = date_close_filtered.with_columns([
-                    pl.col('close_time').dt.convert_time_zone('US/Eastern').dt.cast_time_unit('ns')
-                ])
+                # Get unique dates in this partition
+                unique_dates = adr_data.select('date').unique().to_series().to_list()
                 
-                # Join with ticker_close for this specific ticker/date combination
-                # Use asof join to find the closest mid price to each close time
-                # No need to join by ticker since we're already filtering by ticker in the outer loop
-                joined_data = date_close_converted.join_asof(
-                    adr_data.sort('ts_recv'),
-                    left_on='close_time',
-                    right_on='ts_recv'
-                )
-                
-                if joined_data.height > 0:
-                    results.append(joined_data)
-                    processed_count += joined_data.height
-                    print(f"Processed {ticker} for {date_str}: {joined_data.height} records")
+                for partition_date in unique_dates:
+                    # Filter data for this specific date
+                    date_data = adr_data.filter(pl.col('date') == partition_date)
+                    
+                    if date_data.height == 0:
+                        continue
+                    
+                    # Filter ticker_close for this specific date
+                    date_close_filtered = ticker_close_filtered.filter(
+                        pl.col('date').dt.date() == partition_date
+                    )
+                    
+                    if date_close_filtered.height == 0:
+                        continue  # Skip if no close time for this date
+                    
+                    # Convert close time to same timezone and precision as ts_recv for proper joining
+                    # Note: ts_recv uses 'America/New_York' timezone
+                    date_close_converted = date_close_filtered.with_columns([
+                        pl.col('close_time').dt.convert_time_zone('America/New_York').dt.cast_time_unit('ns')
+                    ])
+                    
+                    # Join with ticker_close for this specific ticker/date combination
+                    # Use asof join to find the closest mid price to each close time
+                    # No need to join by ticker since we're already filtering by ticker in the outer loop
+                    joined_data = date_close_converted.join_asof(
+                        date_data.sort('ts_recv'),
+                        left_on='close_time',
+                        right_on='ts_recv'
+                    )
+                    
+                    if joined_data.height > 0:
+                        results.append(joined_data)
+                        processed_count += joined_data.height
+                        print(f"Processed {ticker} for {partition_date}: {joined_data.height} records")
                     
             except Exception as e:
-                print(f"Error processing {ticker} for {date_str}: {e}")
+                print(f"Error processing {ticker} in {parquet_file}: {e}")
                 continue
     
     print(f"Total processed records: {processed_count}")
@@ -156,6 +179,8 @@ if __name__ == '__main__':
                                             ticker_close,
                                             start_date=start_date,
                                             end_date=end_date)
+    
+    print('result_df:', result_df)
     result_df = result_df.pivot(on='adr',index='date',values='mid').to_pandas().set_index('date').sort_index()
 
     # adjusting prices for splits/dividends
