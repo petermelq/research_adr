@@ -106,6 +106,29 @@ stages:
     outs:
       - data/raw/ordinary/ord_PX_LAST_adjust_all.csv
 
+  split_adj_download_ord_close:
+    cmd: python src/download_bbg_daily.py data/raw/adr_info.csv data/raw/ordinary/ord_PX_LAST_adjust_split.csv --tickers_columns=id --include_suffix --adjust=split --pad_lookback=${pred.lookback_days}
+    deps:
+      - src/download_bbg_daily.py
+      - data/raw/adr_info.csv
+    params:
+      - start_date
+      - end_date
+    outs:
+      - data/raw/ordinary/ord_PX_LAST_adjust_split.csv
+
+  download_index_close:
+    cmd: python src/download_bbg_daily.py data/raw/futures_symbols.csv data/raw/indices/indices_PX_LAST.csv --tickers_columns=index --symbol_suffix=" Index" --pad_lookback=${pred.lookback_days}
+    deps:
+      - src/download_bbg_daily.py
+      - data/raw/adr_info.csv
+    params:
+      - start_date
+      - end_date
+      - pred.lookback_days
+    outs:
+      - data/raw/indices/indices_PX_LAST.csv
+
   convert_ord_currency_close:
     cmd: python src/closing_domestic_prices.py
     deps:
@@ -157,6 +180,28 @@ stages:
     outs:
       - data/processed/adrs/adr_mid_at_ord_auction_adjust_all.csv
       - data/processed/adrs/adr_mid_at_ord_auction_adjust_none.csv
+
+  adr_mid_at_ordinary_auction:
+    cmd: python src/adr_mid_at_ordinary_auction.py
+    deps:
+      - src/adr_mid_at_ordinary_auction.py
+      - data/raw/adrs/adr_PX_LAST_adjust_none.csv
+      - data/processed/adrs/adr_adjustment_factors.csv
+      - data/raw/adr_info.csv
+    params:
+      - start_date
+      - end_date
+    outs:
+      - data/processed/adrs/adr_mid_at_ord_auction_adjust_all.csv
+      - data/processed/adrs/adr_mid_at_ord_auction_adjust_none.csv
+
+  usdjpy_to_jpyusd:
+    cmd: python src/usdjpy_to_jpyusd.py
+    deps:
+      - src/usdjpy_to_jpyusd.py
+      - data/raw/currencies/minute_bars/USDJPY_full_1min.txt
+    outs:
+      - data/raw/currencies/minute_bars/JPYUSD_full_1min.txt
 
   usd_index_futures:
     cmd: python src/usd_index_futures.py
@@ -229,8 +274,23 @@ stages:
       - data/raw/adrs/adr_PX_LAST_adjust_none.csv
       - data/raw/adrs/adr_turnover.csv
       - data/raw/all_splits.csv
-      
-      
+            
+  index_only_model:
+    cmd: python src/get_betas_no_sector.py
+    deps:
+      - src/get_betas_no_sector.py
+      - data/raw/adr_info.csv
+      - data/raw/futures_symbols.csv
+      - data/raw/ordinary/ord_PX_LAST_adjust_split.csv
+      - data/raw/indices/indices_PX_LAST.csv
+
+    params:
+      - pred.lookback_days
+
+    outs:
+      - data/processed/models/ordinary_betas_index_only.csv
+
+  
 
   # adr_trade_price:
   #   class: HistoricalDailyCSVDataLoader

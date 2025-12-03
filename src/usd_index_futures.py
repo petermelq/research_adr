@@ -21,7 +21,8 @@ if __name__ == '__main__':
         os.path.join(SCRIPT_DIR, '..', 'data', 'raw', 'currencies', 'minute_bars', 'EURUSD_full_1min.txt'),
         os.path.join(SCRIPT_DIR, '..', 'data', 'raw', 'currencies', 'minute_bars', 'JPYUSD_full_1min.txt'),
     ]
-    notional_multipliers = [  # currency per point
+    notional_multipliers = [
+        # currency per point
         10,   # FTUK
         25,   # FDAX
         10,   # FCE
@@ -30,10 +31,9 @@ if __name__ == '__main__':
         200,  # FTI
         500,  # NIY
     ]
-
     for futures_filename, fx_filename, notional_multiplier in zip(futures_filenames,
-                                                                fx_filenames,
-                                                                notional_multipliers,
+                                                                    fx_filenames,
+                                                                    notional_multipliers,
                                                                 ):
         futures_symbol = os.path.basename(futures_filename).split('_full_')[0]
         output_filename = os.path.join(

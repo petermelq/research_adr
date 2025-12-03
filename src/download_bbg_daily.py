@@ -15,6 +15,7 @@ if __name__ == "__main__":
     parser.add_argument('--tickers_columns', nargs='+', type=str, default=['ticker'], help='Column name in CSV containing tickers')
     parser.add_argument('--symbol_suffix', type=str, default='', help='Suffix to append to each ticker for Bloomberg')
     parser.add_argument('--include_suffix', action='store_true', help='Whether to include the suffix in the output tickers')
+    parser.add_argument('--pad_lookback', type=int, default=0, help='Number of extra days to pad before start_date for data download. If > 0, start_date is adjusted accordingly, with an extra day added to the price series, so that the return series has a pad with "pad_lookback" days.')
     parser.add_argument('--adjust', type=str, default='none', help='Adjustment type for Bloomberg data')
     args = parser.parse_args()
 
@@ -26,6 +27,9 @@ if __name__ == "__main__":
     bbg_tickers = [t + args.symbol_suffix for t in tickers]
     
     start_date = args.start_date if args.start_date else params['start_date']
+    if args.pad_lookback > 0:
+        start_date = (pd.to_datetime(start_date) - pd.Timedelta(days=args.pad_lookback + 1)).strftime('%Y-%m-%d')
+
     end_date = args.end_date if args.end_date else params['end_date']
     data = blp.bdh(bbg_tickers,
                     [args.field],

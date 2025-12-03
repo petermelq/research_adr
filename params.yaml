@@ -4,3 +4,6 @@ fixed_trade_time_hours: 13
 # dates for data download
 start_date: "2020-01-02"
 end_date: "2025-11-07"
+
+pred:
+  lookback_days: 280

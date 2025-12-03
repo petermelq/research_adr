@@ -25,7 +25,7 @@ def get_market_business_days(calendar='NYSE'):
     cal = mcal.get_calendar(calendar)
     # Get all holidays
     holidays = cal.holidays().holidays
-    if calendar == 'NYSE':
+    if calendar in ('XNYS','NYSE'):
         holidays += (np.datetime64('2025-01-09'),) # adding Jimmy Carter holiday
 
     # Create a custom business day excluding US stock market holidays

@@ -322,3 +322,48 @@ stages:
       md5: 796366a577597baee87eac2ffd1ca82d.dir
       size: 5278544363
       nfiles: 78100
+  download_index_close:
+    cmd: python src/download_bbg_daily.py data/raw/futures_symbols.csv 
+      data/raw/indices/indices_PX_LAST.csv --tickers_columns=index 
+      --symbol_suffix=" Index" --pad_lookback=280
+    deps:
+    - path: data/raw/adr_info.csv
+      hash: md5
+      md5: b45a6f5e94c5a9cf1494f8bcbd1e5f0f
+      size: 4598
+    - path: src/download_bbg_daily.py
+      hash: md5
+      md5: aa24f2da16badb98a27680b7a4d39776
+      size: 2756
+    params:
+      params.yaml:
+        end_date: '2025-11-07'
+        pred.lookback_days: 280
+        start_date: '2020-01-02'
+    outs:
+    - path: data/raw/indices/indices_PX_LAST.csv
+      hash: md5
+      md5: 02bc7c15db52c44704ac7cd9c180efd0
+      size: 112211
+  split_adj_download_ord_close:
+    cmd: python src/download_bbg_daily.py data/raw/adr_info.csv 
+      data/raw/ordinary/ord_PX_LAST_adjust_split.csv --tickers_columns=id 
+      --include_suffix --adjust=split --pad_lookback=280
+    deps:
+    - path: data/raw/adr_info.csv
+      hash: md5
+      md5: b45a6f5e94c5a9cf1494f8bcbd1e5f0f
+      size: 4598
+    - path: src/download_bbg_daily.py
+      hash: md5
+      md5: aa24f2da16badb98a27680b7a4d39776
+      size: 2756
+    params:
+      params.yaml:
+        end_date: '2025-11-07'
+        start_date: '2020-01-02'
+    outs:
+    - path: data/raw/ordinary/ord_PX_LAST_adjust_split.csv
+      hash: md5
+      md5: f00af9eb2d4402b2e4d7c0ed317a8d47
+      size: 252205

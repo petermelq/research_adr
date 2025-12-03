@@ -3,3 +3,6 @@
 data/**
 !data/**/*.dvc
 !data/**/.gitignore
+dag.mmd
+.dvc/config
+adr_results/
