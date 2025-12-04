@@ -22,16 +22,17 @@ if __name__=='__main__':
                         nargs='+',
                         type=str,
                         default=['ticker'],
-                        help='Column name in CSV containing tickers')
+                        help='Column name in CSV containing tickers',
+                    )
     parser.add_argument('--time_to_save_hrs', 
                         type=int,
                         help='Hour of day (24h) to save mid price (NY time)'
-                        )
+                    )
     parser.add_argument('--time_to_save_mins', 
                         type=int,
                         default=0,
                         help='Minute of hour to save mid price (NY time)'
-                        )
+                    )
     parser.add_argument('--output_filename',
                         type=str,
                         default='/home/pmalonis/adr_trade/data/processed/daily_fixed_time_mid.csv',
@@ -49,9 +50,10 @@ if __name__=='__main__':
     # Fixed time of day to save mid price
     time_to_save = dt.time(args.time_to_save_hrs, args.time_to_save_mins)
     
-    dates = utils.get_partition_dates(nbbo_dir)
-    start_date = dates[0]
-    end_date = dates[-1]
+    params = utils.load_params()
+    start_date = params['start_date']
+    end_date = params['end_date']
+
     # Create close times dataframe
     ny_close_times = (
         mcal.get_calendar('NYSE').schedule(start_date=start_date,

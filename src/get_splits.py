@@ -14,7 +14,9 @@ if __name__=='__main__':
                    list((sector_etfs['hedge'].dropna() + ' US Equity').unique())
                 )
     
-    split_df = blp.bds(all_tickers,
-                    'EQY_DVD_ADJUST_FACT',
-                    Corporate_Actions_Filter='CAPITAL_CHANGE',)
+    split_df = blp.dividend(all_tickers,
+                            start_date='2000-01-01',
+                            end_date='2030-01-01',
+                            typ='split',
+                        )
     split_df.to_csv(os.path.join(SCRIPT_DIR, '..', 'data', 'raw', 'all_splits.csv'))

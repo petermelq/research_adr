@@ -1,2 +1,5 @@
 [core]
     autostage = true
+    remote = s3_remote
+['remote "s3_remote"']
+    url = s3://peterm-data/dvc_caches/research_adr

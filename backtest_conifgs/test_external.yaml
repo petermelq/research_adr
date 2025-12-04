@@ -1,34 +1,35 @@
 output:
   formats: ["csv", "json"]
-  path: "./adr_results/multicountry_debug"
+  path: "./adr_results/single_time_debug"
 
 strategy:
   module: src/backtest_strategies/single_time_ADR.py
-  class: "single_time_ADR" # Will map to MinimalStrategy class
+  class: "single_time_ADR"  # Will map to MinimalStrategy class
   parameters:
     var_penalty: 0.0001
-    adr_info_filename: data/raw/adr_info.csv
+    adr_info_filename: /home/pmalonis/adr_trade/notebooks/brit_exchange_traded_efa_adrs_detailed.csv
     vol_lookback: 100
     p_volume: 0.05
+    trade_time: "13:30:00"
 
-stock_split_file: data/raw/all_splits.csv
+stock_split_file: /home/pmalonis/intraday_mean_reversion/data/raw/all_splits.csv
 
 data_loaders:
   adr_trade_price:
     class: HistoricalDailyCSVDataLoader
-    csv_path: data/processed/adrs/adr_daily_fixed_time_mid.csv
+    csv_path: /home/pmalonis/adr_trade/data/processed/brit_adr_daily_mid_time=13:00:00.csv
     start_date: 2020-01-02
   adr_signal:
     class: HistoricalDailyCSVDataLoader
-    csv_path: /home/pmalonis/adr_trade/data/processed/brit_adr_futures_fixed_time_signal_time=13:00:00.csv #data/processed/fixed_time_signal.csv
+    csv_path: /home/pmalonis/adr_trade/data/processed/brit_adr_futures_fixed_time_signal_time=13:00:00.csv
     start_date: 2020-01-02
   turnover_df:
     class: HistoricalDailyCSVDataLoader
-    csv_path: data/raw/adrs/adr_turnover.csv
+    csv_path: /home/pmalonis/adr_trade/data/processed/adr_turnover.csv
     start_date: 2020-01-02
   adr_close:
     class: HistoricalDailyCSVDataLoader
-    csv_path: data/raw/adrs/adr_PX_LAST_adjust_none.csv
+    csv_path: /home/pmalonis/adr_trade/data/raw/adrs/adr_PX_LAST_adjust_none.csv
     start_date: 2020-01-02
 
 market_impact:
