@@ -162,13 +162,23 @@ if __name__ == '__main__':
     # Create close times dataframe
     close_time = pd.DataFrame({ex: mcal.get_calendar(ex).schedule(start_date=start_date, end_date=end_date)['market_close'].dt.tz_convert('America/New_York') for ex in exchanges})
     if 'XLON' in close_time.columns:
-        close_time['XLON'] += pd.Timedelta('5min')  # London auction time 5 minutes after close
+        close_time['XLON'] += pd.Timedelta('6min')  # London auction time 6 minutes after close
     if 'XAMS' in close_time.columns:
-        close_time['XAMS'] += pd.Timedelta('5min')  # Amsterdam auction time 5 minutes after close
+        close_time['XAMS'] += pd.Timedelta('6min')  # Amsterdam auction time 6 minutes after close
     if 'XPAR' in close_time.columns:
-        close_time['XPAR'] += pd.Timedelta('5min')  # Paris auction time 5 minutes after close
+        close_time['XPAR'] += pd.Timedelta('6min')  # Paris auction time 6 minutes after close
     if 'XETR' in close_time.columns:
-        close_time['XETR'] += pd.Timedelta('5min')  # Frankfurt auction time 5 minutes after close
+        close_time['XETR'] += pd.Timedelta('6min')  # Frankfurt auction time 6 minutes after close
+    if 'XMIL' in close_time.columns:
+        close_time['XMIL'] += pd.Timedelta('6min')  # Milan auction time 6 minutes after close
+    if 'XBRU' in close_time.columns:
+        close_time['XBRU'] += pd.Timedelta('6min')  # Brussels auction time 6 minutes after close
+    if 'XMAD' in close_time.columns:
+        close_time['XMAD'] += pd.Timedelta('6min')  # Madrid auction time 6 minutes after close
+    if 'XHEL' in close_time.columns:
+        close_time['XHEL'] += pd.Timedelta('0min')  # Helsinki auction time 0 minutes after close
+    if 'XDUB' in close_time.columns:
+        close_time['XDUB'] += pd.Timedelta('0min')  # Dublin auction time 0 minutes after close
 
     close_time = close_time.stack().reset_index(name='close_time').rename(columns={'level_0':'date','level_1':'exchange'})
     ticker_close = adr_info[['adr','exchange']].merge(close_time, on='exchange')

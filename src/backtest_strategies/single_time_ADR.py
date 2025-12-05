@@ -149,19 +149,20 @@ class single_time_ADR(BaseStrategy):
             w = cp.Variable(N)
 
             objective = cp.Maximize((alpha @ w) - self.var_penalty * cp.quad_form(w, Cov))
-            adv_constraint = w @ (1/turnover) <= self.p_volume
+            adv_constraint = cp.multiply(cp.abs(w), 1/turnover) <= self.p_volume
             constraints = [adv_constraint]
             
             prob = cp.Problem(objective, constraints)
             result = prob.solve(solver='CLARABEL', max_iter=100000)
             
             weights = pd.DataFrame({'weight': w.value}, index=tickers)
+            weights['weight'] = weights['weight'].clip(lower=-2e6, upper=2e6)
             
             trade_price = adr_trade_price.loc[trading_day]
             weights = weights.merge(trade_price.rename('trade_price'), left_index=True, right_index=True)
             
             shares = (weights['weight']/weights['trade_price']).round()
-
+            
             trades = []
             for ticker in tickers:
                 if trading_day.strftime('%Y-%m-%d') == '2025-06-25' and ticker in ['BP', 'SHEL']:

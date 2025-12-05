@@ -16,9 +16,9 @@ if __name__ == '__main__':
     futures_symbols_filename = os.path.join(SCRIPT_DIR, '../data/raw/futures_symbols.csv')
     output_filename = os.path.join(SCRIPT_DIR, f'..', 'data', 'processed', 'fixed_time_signal.csv')
 
-    domestic_close_mid = pd.read_csv(domestic_close_mid_filename)
-    afternoon_mid_df = pd.read_csv(afternoon_mid_close_time)
-
+    domestic_close_mid = pd.read_csv(domestic_close_mid_filename, index_col=0)
+    afternoon_mid_df = pd.read_csv(afternoon_mid_close_time, index_col=0)
+    
     # Fixed time of day to save mid price
     params = utils.load_params()
     time_to_save = dt.time(params['fixed_trade_time_hours'], 
@@ -33,7 +33,17 @@ if __name__ == '__main__':
     df['date'] = df['timestamp'].dt.strftime('%Y-%m-%d')
     df = df.set_index('timestamp')
     
-    time_futures_after_close = pd.Timedelta(minutes=5)
+    time_futures_after_close = {}
+    time_futures_after_close['XLON'] = pd.Timedelta('6min')
+    time_futures_after_close['XAMS'] = pd.Timedelta('6min')
+    time_futures_after_close['XPAR'] = pd.Timedelta('6min')
+    time_futures_after_close['XETR'] = pd.Timedelta('6min')
+    time_futures_after_close['XMIL'] = pd.Timedelta('6min')
+    time_futures_after_close['XBRU'] = pd.Timedelta('6min')
+    time_futures_after_close['XMAD'] = pd.Timedelta('6min')
+    time_futures_after_close['XHEL'] = pd.Timedelta('0min')
+    time_futures_after_close['XDUB'] = pd.Timedelta('0min')
+    
     betas = pd.read_csv(betas_filename, index_col=0)
 
     # Fixed time of day to compute signal
@@ -75,10 +85,8 @@ if __name__ == '__main__':
     all_signal = {}
 
     futures_symbols = pd.read_csv(futures_symbols_filename)
-    futures_to_index = futures_symbols.set_index('exchange_symbol')['first_rate_symbol'].to_dict()
-    stock_to_index_future = adr_info.set_index(adr_info['adr'].str.replace(' US Equity',''))['index_future_bbg'].to_dict()
-    stock_to_index = {stock: futures_to_index.get(index_future)
-                        for stock, index_future in stock_to_index_future.items()}
+    merged_adr_info = adr_info.merge(futures_symbols,left_on='index_future_bbg',right_on='bloomberg_symbol')
+    stock_to_index = merged_adr_info.set_index(merged_adr_info['adr'].str.replace(' US Equity', ''))['first_rate_symbol'].to_dict()
 
     for ticker in adr_tickers:
         exchange = exchange_dict[ticker]
@@ -92,17 +100,24 @@ if __name__ == '__main__':
         merged_fut = futures_df.merge(close_df, left_on='date', right_index=True)
         
         fut_domestic_close = merged_fut.groupby('date')[['domestic_close_time','close']].apply(
-            lambda x: x[x.index <= x['domestic_close_time'] + time_futures_after_close].iloc[-1]['close']
+            lambda x: x[x.index <= x['domestic_close_time'] + time_futures_after_close[exchange]].iloc[-1]['close']
         )
         fut_afternoon = merged_fut.groupby('date')[['close']].apply(
             lambda x: x[x.index.time <= time_to_save].iloc[-1]['close']
         )
         fut_ret = ((fut_afternoon - fut_domestic_close) / fut_domestic_close).to_frame(name='fut_ret')
+        merged = fut_ret.merge(betas[ticker].rename('beta'), 
+                                left_on='date', right_index=True)
+        try:
+            adr_ret = ((afternoon_mid_df[ticker] - domestic_close_mid[ticker]) / domestic_close_mid[ticker]).to_frame(name='adr_ret')
+            merged = adr_ret.merge(merged, left_index=True, right_on='date')
+            
+            import IPython; IPython.embed()
+            merged['signal'] = merged['fut_ret'] * merged['beta'] - merged['adr_ret']
+            all_signal[ticker] = merged['signal']
 
-        merged = fut_ret.merge(betas[ticker].rename('beta'),
-                               left_on='date', right_index=True)
-        merged['signal'] = merged['fut_ret'] * merged['beta']
-        all_signal[ticker] = merged['signal']
+        except:
+            import IPython; IPython.embed()
 
         print(f"Processed signal for {ticker}")
 

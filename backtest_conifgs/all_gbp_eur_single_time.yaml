@@ -1,6 +1,6 @@
 output:
   formats: ["csv", "json"]
-  path: "./adr_results/brit_fixed_signal"
+  path: "./adr_results/sanity_check_short"
 
 strategy:
   module: src/backtest_strategies/single_time_ADR.py
@@ -9,7 +9,7 @@ strategy:
     var_penalty: 0.0001
     adr_info_filename: data/raw/adr_info.csv
     vol_lookback: 100
-    p_volume: 0.05
+    p_volume: 0.01
 
 stock_split_file: data/raw/all_splits.csv
 
@@ -44,27 +44,45 @@ end_date: "2025-11-07"
 
 # Symbols to trade
 symbols:
+  - BUD
+  - AEG
+  - ARGX
+  - ASML
   - AZN
   - BCS
   - BTI
+  - BBVA
   - BP
   - DEO
+  - E
+  - FMS
   - GSK
   - HLN
   - HSBC
   - IHG
+  - ING
   - LYG
   - NGG
+  - NOK
   - NWG
+  - PHG
+  - PUK
   - PSO
   - RELX
   - RIO
   - RTO
+  - RYAAY
+  - SNY
+  - SAN
+  - SAP
   - SHEL
   - SNN
+  - TS
+  - TTE
   - UL
   - VOD
   - WPP
+  - DB
 
 market_calendar: NYSE
 
@@ -72,17 +90,17 @@ evaluation:
   plot_pnl:
       parameters:
         reassign_dates: False
-        price_filename: /home/pmalonis/adr_trade/data/raw/adrs/adr_PX_LAST_adjust_none.csv
+        price_filename: data/raw/adrs/adr_PX_LAST_adjust_none.csv
         market_calendar: NYSE
 
   return_on_median_gmv:
     parameters:
       reassign_dates: False
-      price_filename: /home/pmalonis/adr_trade/data/raw/adrs/adr_PX_LAST_adjust_none.csv
+      price_filename: data/raw/adrs/adr_PX_LAST_adjust_none.csv
       market_calendar: NYSE
 
   return_on_max_gmv:
     parameters:
       reassign_dates: False
-      price_filename: /home/pmalonis/adr_trade/data/raw/adrs/adr_PX_LAST_adjust_none.csv
+      price_filename: data/raw/adrs/adr_PX_LAST_adjust_none.csv
       market_calendar: NYSE
