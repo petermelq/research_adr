@@ -1,0 +1,126 @@
+output:
+  formats: ["csv", "json"]
+  path: "./adr_results/1e-4_var_penalty/"
+
+strategy:
+  module: src/backtest_strategies/hedged_single_time_ADR.py
+  class: "hedged_single_time_ADR" # Will map to MinimalStrategy class
+  parameters:
+    var_penalty: 0.0001
+    adr_info_filename: data/raw/adr_info.csv
+    vol_lookback: 100
+    p_volume: 0.01
+
+stock_split_file: data/raw/all_splits.csv
+
+data_loaders:
+  adr_trade_price:
+    class: HistoricalDailyCSVDataLoader
+    csv_path: data/processed/adrs/adr_daily_fixed_time_mid.csv
+    start_date: 2020-01-02
+  adr_signal:
+    class: HistoricalDailyCSVDataLoader
+    csv_path: data/processed/fixed_time_signal.csv #/home/pmalonis/adr_trade/data/processed/brit_adr_futures_fixed_time_signal_time=13:00:00.csv 
+    start_date: 2020-01-02
+  turnover_df:
+    class: HistoricalDailyCSVDataLoader
+    csv_path: data/raw/adrs/adr_turnover.csv
+    start_date: 2020-01-02
+  adr_close:
+    class: HistoricalDailyCSVDataLoader
+    csv_path: data/raw/adrs/adr_PX_LAST_adjust_none.csv
+    start_date: 2020-01-02
+  etf_trade_price:
+    class: HistoricalDailyCSVDataLoader
+    csv_path: data/processed/etfs/market/market_etf_daily_fixed_time_mid.csv
+    start_date: 2020-01-02
+  etf_close:
+    class: HistoricalDailyCSVDataLoader
+    csv_path: data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
+    start_date: 2020-01-02
+  hedge_ratios:
+    class: HistoricalDailyCSVDataLoader
+    csv_path: data/processed/market_etf_hedge_ratios.csv
+    start_date: 2020-01-02
+
+market_impact:
+  class: "MinimalMarketImpactModel"
+  slippage_bps: 0.0  # 5 basis points slippage
+
+# Initial positions (empty means starting with no positions)
+initial_positions: {}
+
+# Date range for backtest
+start_date: "2021-01-02"
+end_date: "2025-11-07"
+
+# Symbols to trade
+symbols:
+  - BUD
+  - AEG
+  - ARGX
+  - ASML
+  - AZN
+  - BCS
+  - BTI
+  - BBVA
+  - BP
+  - DEO
+  - E
+  - FMS
+  - GSK
+  - HLN
+  - HSBC
+  - IHG
+  - ING
+  - LYG
+  - NGG
+  - NOK
+  - NWG
+  - PHG
+  - PUK
+  - PSO
+  - RELX
+  - RIO
+  - RTO
+  - RYAAY
+  - SNY
+  - SAN
+  - SAP
+  - SHEL
+  - SNN
+  - TS
+  - TTE
+  - UL
+  - VOD
+  - WPP
+  - DB
+  - EWU
+  - FEZ
+
+market_calendar: NYSE
+
+evaluation:
+  plot_pnl:
+      parameters:
+        reassign_dates: False
+        price_filename:
+          - data/raw/adrs/adr_PX_LAST_adjust_none.csv
+          - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
+        market_calendar: NYSE
+
+  return_on_median_gmv:
+    parameters:
+      reassign_dates: False
+      price_filename:
+        - data/raw/adrs/adr_PX_LAST_adjust_none.csv
+        - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
+      market_calendar: NYSE
+
+  return_on_max_gmv:
+    parameters:
+      reassign_dates: False
+      price_filename: 
+        - data/raw/adrs/adr_PX_LAST_adjust_none.csv
+        - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
+      market_calendar: NYSE

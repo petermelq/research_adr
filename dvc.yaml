@@ -1,4 +1,15 @@
 stages:
+  download_adr_tcbbo:
+    cmd: python -m data_tools.cli.batch_download_to_parquet_with_append --schema=tcbbo --datasets XNAS.BASIC --tickers=data/raw/adr_info.csv --tickers_columns=adr --output_dir=data/raw/adrs/tcbbo --start_date=2024-07-01 --end_date=${end_date} --partition_period=date
+    deps:
+      - data/raw/adr_info.csv
+    params:
+      - start_date
+      - end_date
+    outs:
+      - data/raw/adrs/tcbbo:
+          persist: true
+
   # 1-minute BBO data download
   download_adr_bbo-1m:
     cmd: python -m data_tools.cli.batch_download_to_parquet_with_append --schema=bbo-1m --datasets XNYS.PILLAR XNAS.ITCH ARCX.PILLAR --tickers=data/raw/adr_info.csv --tickers_columns=adr --output_dir=data/raw/adrs/bbo-1m/by_exchange --start_date=${start_date} --end_date=${end_date} --partition_period=none
@@ -68,6 +79,17 @@ stages:
     outs:
       - data/raw/adrs/adr_PX_LAST_adjust_none.csv
 
+  download_adr_open:
+    cmd: python src/download_bbg_daily.py data/raw/adr_info.csv data/raw/adrs/adr_PX_OPEN_adjust_none.csv --tickers_columns=adr
+    deps:
+      - src/download_bbg_daily.py
+      - data/raw/adr_info.csv
+    params:
+      - start_date
+      - end_date
+    outs:
+      - data/raw/adrs/adr_PX_OPEN_adjust_none.csv
+
   download_market_etf_close:
     cmd: python src/download_bbg_daily.py data/raw/adr_info.csv data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv --tickers_columns=market_etf_hedge --symbol_suffix=" US Equity"
     deps:
@@ -78,6 +100,28 @@ stages:
       - end_date
     outs:
       - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
+
+  adj_adr_close:
+    cmd: python src/download_bbg_daily.py data/raw/adr_info.csv data/raw/adrs/adr_PX_LAST_adjust_all.csv --tickers_columns=adr --adjust=all --pad_lookback=${pred.lookback_days}
+    deps:
+      - src/download_bbg_daily.py
+      - data/raw/adr_info.csv
+    params:
+      - start_date
+      - end_date
+    outs:
+      - data/raw/adrs/adr_PX_LAST_adjust_all.csv
+
+  adj_market_etf_close:
+    cmd: python src/download_bbg_daily.py data/raw/adr_info.csv data/raw/etfs/market/market_etf_PX_LAST_adjust_all.csv --tickers_columns=market_etf_hedge --symbol_suffix=" US Equity" --adjust=all --pad_lookback=${pred.lookback_days}
+    deps:
+      - src/download_bbg_daily.py
+      - data/raw/adr_info.csv
+    params:
+      - start_date
+      - end_date
+    outs:
+      - data/raw/etfs/market/market_etf_PX_LAST_adjust_all.csv
 
   # downloading adr turnover
   download_adr_turnover:
@@ -232,7 +276,7 @@ stages:
       - data/processed/futures/converted_minute_bars/symbol=FCE/FCE_close_to_usd_1min.parquet
       - data/processed/futures/converted_minute_bars/symbol=NIY/NIY_close_to_usd_1min.parquet
 
-  adr_daily_fixed_time_mid:
+  adr_daily_mid:
     cmd: python -m src.daily_fixed_time_mid --nbbo_dir=data/raw/adrs/bbo-1m/nbbo --time_to_save_hrs=${fixed_trade_time_hours} --time_to_save_min=${fixed_trade_time_min} --tickers=data/raw/adr_info.csv --tickers_columns=adr --output_filename=data/processed/adrs/adr_daily_fixed_time_mid.csv
     deps:
       - src/daily_fixed_time_mid.py
@@ -244,8 +288,20 @@ stages:
     outs:
       - data/processed/adrs/adr_daily_fixed_time_mid.csv
 
+  daily_adr_for_cov:
+    cmd: python -m src.daily_fixed_time_mid --nbbo_dir=data/raw/adrs/bbo-1m/nbbo --time_to_save_hrs=${daily_time_for_cov_hours} --time_to_save_min=${daily_time_for_cov_min} --tickers=data/raw/adr_info.csv --tickers_columns=adr --output_filename=data/processed/adrs/daily_mid_for_cov.csv
+    deps:
+      - src/daily_fixed_time_mid.py
+      - data/raw/adrs/bbo-1m/nbbo
+      - data/raw/adr_info.csv
+    params:
+      - daily_time_for_cov_hours
+      - daily_time_for_cov_min
+    outs:
+      - data/processed/adrs/daily_mid_for_cov.csv
+
   market_etf_daily_fixed_time_mid:
-    cmd: python -m src.daily_fixed_time_mid --nbbo_dir=data/raw/etfs/market/bbo-1m/nbbo --time_to_save_hrs=${fixed_trade_time_hours} --time_to_save_min=${fixed_trade_time_min} --tickers=data/raw/adr_info.csv --tickers_columns=market_etf_hedge --output_filename=data/processed/etfs/market_etf_daily_fixed_time_mid.csv
+    cmd: python -m src.daily_fixed_time_mid --nbbo_dir=data/raw/etfs/market/bbo-1m/nbbo --time_to_save_hrs=${fixed_trade_time_hours} --time_to_save_min=${fixed_trade_time_min} --tickers=data/raw/adr_info.csv --tickers_columns=market_etf_hedge --output_filename=data/processed/etfs/market/market_etf_daily_fixed_time_mid.csv
     deps:
       - src/daily_fixed_time_mid.py
       - data/raw/etfs/market/bbo-1m/nbbo
@@ -254,11 +310,12 @@ stages:
       - fixed_trade_time_hours
       - fixed_trade_time_min
     outs:
-      - data/processed/etfs/market_etf_daily_fixed_time_mid.csv
+      - data/processed/etfs/market/market_etf_daily_fixed_time_mid.csv
 
   fixed_time_signal:
     cmd: python src/futures_fixed_time_signal.py
     deps:
+      - src/futures_fixed_time_signal.py
       - data/processed/adrs/adr_mid_at_ord_auction_adjust_none.csv
       - data/processed/adrs/adr_daily_fixed_time_mid.csv
       - data/processed/models/ordinary_betas_index_only.csv
@@ -272,6 +329,24 @@ stages:
       - end_date
     outs:
       - data/processed/fixed_time_signal.csv
+
+  only_futures_full_signal:
+    cmd: python src/only_futures_full_signal.py
+    deps:
+      - src/only_futures_full_signal.py
+      - data/processed/adrs/adr_mid_at_ord_auction_adjust_none.csv
+      - data/processed/models/ordinary_betas_index_only.csv
+      - data/processed/futures/converted_minute_bars
+      - data/raw/adrs/bbo-1m/nbbo
+      - data/raw/adr_info.csv
+      - data/raw/futures_symbols.csv
+    params:
+      - fixed_trade_time_hours
+      - fixed_trade_time_min
+      - start_date
+      - end_date
+    outs:
+      - data/processed/futures_only_signal/
 
   stock_splits:
     cmd: python -m src.get_splits
@@ -295,6 +370,28 @@ stages:
     outs:
       - data/processed/models/ordinary_betas_index_only.csv
   
+  minute_volume_stats:
+    cmd: python src/minute_volume_stats.py
+    deps:
+      - src/minute_volume_stats.py
+      - data/raw/adrs/tcbbo/
+    params:
+      - start_date
+      - end_date
+      - avg_dollar_volume_lookback_days
+    outs:
+      - data/processed/adrs/minute_volume_stats
+
+  market_etf_hedge_ratios:
+    cmd: python src/market_etf_hedge_ratios.py
+    deps:
+      - src/market_etf_hedge_ratios.py
+      - data/raw/adr_info.csv
+      - data/raw/etfs/market/market_etf_PX_LAST_adjust_all.csv
+      - data/raw/adrs/adr_PX_LAST_adjust_all.csv
+    outs:
+      - data/processed/market_etf_hedge_ratios.csv
+
   brit_backtest_fixed_time:
     cmd: backtester_run backtest_conifgs/single_time.yaml
     deps:
@@ -308,15 +405,31 @@ stages:
       - data/raw/adrs/adr_turnover.csv
       - data/raw/all_splits.csv
 
-  all_gbp_eur_backtest_fixed_time:
-    cmd: backtester_run backtest_conifgs/all_gbp_eur_single_time.yaml
+  hedged_backtest_fixed_time:
+    cmd: backtester_run backtest_conifgs/hedged_single_time.yaml
     deps:
       - src/backtest_strategies/single_time_ADR.py
-      - backtest_conifgs/all_gbp_eur_single_time.yaml
-      - data/processed/adrs/
+      - backtest_conifgs/hedged_single_time.yaml
       - data/processed/fixed_time_signal.csv
       - data/processed/adrs/adr_daily_fixed_time_mid.csv
-      #- data/processed/etfs/market_etf_daily_fixed_time_mid.csv
       - data/raw/adrs/adr_PX_LAST_adjust_none.csv
       - data/raw/adrs/adr_turnover.csv
       - data/raw/all_splits.csv
+      - data/processed/etfs/market/market_etf_daily_fixed_time_mid.csv
+      - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
+      - data/processed/market_etf_hedge_ratios.csv
+
+  minute_vwap_hedged_ADR_backtest:
+    cmd: backtester_run backtest_conifgs/minute_vwap_hedged_ADR.yaml
+    deps:
+      - src/backtest_strategies/minute_vwap_hedged_ADR.py
+      - backtest_conifgs/minute_vwap_hedged_ADR.yaml
+      - data/processed/fixed_time_signal.csv
+      - data/processed/adrs/adr_daily_fixed_time_mid.csv
+      - data/raw/adrs/adr_PX_LAST_adjust_none.csv
+      - data/raw/adrs/adr_turnover.csv
+      - data/raw/all_splits.csv
+      - data/processed/etfs/market/market_etf_daily_fixed_time_mid.csv
+      - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
+      - data/processed/market_etf_hedge_ratios.csv
+      - data/processed/adrs/minute_volume_stats

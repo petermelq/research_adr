@@ -1,3 +1,4 @@
+import os
 import argparse
 import datetime as dt
 import pandas as pd
@@ -24,7 +25,7 @@ if __name__=='__main__':
                         default=['ticker'],
                         help='Column name in CSV containing tickers',
                     )
-    parser.add_argument('--time_to_save_hrs', 
+    parser.add_argument('--time_to_save_hrs',
                         type=int,
                         help='Hour of day (24h) to save mid price (NY time)'
                     )
@@ -64,12 +65,17 @@ if __name__=='__main__':
     start_time = (dt.datetime.combine(dt.date.today(), time_to_save) - pd.Timedelta('30min')).time()
     all_mid = {}
     for adr_ticker in tickers:
-        df = pd.read_parquet(nbbo_dir, filters=[('ticker', '==', adr_ticker)],
-                            columns=['nbbo_bid','nbbo_ask','date'])
+        df = pd.read_parquet(nbbo_dir, 
+                            filters=[('ticker', '==', adr_ticker)],
+                            columns=['nbbo_bid','nbbo_ask','date']
+                        )
         df['mid'] = (df['nbbo_bid'] + df['nbbo_ask']) / 2
         df = df.merge(ny_close_times, left_on='date', right_index=True)
         df = df[df['market_close'].dt.time == dt.time(16,0)]
-        df = df.between_time(start_time, time_to_save)
+        try:
+            df = df.between_time(start_time, time_to_save)
+        except:
+            import IPython; IPython.embed()
         mid_df = df.groupby('date')['mid'].last()
         
         all_mid[adr_ticker] = mid_df
@@ -77,4 +83,6 @@ if __name__=='__main__':
 
     mid_df = pd.DataFrame(all_mid)
     mid_df.index = pd.to_datetime(mid_df.index)
+    if not os.path.exists(os.path.dirname(args.output_filename)):
+        os.makedirs(os.path.dirname(args.output_filename), exist_ok=True)
     mid_df.to_csv(args.output_filename)

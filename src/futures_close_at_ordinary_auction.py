@@ -59,9 +59,15 @@ if __name__ == '__main__':
         )
     ny_close_times.index = ny_close_times.index.astype(str)
 
-    futures_df = df.merge(ny_close_times.rename('ny_market_close_time'), left_on='date', right_index=True)
-    futures_df = futures_df[futures_df['ny_market_close_time'].dt.time == dt.time(16,0)]
-    
+    ny_open_times = (
+            mcal.get_calendar('NYSE').schedule(start_date=start_date,
+                                                end_date=end_date)['market_open']
+                                                .dt.tz_convert('America/New_York')
+        )
+    ny_open_times.index = ny_open_times.index.astype(str)
+
+    fixed_time = ny_open_times + pd.Timedelta(hours=3, minutes=30)
+
     adr_info = pd.read_csv(adr_info_filename)
     adr_info['adr'] = adr_info['adr'].str.replace(' US Equity','')
     adr_tickers = adr_info['adr'].tolist()
@@ -84,6 +90,11 @@ if __name__ == '__main__':
     merged_adr_info = adr_info.merge(futures_symbols,left_on='index_future_bbg',right_on='bloomberg_symbol')
     stock_to_index = merged_adr_info.set_index(merged_adr_info['adr'].str.replace(' US Equity', ''))['first_rate_symbol'].to_dict()
 
+    domestic_close = []
+    ny_open = []
+    ny_close = []
+    fixed = []
+
     for ticker in adr_tickers:
         exchange = exchange_dict[ticker]
         close_df = close_times[exchange]
@@ -94,26 +105,38 @@ if __name__ == '__main__':
         
         futures_df = df[df['symbol'] == futures_symbol].copy()
         merged_fut = futures_df.merge(close_df, left_on='date', right_index=True)
+        merged_fut = merged_fut.merge(ny_open_times.rename('ny_market_open_time'), left_on='date', right_index=True)
+        merged_fut = merged_fut.merge(ny_close_times.rename('ny_market_close_time'), left_on='date', right_index=True)
+        merged_fut = merged_fut.merge(fixed_time.rename('fixed_time'), left_on='date', right_index=True)
         
         fut_domestic_close = merged_fut.groupby('date')[['domestic_close_time','close']].apply(
             lambda x: x[x.index <= x['domestic_close_time'] + time_futures_after_close[exchange]].iloc[-1]['close']
-        )
-        fut_afternoon = merged_fut.groupby('date')[['close']].apply(
-            lambda x: x[x.index.time <= time_to_save].iloc[-1]['close']
-        )
-        fut_ret = ((fut_afternoon - fut_domestic_close) / fut_domestic_close).to_frame(name='fut_ret')
-        merged = fut_ret.merge(betas[ticker].rename('beta'),
-                                left_on='date',
-                                right_index=True
-                            )
-        adr_ret = ((afternoon_mid_df[ticker] - domestic_close_mid[ticker]) / domestic_close_mid[ticker]).to_frame(name='adr_ret')
-        
-        merged = adr_ret.merge(merged, left_index=True, right_on='date')
-        
-        merged['signal'] = merged['fut_ret'] * merged['beta'] - merged['adr_ret']
-        all_signal[ticker] = merged['signal']
+        ).to_frame(name=ticker)
 
+        fut_ny_open = merged_fut.groupby('date')[['ny_market_open_time','close']].apply(
+            lambda x: x[x.index >= x['ny_market_open_time']].iloc[0]['close'] if (x.index >= x['ny_market_open_time']).any() else np.nan
+        ).to_frame(name=ticker)
+
+        fut_ny_close = merged_fut.groupby('date')[['ny_market_close_time','close']].apply(
+            lambda x: x[x.index <= x['ny_market_close_time']].iloc[-1]['close']
+        ).to_frame(name=ticker)
+
+        fut_fixed = merged_fut.groupby('date')[['fixed_time','close']].apply(
+            lambda x: x[x.index <= x['fixed_time']].iloc[-1]['close']
+        ).to_frame(name=ticker)
+        # import IPython; IPython.embed()
+        domestic_close.append(fut_domestic_close)
+        ny_open.append(fut_ny_open)
+        ny_close.append(fut_ny_close)
+        fixed.append(fut_fixed)
         print(f"Processed signal for {ticker}")
 
-    all_signal_df = pd.DataFrame(all_signal)
-    all_signal_df.to_csv(output_filename)
+    domestic_close_df = pd.concat(domestic_close, axis=1)
+    ny_open_df = pd.concat(ny_open, axis=1)
+    ny_close_df = pd.concat(ny_close, axis=1)
+    fixed_df = pd.concat(fixed, axis=1)
+
+    domestic_close_df.to_csv(os.path.join(SCRIPT_DIR, '..', 'data', 'processed', 'futures', 'futures_usd_notional_domestic_close.csv'))
+    ny_open_df.to_csv(os.path.join(SCRIPT_DIR, '..', 'data', 'processed', 'futures', 'futures_usd_notional_ny_open.csv'))
+    ny_close_df.to_csv(os.path.join(SCRIPT_DIR, '..', 'data', 'processed', 'futures', 'futures_usd_notional_ny_close.csv'))
+    fixed_df.to_csv(os.path.join(SCRIPT_DIR, '..', 'data', 'processed', 'futures', 'futures_usd_notional_fixed_time.csv'))

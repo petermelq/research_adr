@@ -15,7 +15,7 @@ if __name__ == '__main__':
     adr_nbbo_dir = os.path.join(SCRIPT_DIR, '../data/raw/adrs/bbo-1m/nbbo')
     adr_info_filename = os.path.join(SCRIPT_DIR, '..', 'data', 'raw', 'adr_info.csv')
     futures_symbols_filename = os.path.join(SCRIPT_DIR, '../data/raw/futures_symbols.csv')
-    output_dir = os.path.join(SCRIPT_DIR, f'..', 'data', 'processed', 'fixed_time_signal_parquet')
+    output_dir = os.path.join(SCRIPT_DIR, f'..', 'data', 'processed', 'futures_only_signal')
 
     params = utils.load_params()
     
@@ -27,14 +27,8 @@ if __name__ == '__main__':
                         columns=['timestamp','symbol','close'])
     df['date'] = df['timestamp'].dt.strftime('%Y-%m-%d')
     df = df.set_index('timestamp')
-    
-    print("Reading ADR NBBO data...")
-    adr_nbbo_df = pd.read_parquet(adr_nbbo_dir,
-                                   filters=[('timestamp','>=', pd.Timestamp(start_date, tz='America/New_York'))],
-                                   columns=['timestamp','symbol','nbbo_bid','nbbo_ask'])
-    adr_nbbo_df['mid'] = (adr_nbbo_df['nbbo_bid'] + adr_nbbo_df['nbbo_ask']) / 2
-    adr_nbbo_df['date'] = adr_nbbo_df['timestamp'].dt.strftime('%Y-%m-%d')
-    adr_nbbo_df = adr_nbbo_df.set_index('timestamp')
+
+    adr_domestic_close = pd.read_csv(domestic_close_mid_filename, index_col=0)
     
     time_futures_after_close = {}
     time_futures_after_close['XLON'] = pd.Timedelta('6min')
@@ -83,10 +77,8 @@ if __name__ == '__main__':
     all_signal = {}
 
     futures_symbols = pd.read_csv(futures_symbols_filename)
-    futures_to_index = futures_symbols.set_index('exchange_symbol')['first_rate_symbol'].to_dict()
-    stock_to_index_future = adr_info.set_index(adr_info['adr'].str.replace(' US Equity',''))['index_future_bbg'].to_dict()
-    stock_to_index = {stock: futures_to_index.get(index_future)
-                        for stock, index_future in stock_to_index_future.items()}
+    merged_adr_info = adr_info.merge(futures_symbols,left_on='index_future_bbg',right_on='bloomberg_symbol')
+    stock_to_index = merged_adr_info.set_index(merged_adr_info['adr'].str.replace(' US Equity', ''))['first_rate_symbol'].to_dict()
 
     # Create output directory
     os.makedirs(output_dir, exist_ok=True)
@@ -103,37 +95,32 @@ if __name__ == '__main__':
         merged_fut = futures_df.merge(close_df, left_on='date', right_index=True)
         
         # Get ADR NBBO data for this ticker
-        adr_df = adr_nbbo_df[adr_nbbo_df['symbol'] == ticker].copy()
+        adr_df = pd.read_parquet(adr_nbbo_dir,
+                                    filters=[('ticker','==', ticker)],
+                                    columns=['ticker','date','nbbo_bid','nbbo_ask'])
+        adr_df['mid'] = (adr_df['nbbo_bid'] + adr_df['nbbo_ask']) / 2
+        
         if adr_df.empty:
             print(f"No ADR NBBO data for {ticker}, skipping...")
             continue
-        
-        merged_adr = adr_df.merge(close_df, left_on='date', right_index=True)
+
+        merged_adr = adr_df.merge(adr_domestic_close[ticker].rename('adr_domestic_close'), left_on='date', right_index=True)
+        merged_adr['adr_ret'] = ((merged_adr['mid'] - merged_adr['adr_domestic_close']) / merged_adr['adr_domestic_close']).to_frame(name='adr_ret')
+        merged_adr = merged_adr.merge(close_df, left_on='date', right_index=True)
+        adr_ret = (merged_adr[merged_adr.index >= merged_adr['domestic_close_time'] + 
+                              time_futures_after_close[exchange]]['adr_ret'])
         
         # Get futures price at domestic close
         fut_domestic_close = merged_fut.groupby('date')[['domestic_close_time','close']].apply(
             lambda x: x[x.index <= x['domestic_close_time'] + time_futures_after_close[exchange]].iloc[-1]['close']
         ).to_frame(name='fut_domestic_close')
         
-        # Get ADR mid price at domestic close
-        adr_domestic_close = merged_adr.groupby('date')[['domestic_close_time','mid']].apply(
-            lambda x: x[x.index <= x['domestic_close_time'] + time_futures_after_close[exchange]].iloc[-1]['mid']
-        ).to_frame(name='adr_domestic_close')
-        
         # Filter futures data to only timestamps after domestic close
         merged_fut_after_close = merged_fut[merged_fut.index > merged_fut['domestic_close_time']].copy()
-        
-        # Filter ADR data to only timestamps after domestic close
-        merged_adr_after_close = merged_adr[merged_adr.index > merged_adr['domestic_close_time']].copy()
-        
+
         # Merge with domestic close futures price
         merged_fut_after_close = merged_fut_after_close.merge(
             fut_domestic_close, left_on='date', right_index=True
-        )
-        
-        # Merge with domestic close ADR price
-        merged_adr_after_close = merged_adr_after_close.merge(
-            adr_domestic_close, left_on='date', right_index=True
         )
         
         # Calculate returns at each timestamp
@@ -141,43 +128,34 @@ if __name__ == '__main__':
             (merged_fut_after_close['close'] - merged_fut_after_close['fut_domestic_close']) / 
             merged_fut_after_close['fut_domestic_close']
         )
-        
-        # Calculate ADR returns at each timestamp
-        merged_adr_after_close['adr_ret'] = (
-            (merged_adr_after_close['mid'] - merged_adr_after_close['adr_domestic_close']) / 
-            merged_adr_after_close['adr_domestic_close']
-        )
-        
-        # Merge futures and ADR data on timestamp
-        merged_after_close = merged_fut_after_close.merge(
-            merged_adr_after_close[['adr_ret', 'date']], 
-            left_index=True, 
-            right_index=True, 
-            suffixes=('', '_adr')
-        )
-        
+
         # Merge with betas
         beta_value = betas.loc[:, ticker] if ticker in betas.columns else None
         if beta_value is None:
             print(f"No beta for {ticker}, skipping...")
             continue
-            
-        merged_after_close = merged_after_close.merge(
+        
+        merged_fut_after_close = merged_fut_after_close.merge(
             beta_value.rename('beta'), left_on='date', right_index=True
         )
+
+        merged_all = merged_fut_after_close.merge(merged_adr[['adr_ret']], 
+                                                  left_index=True, right_index=True)
         
         # Calculate signal: futures return * beta - ADR return
-        merged_after_close['signal'] = merged_after_close['fut_ret'] * merged_after_close['beta'] - merged_after_close['adr_ret']
-        merged_after_close['ticker'] = ticker
+        merged_all['signal'] = merged_all['fut_ret'] * merged_all['beta'] - merged_all['adr_ret']
         
+        merged_all['date'] = merged_all.index.strftime('%Y-%m-%d')
+
         # Keep only relevant columns
-        signal_df = merged_after_close[['ticker', 'date', 'signal']].copy()
-        signal_df['timestamp'] = merged_after_close.index
-        
+        signal_df = (merged_all[['signal','date']].copy().groupby('date')[['signal']]
+                     .apply(lambda _df: _df[['signal']].resample('1min').first().ffill())
+                     .droplevel(0))
+        signal_df['date'] = signal_df.index.strftime('%Y-%m-%d')
         # Save this ticker's data as parquet
         ticker_output_path = os.path.join(output_dir, f'ticker={ticker}')
         os.makedirs(ticker_output_path, exist_ok=True)
-        signal_df.to_parquet(os.path.join(ticker_output_path, 'data.parquet'), index=False)
+        signal_df.to_parquet(ticker_output_path, partition_cols=['date'])
         
         print(f"Processed and saved signal for {ticker}")
 
