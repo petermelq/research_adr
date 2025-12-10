@@ -9,23 +9,42 @@ strategy:
     var_penalty: 0.0001
     adr_info_filename: data/raw/adr_info.csv
     vol_lookback: 100
-    p_volume: 0.01
+    p_volume: 0.10
+    target_p_volume: 0.50
+    dataset_trade_p: 0.6
 
 stock_split_file: data/raw/all_splits.csv
 
 data_loaders:
-  # adr_nbbo:
-  #   class: DateTickerParquetDataLoader
-  #   base_path: data/raw/adrs/bbo-1m/nbbo/
-  #   use_symbol: True
-  #   symbol_first: True
-  #   date_partition: False
-  #   read_columns:
-  #     - nbbo_bid
-  #     - nbbo_ask
+  adr_nbbo:
+    class: DateTickerParquetDataLoader
+    base_path: data/raw/adrs/bbo-1m/nbbo/
+    use_symbol: True
+    symbol_first: True
+    date_partition: False
+    read_columns:
+      - nbbo_bid
+      - nbbo_ask
+
+  etf_nbbo:
+    class: DateTickerParquetDataLoader
+    base_path: data/raw/etfs/market/bbo-1m/nbbo/
+    use_symbol: True
+    symbol_first: True
+    date_partition: False
+    read_columns:
+      - nbbo_bid
+      - nbbo_ask
+      
   volume_stats:
     class: DateTickerParquetDataLoader
     base_path: data/processed/adrs/minute_volume_stats
+    use_symbol: True
+    symbol_first: True
+    date_partition: True
+  etf_volume_stats:
+    class: DateTickerParquetDataLoader
+    base_path: data/processed/etfs/market/etf_minute_volume_stats
     use_symbol: True
     symbol_first: True
     date_partition: True
@@ -116,6 +135,8 @@ symbols:
   - VOD
   - WPP
   - DB
+  - EWU
+  - FEZ
 
 market_calendar: NYSE
 
@@ -123,17 +144,23 @@ evaluation:
   plot_pnl:
       parameters:
         reassign_dates: False
-        price_filename: data/raw/adrs/adr_PX_LAST_adjust_none.csv
+        price_filename:
+          - data/raw/adrs/adr_PX_LAST_adjust_none.csv
+          - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
         market_calendar: NYSE
 
   return_on_median_gmv:
     parameters:
       reassign_dates: False
-      price_filename: data/raw/adrs/adr_PX_LAST_adjust_none.csv
+      price_filename:
+        - data/raw/adrs/adr_PX_LAST_adjust_none.csv
+        - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
       market_calendar: NYSE
 
   return_on_max_gmv:
     parameters:
       reassign_dates: False
-      price_filename: data/raw/adrs/adr_PX_LAST_adjust_none.csv
+      price_filename: 
+        - data/raw/adrs/adr_PX_LAST_adjust_none.csv
+        - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
       market_calendar: NYSE

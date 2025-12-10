@@ -55,7 +55,7 @@ def get_tz(exchange):
     
 #     return tickers
 
-class hedged_single_time_ADR(BaseStrategy):
+class minute_VWAP_ADR(BaseStrategy):
     """
     Simulates a ADR passive trading strategy
     """
@@ -97,8 +97,6 @@ class hedged_single_time_ADR(BaseStrategy):
 
         self.adr_info['normal_close_time'] = self.adr_info['exchange'].apply(get_normal_close_time)
         self.adr_info['tz'] = self.adr_info['exchange'].apply(get_tz)
-        self.adr_info['adr_ticker'] = self.adr_info['adr'].str.replace(' US Equity','')
-        self.hedge_dict = self.adr_info.set_index('adr_ticker')['market_etf_hedge'].to_dict()
 
     def normal_close_tickers(self, trading_day):
         merged = pd.merge(self.adr_info[['adr','normal_close_time','exchange']],self.schedule.loc['2025-01-02'].rename('day_close_time'),left_on='exchange',right_index=True)
@@ -107,98 +105,80 @@ class hedged_single_time_ADR(BaseStrategy):
         return tickers
     
     def ny_normal_close(self, trading_day):
-        return self.schedule.loc[trading_day, 'XNYS'] == mcal.get_calendar('XNYS').close_time
+        return self.schedule.loc[trading_day, 'XNYS'] == mcal.get_calendar('XNYS').close_time    
+
+    def generate_targets(self, adr_signal: pd.DataFrame,
+                        adr_trade_price: pd.DataFrame,
+                        turnover_df: pd.DataFrame,
+                        Cov: np.ndarray,
+                        trading_day: date) -> pd.DataFrame:
+        
+        tickers = adr_signal.columns.tolist()
+        Cov = cp.psd_wrap(Cov)
+        alpha = adr_signal.loc[trading_day].fillna(0).values
+        turnover = turnover_df.loc[trading_day, tickers].values
+
+        N = Cov.shape[0]
+        w = cp.Variable(N)
+
+        objective = cp.Maximize((alpha @ w) - self.var_penalty * cp.quad_form(w, Cov))
+        adv_constraint = cp.multiply(cp.abs(w), 1/turnover) <= self.p_volume
+        constraints = [adv_constraint]
+        
+        prob = cp.Problem(objective, constraints)
+        result = prob.solve(solver='CLARABEL', max_iter=100000)
+        
+        weights = pd.DataFrame({'weight': w.value}, index=tickers)
+        weights['weight'] = weights['weight'].clip(lower=-2e6, upper=2e6)
+        
+        trade_price = adr_trade_price.loc[trading_day]
+        weights = weights.merge(trade_price.rename('trade_price'), left_index=True, right_index=True)
+        
+        shares = (weights['weight']/weights['trade_price']).round()
+
+        return shares
 
     def generate_trades(self,
                         current_position: Dict[str, float],
                         trading_day: date,
-                        adr_trade_price: pd.DataFrame,
-                        adr_signal: pd.DataFrame,
                         adr_close: pd.DataFrame,
-                        turnover_df: pd.DataFrame,
-                        etf_trade_price: pd.DataFrame,
-                        etf_close: pd.DataFrame,
-                        hedge_ratios: pd.DataFrame,
+                        adr_signal,
+                        volume_stats,
         ) -> List[Trade]:
-            
         trading_tickers = self.normal_close_tickers(trading_day)
-        
+        import IPython; IPython.embed()
+
         if (not self.ny_normal_close(trading_day) or
             trading_day not in adr_signal.index or
             len(trading_tickers) < adr_trade_price.shape[1]
         ):
             return []
         else:
-            cols = adr_trade_price.iloc[-1].dropna().index.intersection(adr_signal.columns)
-            adr_signal = adr_signal[cols]
-            adr_signal = adr_signal.dropna(how='all',axis=1) # dropping columns that are all nan (adrs that don't exist yet)
-            # import IPython; IPython.embed()
-            merged_prices = pd.merge(adr_trade_price.iloc[-self.vol_lookback-1:-1].stack().rename('trade_price'),
-                                    adr_close.iloc[-self.vol_lookback-1:-1].stack().rename('close'),
+            merged_prices = pd.merge(adr_trade_price.iloc[-self.vol_lookback:].stack().rename('trade_price'),
+                                    adr_close.iloc[-self.vol_lookback:].stack().rename('close'),
                                     right_index=True,
-                                    left_index=True)
+                                    left_index=True
+                                )
             
-            merged_etf_prices = pd.merge(etf_trade_price.iloc[-self.vol_lookback-1:-1].stack().rename('trade_price'),
-                                    etf_close.iloc[-self.vol_lookback-1:-1].stack().rename('close'),
-                                    right_index=True,
-                                    left_index=True)
-            
-            adr_ret = ((merged_prices['close'] - merged_prices['trade_price'])/merged_prices['close']).rename('adr_ret')
-            etf_ret = ((merged_etf_prices['close'] - merged_etf_prices['trade_price'])/merged_etf_prices['close'])
-            hr_stacked = hedge_ratios.iloc[-self.vol_lookback-1:-1].stack().rename('hedge_ratio')
-            merged = pd.merge(hr_stacked, adr_ret, left_index=True, right_index=True).reset_index(names=['date','ticker'])
-            merged['hedge_ticker'] = merged['ticker'].map(self.hedge_dict)
-            etf_ret = etf_ret.to_frame(name='etf_ret').reset_index(names=['date','hedge_ticker'])
-            merged = merged.merge(etf_ret, on=['date','hedge_ticker'])
-            merged['hedged_ret'] = merged['adr_ret'] - merged['hedge_ratio'] * merged['etf_ret']
-            ret = merged.pivot(index='date', columns='ticker', values='hedged_ret')
-            res = ret - adr_signal.iloc[-self.vol_lookback-1:-1]
-            
+            ret = ((merged_prices['close'] - merged_prices['trade_price'])/merged_prices['close']).unstack()
+            res = ret - adr_signal.iloc[-self.vol_lookback:]
+
             if pd.Timestamp('2025-06-25') in res.index:
                 res.loc[pd.Timestamp('2025-06-25'), ['BP','SHEL']] = 0.0
             
-            res = pd.concat([res.loc[:'2025-04-03'],res.loc['2025-04-09':]])
+            res = pd.concat([res.loc[:'2025-04-01'],res.loc['2025-04-30':]])
             res = res[adr_signal.columns] # making sure columns are aligned
-            Cov = res.fillna(0).cov().values
-            # import IPython; IPython.embed()
+            Cov = res.dropna().cov().values
             # Cov = res.cov().values
-
+            
+            shares = self.generate_targets(adr_signal=adr_signal,
+                                            adr_trade_price=adr_trade_price,
+                                            turnover_df=turnover_df,
+                                            Cov=Cov,
+                                            trading_day=trading_day
+                                        )
+    
             tickers = adr_signal.columns.tolist()
-            Cov = cp.psd_wrap(Cov)            
-            alpha = adr_signal.loc[trading_day].clip(lower=-0.01, upper=0.01).fillna(0).values
-            
-            turnover = turnover_df.loc[trading_day, tickers].fillna(1).values
-
-            N = Cov.shape[0]
-            w = cp.Variable(N)
-
-            objective = cp.Maximize((alpha @ w) - self.var_penalty * cp.quad_form(w, Cov))
-            adv_constraint = cp.multiply(cp.abs(w), 1/turnover) <= self.p_volume
-            constraints = [adv_constraint]
-            
-            prob = cp.Problem(objective, constraints)
-            try:
-                result = prob.solve(solver='CLARABEL', max_iter=100000)
-            except Exception as e:
-                import IPython; IPython.embed()
-            
-            weights = pd.DataFrame({'weight': w.value}, index=tickers)
-            weights['weight'] = weights['weight'].clip(lower=-2e6, upper=2e6)
-            
-            trade_price = adr_trade_price.loc[trading_day]
-            
-            weights = weights.merge(trade_price.rename('trade_price'),
-                                    left_index=True, right_index=True)
-            weights = weights.merge(hedge_ratios.loc[trading_day].rename('hedge_ratio'),
-                                    left_index=True, right_index=True)
-            weights['hedge_ticker'] = weights.index.map(self.hedge_dict)
-            weights['hedge_weight'] = weights['weight'] * weights['hedge_ratio'] * (-1)
-            etf_weights = weights.groupby('hedge_ticker')['hedge_weight'].sum()
-            shares = (weights['weight']/weights['trade_price']).round()
-            etf_shares = (etf_weights/etf_trade_price.loc[trading_day]).round()
-            if shares.isnull().any():
-                import IPython; IPython.embed()
-
             trades = []
             for ticker in tickers:
                 if trading_day.strftime('%Y-%m-%d') == '2025-06-25' and ticker in ['BP', 'SHEL']:
@@ -209,7 +189,7 @@ class hedged_single_time_ADR(BaseStrategy):
                                         timestamp=trading_day + self.trade_time,
                                         ticker=ticker,
                                         size=int(shares[ticker]),
-                                        price=trade_price[ticker],
+                                        price=adr_trade_price.loc[trading_day, ticker],
                                     )
                                 )
                     trades.append(
@@ -221,21 +201,4 @@ class hedged_single_time_ADR(BaseStrategy):
                                     )
                                 )
                     
-            for etf_ticker, size in etf_shares.items():
-                trades.append(
-                                Trade(
-                                    timestamp=trading_day + self.trade_time,
-                                    ticker=etf_ticker,
-                                    size=int(size),
-                                    price=etf_trade_price.loc[trading_day, etf_ticker],
-                                )
-                            )
-                trades.append(
-                                Trade(
-                                    timestamp=trading_day + pd.Timedelta('16:00:00'),
-                                    ticker=etf_ticker,
-                                    size=-int(size),
-                                    price=etf_close.loc[trading_day, etf_ticker],
-                                )
-                            )   
             return trades

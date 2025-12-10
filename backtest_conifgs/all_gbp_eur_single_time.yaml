@@ -1,6 +1,6 @@
 output:
   formats: ["csv", "json"]
-  path: "./adr_results/sanity_check_short"
+  path: "./adr_results/time_test/"
 
 strategy:
   module: src/backtest_strategies/single_time_ADR.py

@@ -124,13 +124,13 @@ class single_time_ADR(BaseStrategy):
         ):
             return []
         else:
-            merged_prices = pd.merge(adr_trade_price.iloc[-self.vol_lookback:].stack().rename('trade_price'),
-                                    adr_close.iloc[-self.vol_lookback:].stack().rename('close'),
+            merged_prices = pd.merge(adr_trade_price.iloc[-self.vol_lookback-1:-1].stack().rename('trade_price'),
+                                    adr_close.iloc[-self.vol_lookback-1:-1].stack().rename('close'),
                                     right_index=True,
                                     left_index=True)
             
             ret = ((merged_prices['close'] - merged_prices['trade_price'])/merged_prices['close']).unstack()
-            res = ret - adr_signal.iloc[-self.vol_lookback:]
+            res = ret - adr_signal.iloc[-self.vol_lookback-1:-1]
 
             if pd.Timestamp('2025-06-25') in res.index:
                 res.loc[pd.Timestamp('2025-06-25'), ['BP','SHEL']] = 0.0
@@ -138,6 +138,7 @@ class single_time_ADR(BaseStrategy):
             res = pd.concat([res.loc[:'2025-04-01'],res.loc['2025-04-30':]])
             res = res[adr_signal.columns] # making sure columns are aligned
             Cov = res.dropna().cov().values
+            
             # Cov = res.cov().values
 
             tickers = adr_signal.columns.tolist()

@@ -10,6 +10,17 @@ stages:
       - data/raw/adrs/tcbbo:
           persist: true
 
+  download_market_etf_tcbbo:
+    cmd: python -m data_tools.cli.batch_download_to_parquet_with_append --schema=tcbbo --datasets XNAS.BASIC --tickers=data/raw/adr_info.csv --tickers_columns=market_etf_hedge --output_dir=data/raw/etfs/market/tcbbo --start_date=2024-07-01 --end_date=${end_date} --partition_period=date
+    deps:
+      - data/raw/adr_info.csv
+    params:
+      - start_date
+      - end_date
+    outs:
+      - data/raw/etfs/market/tcbbo:
+          persist: true
+
   # 1-minute BBO data download
   download_adr_bbo-1m:
     cmd: python -m data_tools.cli.batch_download_to_parquet_with_append --schema=bbo-1m --datasets XNYS.PILLAR XNAS.ITCH ARCX.PILLAR --tickers=data/raw/adr_info.csv --tickers_columns=adr --output_dir=data/raw/adrs/bbo-1m/by_exchange --start_date=${start_date} --end_date=${end_date} --partition_period=none

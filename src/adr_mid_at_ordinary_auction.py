@@ -160,7 +160,8 @@ if __name__ == '__main__':
     exchanges = adr_info['exchange'].unique().tolist()
     
     # Create close times dataframe
-    close_time = pd.DataFrame({ex: mcal.get_calendar(ex).schedule(start_date=start_date, end_date=end_date)['market_close'].dt.tz_convert('America/New_York') for ex in exchanges})
+    close_time = pd.DataFrame({ex: mcal.get_calendar(ex).schedule(start_date=start_date,
+                                                                end_date=end_date)['market_close'].dt.tz_convert('America/New_York') for ex in exchanges})
     if 'XLON' in close_time.columns:
         close_time['XLON'] += pd.Timedelta('6min')  # London auction time 6 minutes after close
     if 'XAMS' in close_time.columns:

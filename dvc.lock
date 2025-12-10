@@ -790,7 +790,7 @@ stages:
     deps:
     - path: data/raw/adr_info.csv
       hash: md5
-      md5: 60ae37166a718e554685a637b1dbbf4e
+      md5: 994b7a62c12e77d91857211c913e7633
       size: 7129
     params:
       params.yaml:
@@ -1006,3 +1006,46 @@ stages:
       hash: md5
       md5: 3ba60eaefa26aadf59da331f1ca925e1
       size: 11607
+  minute_volume_stats:
+    cmd: python src/minute_volume_stats.py
+    deps:
+    - path: data/raw/adrs/tcbbo/
+      hash: md5
+      md5: 6f3d25ca55d2e603d7a838c3a0a76e37.dir
+      size: 4663555405
+      nfiles: 16371
+    - path: src/minute_volume_stats.py
+      hash: md5
+      md5: 6d6e8ea8e6bb96466add10b66c36d7cd
+      size: 4756
+    params:
+      params.yaml:
+        avg_dollar_volume_lookback_days: 60
+        end_date: '2025-11-07'
+        start_date: '2020-01-02'
+    outs:
+    - path: data/processed/adrs/minute_volume_stats
+      hash: md5
+      md5: db08306716c0b9512a428ba861642ffe.dir
+      size: 248479238
+      nfiles: 16371
+  download_market_etf_tcbbo:
+    cmd: python -m data_tools.cli.batch_download_to_parquet_with_append 
+      --schema=tcbbo --datasets XNAS.BASIC --tickers=data/raw/adr_info.csv 
+      --tickers_columns=market_etf_hedge --output_dir=data/raw/etfs/market/tcbbo
+      --start_date=2024-07-01 --end_date=2025-11-07 --partition_period=date
+    deps:
+    - path: data/raw/adr_info.csv
+      hash: md5
+      md5: 994b7a62c12e77d91857211c913e7633
+      size: 7129
+    params:
+      params.yaml:
+        end_date: '2025-11-07'
+        start_date: '2020-01-02'
+    outs:
+    - path: data/raw/etfs/market/tcbbo
+      hash: md5
+      md5: 86f4e19964e01f196db85cc97a62bd39.dir
+      size: 86909722
+      nfiles: 684
