@@ -928,8 +928,8 @@ stages:
     deps:
     - path: backtest_conifgs/hedged_single_time.yaml
       hash: md5
-      md5: 5bddcc1081d4aec22c081cda7903a3e3
-      size: 2927
+      md5: d4ee51f7dd8053a8aea26388e58d0ae7
+      size: 2941
     - path: data/processed/adrs/adr_daily_fixed_time_mid.csv
       hash: md5
       md5: eff84ffd304e81213ca923a3c87d6198
