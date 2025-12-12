@@ -80,7 +80,7 @@ stages:
 
   # daily closing price data download
   download_adr_close:
-    cmd: python src/download_bbg_daily.py data/raw/adr_info.csv data/raw/adrs/adr_PX_LAST_adjust_none.csv --tickers_columns=adr
+    cmd: python src/download_bbg_daily.py data/raw/adr_info.csv data/raw/adrs/adr_PX_LAST_adjust_none.csv --tickers_columns=adr --field=PX_LAST
     deps:
       - src/download_bbg_daily.py
       - data/raw/adr_info.csv
@@ -91,7 +91,7 @@ stages:
       - data/raw/adrs/adr_PX_LAST_adjust_none.csv
 
   download_adr_open:
-    cmd: python src/download_bbg_daily.py data/raw/adr_info.csv data/raw/adrs/adr_PX_OPEN_adjust_none.csv --tickers_columns=adr
+    cmd: python src/download_bbg_daily.py data/raw/adr_info.csv data/raw/adrs/adr_PX_OPEN_adjust_none.csv --tickers_columns=adr --field=PX_OPEN
     deps:
       - src/download_bbg_daily.py
       - data/raw/adr_info.csv
@@ -102,7 +102,7 @@ stages:
       - data/raw/adrs/adr_PX_OPEN_adjust_none.csv
 
   download_market_etf_close:
-    cmd: python src/download_bbg_daily.py data/raw/adr_info.csv data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv --tickers_columns=market_etf_hedge --symbol_suffix=" US Equity"
+    cmd: python src/download_bbg_daily.py data/raw/adr_info.csv data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv --tickers_columns=market_etf_hedge --symbol_suffix=" US Equity" --field=PX_LAST
     deps:
       - src/download_bbg_daily.py
       - data/raw/adr_info.csv
@@ -113,7 +113,7 @@ stages:
       - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
 
   adj_adr_close:
-    cmd: python src/download_bbg_daily.py data/raw/adr_info.csv data/raw/adrs/adr_PX_LAST_adjust_all.csv --tickers_columns=adr --adjust=all --pad_lookback=${pred.lookback_days}
+    cmd: python src/download_bbg_daily.py data/raw/adr_info.csv data/raw/adrs/adr_PX_LAST_adjust_all.csv --tickers_columns=adr --adjust=all --pad_lookback=${pred.lookback_days} --field=PX_LAST
     deps:
       - src/download_bbg_daily.py
       - data/raw/adr_info.csv
@@ -124,7 +124,7 @@ stages:
       - data/raw/adrs/adr_PX_LAST_adjust_all.csv
 
   adj_market_etf_close:
-    cmd: python src/download_bbg_daily.py data/raw/adr_info.csv data/raw/etfs/market/market_etf_PX_LAST_adjust_all.csv --tickers_columns=market_etf_hedge --symbol_suffix=" US Equity" --adjust=all --pad_lookback=${pred.lookback_days}
+    cmd: python src/download_bbg_daily.py data/raw/adr_info.csv data/raw/etfs/market/market_etf_PX_LAST_adjust_all.csv --tickers_columns=market_etf_hedge --symbol_suffix=" US Equity" --adjust=all --pad_lookback=${pred.lookback_days} --field=PX_LAST
     deps:
       - src/download_bbg_daily.py
       - data/raw/adr_info.csv
@@ -148,7 +148,7 @@ stages:
 
   # download sector etf close prices
   download_sector_etf_close:
-    cmd: python src/download_bbg_daily.py data/raw/sector_etfs.csv data/raw/etfs/sector_etf_PX_LAST_adjust_none.csv --tickers_columns=hedge --symbol_suffix=" US Equity"
+    cmd: python src/download_bbg_daily.py data/raw/sector_etfs.csv data/raw/etfs/sector_etf_PX_LAST_adjust_none.csv --tickers_columns=hedge --symbol_suffix=" US Equity" --field=PX_LAST
     deps:
       - src/download_bbg_daily.py
       - data/raw/sector_etfs.csv
@@ -159,7 +159,7 @@ stages:
       - data/raw/etfs/sector_etf_PX_LAST_adjust_none.csv
 
   download_ord_close:
-    cmd: python src/download_bbg_daily.py data/raw/adr_info.csv data/raw/ordinary/ord_PX_LAST_adjust_none.csv --tickers_columns=id --include_suffix
+    cmd: python src/download_bbg_daily.py data/raw/adr_info.csv data/raw/ordinary/ord_PX_LAST_adjust_none.csv --tickers_columns=id --include_suffix --field=PX_LAST
     deps:
       - src/download_bbg_daily.py
       - data/raw/adr_info.csv
@@ -170,7 +170,7 @@ stages:
       - data/raw/ordinary/ord_PX_LAST_adjust_none.csv
 
   adj_download_ord_close:
-    cmd: python src/download_bbg_daily.py data/raw/adr_info.csv data/raw/ordinary/ord_PX_LAST_adjust_all.csv --tickers_columns=id --include_suffix --adjust=all
+    cmd: python src/download_bbg_daily.py data/raw/adr_info.csv data/raw/ordinary/ord_PX_LAST_adjust_all.csv --tickers_columns=id --include_suffix --adjust=all --field=PX_LAST
     deps:
       - src/download_bbg_daily.py
       - data/raw/adr_info.csv
@@ -181,7 +181,7 @@ stages:
       - data/raw/ordinary/ord_PX_LAST_adjust_all.csv
 
   split_adj_download_ord_close:
-    cmd: python src/download_bbg_daily.py data/raw/adr_info.csv data/raw/ordinary/ord_PX_LAST_adjust_split.csv --tickers_columns=id --include_suffix --adjust=split --pad_lookback=${pred.lookback_days}
+    cmd: python src/download_bbg_daily.py data/raw/adr_info.csv data/raw/ordinary/ord_PX_LAST_adjust_split.csv --tickers_columns=id --include_suffix --adjust=split --pad_lookback=${pred.lookback_days} --field=PX_LAST
     deps:
       - src/download_bbg_daily.py
       - data/raw/adr_info.csv
@@ -192,7 +192,7 @@ stages:
       - data/raw/ordinary/ord_PX_LAST_adjust_split.csv
 
   download_index_close:
-    cmd: python src/download_bbg_daily.py data/raw/futures_symbols.csv data/raw/indices/indices_PX_LAST.csv --tickers_columns=index --symbol_suffix=" Index" --pad_lookback=${pred.lookback_days}
+    cmd: python src/download_bbg_daily.py data/raw/futures_symbols.csv data/raw/indices/indices_PX_LAST.csv --tickers_columns=index --symbol_suffix=" Index" --pad_lookback=${pred.lookback_days} --field=PX_LAST
     deps:
       - src/download_bbg_daily.py
       - data/raw/adr_info.csv

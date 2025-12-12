@@ -43,6 +43,10 @@ if __name__ == '__main__':
     time_futures_after_close['XMAD'] = pd.Timedelta('6min')
     time_futures_after_close['XHEL'] = pd.Timedelta('0min')
     time_futures_after_close['XDUB'] = pd.Timedelta('0min')
+    time_futures_after_close['XOSL'] = pd.Timedelta('5min')
+    time_futures_after_close['XSTO'] = pd.Timedelta('0min')
+    time_futures_after_close['XSWX'] = pd.Timedelta('1min')
+    time_futures_after_close['XCSE'] = pd.Timedelta('0min')
     
     betas = pd.read_csv(betas_filename, index_col=0)
 
@@ -94,14 +98,14 @@ if __name__ == '__main__':
         
         futures_df = df[df['symbol'] == futures_symbol].copy()
         merged_fut = futures_df.merge(close_df, left_on='date', right_index=True)
-        
         fut_domestic_close = merged_fut.groupby('date')[['domestic_close_time','close']].apply(
-            lambda x: x[x.index <= x['domestic_close_time'] + time_futures_after_close[exchange]].iloc[-1]['close']
-        )
+                lambda x: x[x.index <= x['domestic_close_time'] + time_futures_after_close[exchange]].iloc[-1]['close'] if (x.index <= x['domestic_close_time'] + time_futures_after_close[exchange]).any() else np.nan
+            )
         fut_afternoon = merged_fut.groupby('date')[['close']].apply(
-            lambda x: x[x.index.time <= time_to_save].iloc[-1]['close']
+            lambda x: x[x.index.time <= time_to_save].iloc[-1]['close'] if (x.index.time <= time_to_save).any() else np.nan
         )
         fut_ret = ((fut_afternoon - fut_domestic_close) / fut_domestic_close).to_frame(name='fut_ret')
+
         merged = fut_ret.merge(betas[ticker].rename('beta'),
                                 left_on='date',
                                 right_index=True

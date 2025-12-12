@@ -21,8 +21,8 @@ if __name__ == '__main__':
     
     # Fixed time of day to save mid price
     params = utils.load_params()
-    time_to_save = dt.time(params['fixed_trade_time_hours'], 
-                           params['fixed_trade_time_min'])
+    time_to_save = dt.time(params['daily_time_for_cov_hours'],
+                           params['daily_time_for_cov_min'])
 
     start_date = params['start_date']
     end_date = params['end_date']
@@ -43,6 +43,10 @@ if __name__ == '__main__':
     time_futures_after_close['XMAD'] = pd.Timedelta('6min')
     time_futures_after_close['XHEL'] = pd.Timedelta('0min')
     time_futures_after_close['XDUB'] = pd.Timedelta('0min')
+    time_futures_after_close['XOSL'] = pd.Timedelta('5min')
+    time_futures_after_close['XSTO'] = pd.Timedelta('0min')
+    time_futures_after_close['XSWX'] = pd.Timedelta('1min')
+    time_futures_after_close['XCSE'] = pd.Timedelta('0min')
     
     betas = pd.read_csv(betas_filename, index_col=0)
 
@@ -110,7 +114,7 @@ if __name__ == '__main__':
         merged_fut = merged_fut.merge(fixed_time.rename('fixed_time'), left_on='date', right_index=True)
         
         fut_domestic_close = merged_fut.groupby('date')[['domestic_close_time','close']].apply(
-            lambda x: x[x.index <= x['domestic_close_time'] + time_futures_after_close[exchange]].iloc[-1]['close']
+            lambda x: x[x.index <= x['domestic_close_time'] + time_futures_after_close[exchange]].iloc[-1]['close'] if (x.index <= x['domestic_close_time'] + time_futures_after_close[exchange]).any() else np.nan
         ).to_frame(name=ticker)
 
         fut_ny_open = merged_fut.groupby('date')[['ny_market_open_time','close']].apply(
@@ -118,11 +122,11 @@ if __name__ == '__main__':
         ).to_frame(name=ticker)
 
         fut_ny_close = merged_fut.groupby('date')[['ny_market_close_time','close']].apply(
-            lambda x: x[x.index <= x['ny_market_close_time']].iloc[-1]['close']
+            lambda x: x[x.index <= x['ny_market_close_time']].iloc[-1]['close'] if (x.index <= x['ny_market_close_time']).any() else np.nan
         ).to_frame(name=ticker)
 
         fut_fixed = merged_fut.groupby('date')[['fixed_time','close']].apply(
-            lambda x: x[x.index <= x['fixed_time']].iloc[-1]['close']
+            lambda x: x[x.index <= x['fixed_time']].iloc[-1]['close'] if (x.index <= x['fixed_time']).any() else np.nan
         ).to_frame(name=ticker)
         # import IPython; IPython.embed()
         domestic_close.append(fut_domestic_close)

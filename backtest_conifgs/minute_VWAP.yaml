@@ -1,47 +1,68 @@
 output:
   formats: ["csv", "json"]
-  path: "./adr_results/1e-4_all_europe_pos_constraint_1430_2pct/"
+  path: "./adr_results/time_test/"
 
 strategy:
-  module: src/backtest_strategies/hedged_single_time_ADR.py
+  module: src/backtest_strategies/vwap_hedged_single_time_ADR.py
   class: "hedged_single_time_ADR" # Will map to MinimalStrategy class
   parameters:
     var_penalty: 0.0001
     adr_info_filename: data/raw/adr_info.csv
     vol_lookback: 100
-    p_volume: 0.02
+    p_volume: 0.01
 
 stock_split_file: data/raw/all_splits.csv
 
 data_loaders:
-  adr_trade_price:
+  # adr_nbbo:
+  #   class: DateTickerParquetDataLoader
+  #   base_path: data/raw/adrs/bbo-1m/nbbo/
+  #   use_symbol: True
+  #   symbol_first: True
+  #   date_partition: False
+  #   read_columns:
+  #     - nbbo_bid
+  #     - nbbo_ask
+  adr_signal:
+    class: DateTickerParquetDataLoader
+    base_path: data/processed/futures_only_signal/
+    use_symbol: True
+    symbol_first: True
+    date_partition: True
+  volume_stats:
+    class: DateTickerParquetDataLoader
+    base_path: data/processed/adrs/minute_volume_stats
+    use_symbol: True
+    symbol_first: True
+    date_partition: True
+    adr_trade_price:
     class: HistoricalDailyCSVDataLoader
     csv_path: data/processed/adrs/adr_daily_fixed_time_mid.csv
-    start_date: 2018-05-01
+    start_date: 2020-01-02
   adr_signal:
     class: HistoricalDailyCSVDataLoader
     csv_path: data/processed/fixed_time_signal.csv #/home/pmalonis/adr_trade/data/processed/brit_adr_futures_fixed_time_signal_time=13:00:00.csv 
-    start_date: 2018-05-01
+    start_date: 2020-01-02
   turnover_df:
     class: HistoricalDailyCSVDataLoader
     csv_path: data/raw/adrs/adr_turnover.csv
-    start_date: 2018-05-01
+    start_date: 2020-01-02
   adr_close:
     class: HistoricalDailyCSVDataLoader
     csv_path: data/raw/adrs/adr_PX_LAST_adjust_none.csv
-    start_date: 2018-05-01
+    start_date: 2020-01-02
   etf_trade_price:
     class: HistoricalDailyCSVDataLoader
     csv_path: data/processed/etfs/market/market_etf_daily_fixed_time_mid.csv
-    start_date: 2018-05-01
+    start_date: 2020-01-02
   etf_close:
     class: HistoricalDailyCSVDataLoader
     csv_path: data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
-    start_date: 2018-05-01
+    start_date: 2020-01-02
   hedge_ratios:
     class: HistoricalDailyCSVDataLoader
     csv_path: data/processed/market_etf_hedge_ratios.csv
-    start_date: 2018-05-01
+    start_date: 2020-01-02
 
 market_impact:
   class: "MinimalMarketImpactModel"
@@ -51,7 +72,7 @@ market_impact:
 initial_positions: {}
 
 # Date range for backtest
-start_date: "2019-10-02"
+start_date: "2023-07-20"
 end_date: "2025-11-07"
 
 # Symbols to trade
@@ -95,14 +116,6 @@ symbols:
   - VOD
   - WPP
   - DB
-  - EWU
-  - FEZ
-  - EQNR
-  - ERIC
-  - GMAB
-  - NVS
-  - NVO
-  - UBS
 
 market_calendar: NYSE
 
@@ -110,23 +123,17 @@ evaluation:
   plot_pnl:
       parameters:
         reassign_dates: False
-        price_filename:
-          - data/raw/adrs/adr_PX_LAST_adjust_none.csv
-          - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
+        price_filename: data/raw/adrs/adr_PX_LAST_adjust_none.csv
         market_calendar: NYSE
 
   return_on_median_gmv:
     parameters:
       reassign_dates: False
-      price_filename:
-        - data/raw/adrs/adr_PX_LAST_adjust_none.csv
-        - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
+      price_filename: data/raw/adrs/adr_PX_LAST_adjust_none.csv
       market_calendar: NYSE
 
   return_on_max_gmv:
     parameters:
       reassign_dates: False
-      price_filename: 
-        - data/raw/adrs/adr_PX_LAST_adjust_none.csv
-        - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
+      price_filename: data/raw/adrs/adr_PX_LAST_adjust_none.csv
       market_calendar: NYSE

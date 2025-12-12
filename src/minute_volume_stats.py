@@ -5,7 +5,6 @@ import datetime as dt
 import utils
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-
 if __name__ == '__main__':
     # Input and output paths
     trade_data_dir = os.path.join(SCRIPT_DIR, '../data/raw/adrs/tcbbo/exchange=XNAS.BASIC/')
@@ -35,12 +34,10 @@ if __name__ == '__main__':
     import glob
     ticker_dirs = glob.glob(os.path.join(trade_data_dir, 'ticker=*'))
     tickers = [os.path.basename(d).replace('ticker=', '') for d in ticker_dirs]
-    
     print(f"Processing {len(tickers)} tickers...")
     
     for ticker in tickers:
         print(f"Reading trade tick data for {ticker}...")
-        
         # Read only this ticker's data
         ticker_df = pd.read_parquet(
             trade_data_dir,

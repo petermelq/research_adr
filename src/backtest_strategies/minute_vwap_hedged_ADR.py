@@ -275,7 +275,6 @@ class minute_vwap_hedged_ADR(BaseStrategy):
                         )
             
         for etf_ticker, size in total_etf_shares.items():
-            
             trades.append(
                             Trade(
                                 timestamp=trading_day + pd.Timedelta('16:00:00'),

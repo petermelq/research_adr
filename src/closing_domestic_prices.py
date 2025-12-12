@@ -47,11 +47,14 @@ if __name__ == "__main__":
         stacked_price = pd.merge(stacked_price, adr_info[['id','exchange','currency','sh_per_adr']], left_on='ticker', right_on='id', how='left').drop(columns=['id'])
         stacked_price = pd.merge(stacked_price, close_time, on=['date','exchange'], how='left')
 
+        # FOR NOW, ONLY USING GBP EUR and JPY
+        stacked_price = stacked_price[stacked_price['currency'].isin(['GBp','EUR','JPY'])]
+
         stacked_price = pd.merge(stacked_price, fx_df[['timestamp','close','currency']].rename(columns={'close':'fx_rate'}), left_on=['close_time','currency'], right_on=['timestamp','currency'], how='left').drop(columns=['timestamp'])
         stacked_price['price_usd'] = stacked_price['price'] * stacked_price['fx_rate']
         stacked_price['adr_equivalent_price_usd'] = stacked_price['price_usd'] * stacked_price['sh_per_adr']
 
-        price_df = stacked_price.pivot(index='date', columns='ticker', values='adr_equivalent_price_usd')[tickers]
+        price_df = stacked_price.pivot(index='date', columns='ticker', values='adr_equivalent_price_usd')
         output_dir = os.path.dirname(output_filename)
         if not os.path.exists(output_dir):
             os.makedirs(output_dir, exist_ok=True)

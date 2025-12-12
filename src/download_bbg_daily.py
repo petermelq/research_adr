@@ -9,7 +9,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Download Bloomberg daily data')
     parser.add_argument('tickers_filename', type=str, help='Path to CSV file with tickers')
     parser.add_argument('output_filename', type=str, help='Output CSV filename')
-    parser.add_argument('--field', default='PX_LAST', type=str, help='Field to download from Bloomberg')
+    parser.add_argument('--field', type=str, help='Field to download from Bloomberg')
     parser.add_argument('--start_date', default=None, type=str, help='Start date for data download (YYYY-MM-DD). Defaults to params.yaml value')
     parser.add_argument('--end_date', default=None, type=str, help='End date for data download (YYYY-MM-DD). Defaults to params.yaml value')
     parser.add_argument('--tickers_columns', nargs='+', type=str, default=['ticker'], help='Column name in CSV containing tickers')
@@ -31,6 +31,7 @@ if __name__ == "__main__":
         start_date = (pd.to_datetime(start_date) - pd.Timedelta(days=args.pad_lookback + 1)).strftime('%Y-%m-%d')
 
     end_date = args.end_date if args.end_date else params['end_date']
+    
     data = blp.bdh(bbg_tickers,
                     [args.field],
                     start_date=start_date,

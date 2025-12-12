@@ -40,6 +40,10 @@ if __name__ == '__main__':
     time_futures_after_close['XMAD'] = pd.Timedelta('6min')
     time_futures_after_close['XHEL'] = pd.Timedelta('0min')
     time_futures_after_close['XDUB'] = pd.Timedelta('0min')
+    time_futures_after_close['XOSL'] = pd.Timedelta('5min')
+    time_futures_after_close['XSTO'] = pd.Timedelta('0min')
+    time_futures_after_close['XSWX'] = pd.Timedelta('1min')
+    time_futures_after_close['XCSE'] = pd.Timedelta('0min')
     betas = pd.read_csv(betas_filename, index_col=0)
 
     # Read ADR info
@@ -112,7 +116,7 @@ if __name__ == '__main__':
         
         # Get futures price at domestic close
         fut_domestic_close = merged_fut.groupby('date')[['domestic_close_time','close']].apply(
-            lambda x: x[x.index <= x['domestic_close_time'] + time_futures_after_close[exchange]].iloc[-1]['close']
+            lambda x: x[x.index <= x['domestic_close_time'] + time_futures_after_close[exchange]].iloc[-1]['close'] if (x.index <= x['domestic_close_time'] + time_futures_after_close[exchange]).any() else np.nan
         ).to_frame(name='fut_domestic_close')
         
         # Filter futures data to only timestamps after domestic close

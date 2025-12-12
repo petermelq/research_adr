@@ -35,11 +35,10 @@ if __name__ == '__main__':
     import glob
     ticker_dirs = glob.glob(os.path.join(trade_data_dir, 'ticker=*'))
     tickers = [os.path.basename(d).replace('ticker=', '') for d in ticker_dirs]
-    
     print(f"Processing {len(tickers)} tickers...")
+    
     for ticker in tickers:
         print(f"Reading trade tick data for {ticker}...")
-        
         # Read only this ticker's data
         ticker_df = pd.read_parquet(
             trade_data_dir,

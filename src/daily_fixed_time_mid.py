@@ -76,9 +76,10 @@ if __name__=='__main__':
             df = df.between_time(start_time, time_to_save)
         except:
             import IPython; IPython.embed()
+
         mid_df = df.groupby('date')['mid'].last()
-        
         all_mid[adr_ticker] = mid_df
+        
         print(f"Processed mid for {adr_ticker}")
 
     mid_df = pd.DataFrame(all_mid)

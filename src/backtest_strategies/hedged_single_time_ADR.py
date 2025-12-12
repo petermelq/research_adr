@@ -101,9 +101,9 @@ class hedged_single_time_ADR(BaseStrategy):
         self.hedge_dict = self.adr_info.set_index('adr_ticker')['market_etf_hedge'].to_dict()
 
     def normal_close_tickers(self, trading_day):
-        merged = pd.merge(self.adr_info[['adr','normal_close_time','exchange']],self.schedule.loc['2025-01-02'].rename('day_close_time'),left_on='exchange',right_index=True)
+        merged = pd.merge(self.adr_info[['adr','normal_close_time','exchange']],self.schedule.loc[trading_day].rename('day_close_time'),left_on='exchange',right_index=True)
         tickers = merged[merged['day_close_time'] == merged['normal_close_time']]['adr'].str.replace(' US Equity', '').tolist()
-        
+
         return tickers
     
     def ny_normal_close(self, trading_day):
@@ -120,7 +120,7 @@ class hedged_single_time_ADR(BaseStrategy):
                         etf_close: pd.DataFrame,
                         hedge_ratios: pd.DataFrame,
         ) -> List[Trade]:
-            
+        
         trading_tickers = self.normal_close_tickers(trading_day)
         
         if (not self.ny_normal_close(trading_day) or
@@ -157,13 +157,14 @@ class hedged_single_time_ADR(BaseStrategy):
             if pd.Timestamp('2025-06-25') in res.index:
                 res.loc[pd.Timestamp('2025-06-25'), ['BP','SHEL']] = 0.0
             
-            res = pd.concat([res.loc[:'2025-04-03'],res.loc['2025-04-09':]])
+            res = pd.concat([res.loc[:'2025-04-03'], res.loc['2025-04-09':]])
             res = res[adr_signal.columns] # making sure columns are aligned
             Cov = res.fillna(0).cov().values
             # import IPython; IPython.embed()
             # Cov = res.cov().values
 
             tickers = adr_signal.columns.tolist()
+            
             Cov = cp.psd_wrap(Cov)            
             alpha = adr_signal.loc[trading_day].clip(lower=-0.01, upper=0.01).fillna(0).values
             
@@ -174,7 +175,8 @@ class hedged_single_time_ADR(BaseStrategy):
 
             objective = cp.Maximize((alpha @ w) - self.var_penalty * cp.quad_form(w, Cov))
             adv_constraint = cp.multiply(cp.abs(w), 1/turnover) <= self.p_volume
-            constraints = [adv_constraint]
+            pos_constraint = cp.abs(w) <= 1e6
+            constraints = [adv_constraint, pos_constraint]
             
             prob = cp.Problem(objective, constraints)
             try:
@@ -195,7 +197,11 @@ class hedged_single_time_ADR(BaseStrategy):
             weights['hedge_weight'] = weights['weight'] * weights['hedge_ratio'] * (-1)
             etf_weights = weights.groupby('hedge_ticker')['hedge_weight'].sum()
             shares = (weights['weight']/weights['trade_price']).round()
-            etf_shares = (etf_weights/etf_trade_price.loc[trading_day]).round()
+            try:
+                etf_shares = (etf_weights/etf_trade_price.loc[trading_day]).round()
+            except:
+                import IPython; IPython.embed()
+                
             if shares.isnull().any():
                 import IPython; IPython.embed()
 
