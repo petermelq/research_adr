@@ -1,6 +1,6 @@
 output:
   formats: ["csv", "json"]
-  path: "./adr_results/1e-4_all_europe_pos_constraint_1430_2pct_exclusions/"
+  path: "./adr_results/skip_earnings/"
 
 strategy:
   module: src/backtest_strategies/hedged_single_time_ADR.py
@@ -10,6 +10,7 @@ strategy:
     adr_info_filename: data/raw/adr_info.csv
     vol_lookback: 100
     p_volume: 0.02
+    skip_earnings: True
 
 stock_split_file: data/raw/all_splits.csv
 

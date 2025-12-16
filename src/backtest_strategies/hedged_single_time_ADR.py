@@ -64,6 +64,7 @@ class hedged_single_time_ADR(BaseStrategy):
                 var_penalty: float,
                 p_volume: float,
                 vol_lookback: int,
+                skip_earnings: bool = False,
         ):
         """
         Initialize the minimal strategy.
@@ -99,6 +100,11 @@ class hedged_single_time_ADR(BaseStrategy):
         self.adr_info['tz'] = self.adr_info['exchange'].apply(get_tz)
         self.adr_info['adr_ticker'] = self.adr_info['adr'].str.replace(' US Equity','')
         self.hedge_dict = self.adr_info.set_index('adr_ticker')['market_etf_hedge'].to_dict()
+        self.skip_earnings = skip_earnings
+        if skip_earnings:
+            self.earnings = pd.read_csv(os.path.join(MODULE_DIR, '..', '..', 'data', 'raw', 'earnings.csv'), index_col=0, parse_dates=['announcement_date'])
+            adr_dict = self.adr_info.set_index('id')['adr'].to_dict()
+            self.earnings.index = [adr_dict[s].split()[0] for s in self.earnings.index]
 
     def normal_close_tickers(self, trading_day):
         merged = pd.merge(self.adr_info[['adr','normal_close_time','exchange']],self.schedule.loc[trading_day].rename('day_close_time'),left_on='exchange',right_index=True)
@@ -130,6 +136,10 @@ class hedged_single_time_ADR(BaseStrategy):
             return []
         else:
             cols = adr_trade_price.iloc[-1].dropna().index.intersection(adr_signal.columns)
+            if self.skip_earnings:
+                # removing earnings dates from calls
+                cols = [c for c in cols if c not in self.earnings[self.earnings['announcement_date'] == trading_day].index]
+
             adr_signal = adr_signal[cols]
             adr_signal = adr_signal.dropna(how='all',axis=1) # dropping columns that are all nan (adrs that don't exist yet)
             # import IPython; IPython.embed()
@@ -139,9 +149,9 @@ class hedged_single_time_ADR(BaseStrategy):
                                     left_index=True)
             
             merged_etf_prices = pd.merge(etf_trade_price.iloc[-self.vol_lookback-1:-1].stack().rename('trade_price'),
-                                    etf_close.iloc[-self.vol_lookback-1:-1].stack().rename('close'),
-                                    right_index=True,
-                                    left_index=True)
+                                            etf_close.iloc[-self.vol_lookback-1:-1].stack().rename('close'),
+                                            right_index=True,
+                                            left_index=True)
             
             adr_ret = ((merged_prices['close'] - merged_prices['trade_price'])/merged_prices['close']).rename('adr_ret')
             etf_ret = ((merged_etf_prices['close'] - merged_etf_prices['trade_price'])/merged_etf_prices['close'])

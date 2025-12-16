@@ -9,7 +9,8 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 if __name__ == '__main__':
     domestic_close_mid_filename = os.path.join(SCRIPT_DIR, '..', 'data', 'processed', 'adrs', 'adr_mid_at_ord_auction_adjust_none.csv')
-    afternoon_mid_close_time = os.path.join(SCRIPT_DIR, '..', 'data', 'processed', 'adrs', 'adr_daily_fixed_time_mid.csv')
+    ord_close_to_usd_filename = os.path.join(SCRIPT_DIR, '..', 'data', 'processed', 'ordinary', 'ord_close_to_usd_adr_PX_LAST_adjust_none.csv')
+    mean_premium_filename = os.path.join(SCRIPT_DIR, '..', 'data', 'processed', 'adrs', 'adr_open_mean_premium.csv')
     betas_filename = os.path.join(SCRIPT_DIR, '..', 'data', 'processed', 'models', 'ordinary_betas_index_only.csv')
     futures_dir = os.path.join(SCRIPT_DIR, '../data/processed/futures/converted_minute_bars')
     adr_nbbo_dir = os.path.join(SCRIPT_DIR, '../data/raw/adrs/bbo-1m/nbbo')
@@ -17,6 +18,30 @@ if __name__ == '__main__':
     futures_symbols_filename = os.path.join(SCRIPT_DIR, '../data/raw/futures_symbols.csv')
     output_dir = os.path.join(SCRIPT_DIR, f'..', 'data', 'processed', 'futures_only_signal')
 
+    # Read ADR info
+    adr_info = pd.read_csv(adr_info_filename)
+    adr_info['adr'] = adr_info['adr'].str.replace(' US Equity','')
+    adr_tickers = adr_info['adr'].tolist()
+    adr_dict = dict(
+        zip(adr_info["id"], adr_info["adr"].str.replace(' US Equity', ''))
+    )
+
+    # reading daily data
+    adr_domestic_close = pd.read_csv(domestic_close_mid_filename, index_col=0)
+    ord_close_to_usd = pd.read_csv(ord_close_to_usd_filename, index_col=0).rename(columns=adr_dict)
+    adr_mean_premium = pd.read_csv(mean_premium_filename, index_col=0)
+    
+    # using different adr baseline for asia
+    asia_tickers = adr_info[adr_info['country'].isin(['JAPAN','AUSTRALIA'])]['adr'].str.replace(' US Equity','').tolist()
+    ord_close_to_usd_asia = ord_close_to_usd[asia_tickers]
+    adr_mean_premium_asia = adr_mean_premium[asia_tickers]
+    stacked_prem_asia = adr_mean_premium_asia.stack().rename('mean_premium')
+    stacked_ord_close_asia = ord_close_to_usd_asia.stack().rename('ord_close_to_usd')
+    merged_asia = pd.concat([stacked_prem_asia, stacked_ord_close_asia], axis=1).dropna()
+    merged_asia['adr_theo_start'] = merged_asia['ord_close_to_usd'] * (1 + merged_asia['mean_premium'])
+    adr_theo_start_asia = merged_asia['adr_theo_start'].unstack()
+    adr_domestic_close = pd.concat([adr_domestic_close.drop(columns=asia_tickers), adr_theo_start_asia], axis=1).sort_index()
+    import IPython; IPython.embed()
     params = utils.load_params()
     
     start_date = params['start_date']
@@ -28,8 +53,6 @@ if __name__ == '__main__':
     df['date'] = df['timestamp'].dt.strftime('%Y-%m-%d')
     df = df.set_index('timestamp')
 
-    adr_domestic_close = pd.read_csv(domestic_close_mid_filename, index_col=0)
-    
     time_futures_after_close = {}
     time_futures_after_close['XLON'] = pd.Timedelta('6min')
     time_futures_after_close['XAMS'] = pd.Timedelta('6min')
@@ -44,12 +67,9 @@ if __name__ == '__main__':
     time_futures_after_close['XSTO'] = pd.Timedelta('0min')
     time_futures_after_close['XSWX'] = pd.Timedelta('1min')
     time_futures_after_close['XCSE'] = pd.Timedelta('0min')
+    time_futures_after_close['XTKS'] = pd.Timedelta('1min')
+    time_futures_after_close['XASX'] = pd.Timedelta('11min')
     betas = pd.read_csv(betas_filename, index_col=0)
-
-    # Read ADR info
-    adr_info = pd.read_csv(adr_info_filename)
-    adr_info['adr'] = adr_info['adr'].str.replace(' US Equity','')
-    adr_tickers = adr_info['adr'].tolist()
     
     # Create close times dataframe
     ny_close_times = (
@@ -73,7 +93,7 @@ if __name__ == '__main__':
     for ex in exchanges:
         close_times[ex] = (mcal.get_calendar(ex)
                             .schedule(start_date=start_date,
-                            end_date=end_date)['market_close']
+                                        end_date=end_date)['market_close']
                             .dt.tz_convert('America/New_York')
                             ).rename('domestic_close_time')
         close_times[ex].index = close_times[ex].index.astype(str)
@@ -81,13 +101,12 @@ if __name__ == '__main__':
     all_signal = {}
 
     futures_symbols = pd.read_csv(futures_symbols_filename)
-    merged_adr_info = adr_info.merge(futures_symbols,left_on='index_future_bbg',right_on='bloomberg_symbol')
+    merged_adr_info = adr_info.merge(futures_symbols, left_on='index_future_bbg', right_on='bloomberg_symbol')
     stock_to_index = merged_adr_info.set_index(merged_adr_info['adr'].str.replace(' US Equity', ''))['first_rate_symbol'].to_dict()
 
     # Create output directory
     os.makedirs(output_dir, exist_ok=True)
-
-    for ticker in adr_tickers:
+    for ticker in asia_tickers:#adr_tickers:
         exchange = exchange_dict[ticker]
         close_df = close_times[exchange]
         futures_symbol = stock_to_index.get(ticker)

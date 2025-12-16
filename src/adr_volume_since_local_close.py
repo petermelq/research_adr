@@ -52,6 +52,10 @@ if __name__ == '__main__':
         close_time['XSWX'] += pd.Timedelta('1min')  # Swiss auction time 1 minute after close
     if 'XCSE' in close_time.columns:
         close_time['XCSE'] += pd.Timedelta('0min')  # CSE auction time 0 minutes after close
+    if 'XTKS' in close_time.columns:
+        close_time['XTKS'] += pd.Timedelta('1min') # Tokyo auction time 1 minute after close
+    if 'XASX' in close_time.columns:
+        close_time['XASX'] += pd.Timedelta('11min') # ASX auction time 11 minutes after close
 
     ny_close = mcal.get_calendar('NYSE').schedule(start_date=start_date,
                                                   end_date=end_date)['market_close'].dt.tz_convert('America/New_York')

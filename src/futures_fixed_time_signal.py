@@ -47,6 +47,8 @@ if __name__ == '__main__':
     time_futures_after_close['XSTO'] = pd.Timedelta('0min')
     time_futures_after_close['XSWX'] = pd.Timedelta('1min')
     time_futures_after_close['XCSE'] = pd.Timedelta('0min')
+    time_futures_after_close['XTKS'] = pd.Timedelta('1min')
+    time_futures_after_close['XASX'] = pd.Timedelta('11min')
     
     betas = pd.read_csv(betas_filename, index_col=0)
 

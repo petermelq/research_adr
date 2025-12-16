@@ -188,6 +188,11 @@ if __name__ == '__main__':
         close_time['XSWX'] += pd.Timedelta('1min')
     if 'XCSE' in close_time.columns:
         close_time['XCSE'] += pd.Timedelta('0min')
+    if 'XASX' in close_time.columns:
+        close_time['XASX'] += pd.Timedelta('11min')
+    if 'XTKS' in close_time.columns:
+        close_time['XTKS'] += pd.Timedelta('1min')
+
     
     close_time = close_time.stack().reset_index(name='close_time').rename(columns={'level_0':'date','level_1':'exchange'})
     ticker_close = adr_info[['adr','exchange']].merge(close_time, on='exchange')
