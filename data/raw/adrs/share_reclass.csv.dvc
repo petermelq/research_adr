@@ -1,0 +1,5 @@
+outs:
+- md5: 5fab0660d954290fae62234bf6bcfe8d
+  size: 761
+  hash: md5
+  path: share_reclass.csv

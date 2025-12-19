@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 from linux_xbbg import blp
 import pandas_market_calendars as mcal
+from .closing_domestic_prices import get_sh_per_adr
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
 if __name__ == "__main__":
@@ -41,15 +42,29 @@ if __name__ == "__main__":
         fx_df = pd.concat(all_fx_data, ignore_index=True)
         
         stacked_price = local_price_df.stack().reset_index(name='price').rename(columns={'level_0':'date','level_1':'ticker'})
-        stacked_price = pd.merge(stacked_price, adr_info[['id','exchange','currency','sh_per_adr']], left_on='ticker', right_on='id', how='left').drop(columns=['id'])
+
+        if adjust == 'none':
+            for_adjusted = False
+        else:
+            for_adjusted = True
+        
+        sh_per_adr = get_sh_per_adr(start_date, end_date, for_adjusted=for_adjusted)
+        
+        sh_per_adr = sh_per_adr.rename(columns=adr_info.set_index(adr_info['adr'].str.replace(' US Equity',''))['id'].to_dict())
+        sh_per_adr = sh_per_adr.stack().to_frame(name='sh_per_adr').reset_index(names=['date','ticker'])
+        
+        stacked_price = pd.merge(stacked_price, sh_per_adr, on=['date','ticker'], how='left')
+        stacked_price = pd.merge(stacked_price, adr_info[['id','exchange','currency']],
+                                left_on='ticker', right_on='id', how='left').drop(columns=['id'])
         stacked_price = pd.merge(stacked_price, open_time, on=['date','exchange'], how='left')
 
-        # FOR NOW, ONLY USING GBP EUR JPY AUD 
+        # FOR NOW, ONLY USING GBP EUR JPY AUD
         stacked_price = stacked_price[stacked_price['currency'].isin(['GBp','EUR','JPY','AUD'])]
 
         stacked_price = pd.merge(stacked_price, fx_df[['timestamp','open','currency']].rename(columns={'open':'fx_rate'}), left_on=['open_time','currency'], right_on=['timestamp','currency'], how='left').drop(columns=['timestamp'])
         stacked_price['price_usd'] = stacked_price['price'] * stacked_price['fx_rate']
         stacked_price['adr_equivalent_price_usd'] = stacked_price['price_usd'] * stacked_price['sh_per_adr']
+
         price_df = stacked_price.pivot(index='date', columns='ticker', values='adr_equivalent_price_usd')
         output_dir = os.path.dirname(output_filename)
         if not os.path.exists(output_dir):

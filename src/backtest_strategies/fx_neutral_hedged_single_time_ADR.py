@@ -55,7 +55,7 @@ def get_tz(exchange):
     
 #     return tickers
 
-class hedged_single_time_ADR(BaseStrategy):
+class fx_neutral_hedged_single_time_ADR(BaseStrategy):
     """
     Simulates a ADR passive trading strategy
     """
@@ -64,7 +64,6 @@ class hedged_single_time_ADR(BaseStrategy):
                 var_penalty: float,
                 p_volume: float,
                 vol_lookback: int,
-                turnover_lookback: int,
                 skip_earnings: bool = False,
         ):
         """
@@ -102,7 +101,6 @@ class hedged_single_time_ADR(BaseStrategy):
         self.adr_info['adr_ticker'] = self.adr_info['adr'].str.replace(' US Equity','')
         self.hedge_dict = self.adr_info.set_index('adr_ticker')['market_etf_hedge'].to_dict()
         self.skip_earnings = skip_earnings
-        self.turnover_lookback = turnover_lookback
         if skip_earnings:
             self.earnings = pd.read_csv(os.path.join(MODULE_DIR, '..', '..', 'data', 'raw', 'earnings.csv'), index_col=0, parse_dates=['announcement_date'])
             adr_dict = self.adr_info.set_index('id')['adr'].to_dict()
@@ -180,8 +178,8 @@ class hedged_single_time_ADR(BaseStrategy):
             Cov = cp.psd_wrap(Cov)            
             alpha = adr_signal.loc[trading_day].clip(lower=-0.01, upper=0.01).fillna(0).values
             
-            turnover = turnover_df.loc[:trading_day, tickers].iloc[-self.turnover_lookback:-1].mean().fillna(1).values
-            
+            turnover = turnover_df.loc[trading_day, tickers].fillna(1).values
+
             N = Cov.shape[0]
             w = cp.Variable(N)
 

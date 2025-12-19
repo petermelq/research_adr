@@ -3,12 +3,44 @@ import numpy as np
 import pandas as pd
 from linux_xbbg import blp
 import pandas_market_calendars as mcal
+from . import utils
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
-if __name__ == "__main__":
-    bloomberg_var = 'PX_LAST'
-    adjust = 'none'
+def get_sh_per_adr(start_date, end_date, for_adjusted):
+    adr_info_path = os.path.join(script_dir, '..', 'data', 'raw', 'adr_info.csv')
+    adr_info = pd.read_csv(adr_info_path)
+    cbday = utils.get_market_business_days('NYSE')
+    idx = pd.date_range(start=start_date, end=end_date, freq=cbday)
+    sh_per_adr = pd.DataFrame({k:[v]*len(idx) for k,v in adr_info.set_index('adr')['sh_per_adr'].to_dict().items()},index=idx)
 
+    if for_adjusted:
+        reclass_path = os.path.join(script_dir, '..', 'data', 'raw', 'adrs', 'share_reclass.csv')
+        reclass_df = pd.read_csv(reclass_path)
+        reclass_df['Effective Date'] = pd.to_datetime(reclass_df['Effective Date'])
+        reclass_df = reclass_df[(reclass_df['Effective Date'] >= pd.to_datetime(start_date)) &
+                                (reclass_df['Effective Date'] <= pd.to_datetime(end_date))].sort_values('Effective Date', ascending=False)
+
+        for _,row in reclass_df.iterrows():
+            ticker = row['Security ID']
+            old_ratio = row['Old_Ratio']
+            sh_per_adr.loc[sh_per_adr.index < row['Effective Date'], ticker] = old_ratio
+    else:
+        split_path = os.path.join(script_dir, '..', 'data', 'raw', 'all_splits.csv')
+        split_df = pd.read_csv(split_path, index_col=0, parse_dates=['ex_date']).sort_values('ex_date', ascending=False)
+        split_df = split_df[(split_df['ex_date'] >= pd.to_datetime(start_date)) & (split_df['ex_date'] <= pd.to_datetime(end_date))]
+        for ticker,row in split_df.iterrows():
+            ratio = row['dvd_amt']
+            if ticker in adr_info['adr'].values: # adr split
+                sh_per_adr.loc[sh_per_adr.index < row['ex_date'], ticker] = sh_per_adr.loc[sh_per_adr.index < row['ex_date'], ticker] * ratio
+            elif ticker in adr_info['id'].values: # ordinary split
+                adr_ticker = adr_info[adr_info['id'] == ticker]['adr'].values[0]
+                sh_per_adr.loc[sh_per_adr.index < row['ex_date'], adr_ticker] = sh_per_adr.loc[sh_per_adr.index < row['ex_date'], adr_ticker] / ratio
+
+    sh_per_adr.columns = [col.replace(' US Equity','') for col in sh_per_adr.columns]
+
+    return sh_per_adr
+
+if __name__ == "__main__":
     adr_info_filename = os.path.join(script_dir, '..', 'data', 'raw', 'adr_info.csv')
     fx_dir = os.path.join(script_dir, '..', 'data', 'raw', 'currencies', 'minute_bars')
 
@@ -44,7 +76,17 @@ if __name__ == "__main__":
         fx_df = pd.concat(all_fx_data, ignore_index=True)
 
         stacked_price = local_price_df.stack().reset_index(name='price').rename(columns={'level_0':'date','level_1':'ticker'})
-        stacked_price = pd.merge(stacked_price, adr_info[['id','exchange','currency','sh_per_adr']], left_on='ticker', right_on='id', how='left').drop(columns=['id'])
+        if adjust == 'none':
+            for_adjusted = False
+        else:
+            for_adjusted = True
+        
+        sh_per_adr = get_sh_per_adr(start_date, end_date, for_adjusted=for_adjusted)
+        sh_per_adr = sh_per_adr.rename(columns=adr_info.set_index(adr_info['adr'].str.replace(' US Equity',''))['id'].to_dict())
+        sh_per_adr = sh_per_adr.stack().to_frame(name='sh_per_adr').reset_index(names=['date','ticker'])
+        
+        stacked_price = pd.merge(stacked_price, sh_per_adr, on=['date','ticker'], how='left')
+        stacked_price = pd.merge(stacked_price, adr_info[['id','exchange','currency']], left_on='ticker', right_on='id', how='left').drop(columns=['id'])
         stacked_price = pd.merge(stacked_price, close_time, on=['date','exchange'], how='left')
 
         # FOR NOW, ONLY USING GBP EUR JPY AUD

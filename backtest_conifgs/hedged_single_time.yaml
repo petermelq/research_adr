@@ -1,6 +1,6 @@
 output:
   formats: ["csv", "json"]
-  path: "./adr_results/skip_earnings/"
+  path: "./adr_results/turnover_lookback/"
 
 strategy:
   module: src/backtest_strategies/hedged_single_time_ADR.py
@@ -10,7 +10,8 @@ strategy:
     adr_info_filename: data/raw/adr_info.csv
     vol_lookback: 100
     p_volume: 0.02
-    skip_earnings: True
+    skip_earnings: False
+    turnover_lookback: 90
 
 stock_split_file: data/raw/all_splits.csv
 
@@ -53,7 +54,7 @@ initial_positions: {}
 
 # Date range for backtest
 start_date: "2019-10-02"
-end_date: "2025-11-07"
+end_date: "2025-12-16"
 
 # Symbols to trade
 symbols:
@@ -104,6 +105,17 @@ symbols:
   - NVS
   - NVO
   - UBS
+  - TAK
+  - SONY
+  - TM
+  - HMC
+  - MUFG
+  - SMFG
+  - MFG
+  - BHP
+  - WDS
+  - EWA
+  - EWJ
 
 market_calendar: NYSE
 

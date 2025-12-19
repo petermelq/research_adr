@@ -220,6 +220,7 @@ if __name__ == '__main__':
     merged['adj_price'] = merged['price'] * merged['cum_adj']
     adj_result_df = merged.pivot(index='date', columns='ticker', values='adj_price')
     
+    import IPython; IPython.embed()
     # Save results
     if result_df.shape[0] > 0:
         output_file = os.path.join(__script_dir__, 

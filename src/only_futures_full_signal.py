@@ -38,10 +38,9 @@ if __name__ == '__main__':
     stacked_prem_asia = adr_mean_premium_asia.stack().rename('mean_premium')
     stacked_ord_close_asia = ord_close_to_usd_asia.stack().rename('ord_close_to_usd')
     merged_asia = pd.concat([stacked_prem_asia, stacked_ord_close_asia], axis=1).dropna()
-    merged_asia['adr_theo_start'] = merged_asia['ord_close_to_usd'] * (1 + merged_asia['mean_premium'])
+    merged_asia['adr_theo_start'] = merged_asia['ord_close_to_usd']# * (1 + merged_asia['mean_premium'])
     adr_theo_start_asia = merged_asia['adr_theo_start'].unstack()
     adr_domestic_close = pd.concat([adr_domestic_close.drop(columns=asia_tickers), adr_theo_start_asia], axis=1).sort_index()
-    import IPython; IPython.embed()
     params = utils.load_params()
     
     start_date = params['start_date']
@@ -106,7 +105,7 @@ if __name__ == '__main__':
 
     # Create output directory
     os.makedirs(output_dir, exist_ok=True)
-    for ticker in asia_tickers:#adr_tickers:
+    for ticker in adr_tickers:
         exchange = exchange_dict[ticker]
         close_df = close_times[exchange]
         futures_symbol = stock_to_index.get(ticker)
@@ -167,7 +166,6 @@ if __name__ == '__main__':
         
         # Calculate signal: futures return * beta - ADR return
         merged_all['signal'] = merged_all['fut_ret'] * merged_all['beta'] - merged_all['adr_ret']
-        
         merged_all['date'] = merged_all.index.strftime('%Y-%m-%d')
 
         # Keep only relevant columns
@@ -178,7 +176,8 @@ if __name__ == '__main__':
         # Save this ticker's data as parquet
         ticker_output_path = os.path.join(output_dir, f'ticker={ticker}')
         os.makedirs(ticker_output_path, exist_ok=True)
-        signal_df.to_parquet(ticker_output_path, partition_cols=['date'])
+        output_filename = os.path.join(ticker_output_path, f'data.parquet')
+        signal_df.to_parquet(output_filename)
         
         print(f"Processed and saved signal for {ticker}")
 
