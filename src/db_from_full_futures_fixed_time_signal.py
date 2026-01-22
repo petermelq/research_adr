@@ -8,15 +8,9 @@ import utils
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Process full futures signals to fixed time signals.')
-    parser.add_argument('signal_dir', type=str, help='Directory containing full futures signals')
-    parser.add_argument('output_filename', type=str, help='Output filename for fixed time signals')
-    args = parser.parse_args()
-    
-    signal_dir = args.signal_dir
-    output_filename = args.output_filename
-    
+    signal_dir = os.path.join(SCRIPT_DIR, '../data/processed/db_futures_only_signal')
     adr_info_filename = os.path.join(SCRIPT_DIR, '..', 'data', 'raw', 'adr_info.csv')
+    output_filename = os.path.join(SCRIPT_DIR, f'..', 'data', 'processed', 'fixed_time_signal.csv')
 
     # Read ADR info
     adr_info = pd.read_csv(adr_info_filename)

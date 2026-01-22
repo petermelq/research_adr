@@ -1,6 +1,6 @@
 output:
   formats: ["csv", "json"]
-  path: "./adr_results/recent/"
+  path: "./adr_results/ohlcv_db_data/"
 
 strategy:
   module: src/backtest_strategies/hedged_single_time_ADR.py
@@ -21,6 +21,10 @@ data_loaders:
     csv_path: data/processed/adrs/adr_daily_fixed_time_mid.csv
     start_date: 2018-05-01
   adr_signal:
+    class: HistoricalDailyCSVDataLoader
+    csv_path: data/processed/db_fixed_time_signal.csv #/home/pmalonis/adr_trade/data/processed/brit_adr_futures_fixed_time_signal_time=13:00:00.csv 
+    start_date: 2018-05-01
+  adr_signal_for_vol:
     class: HistoricalDailyCSVDataLoader
     csv_path: data/processed/fixed_time_signal.csv #/home/pmalonis/adr_trade/data/processed/brit_adr_futures_fixed_time_signal_time=13:00:00.csv 
     start_date: 2018-05-01

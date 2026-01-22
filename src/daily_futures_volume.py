@@ -17,10 +17,12 @@ if __name__ == '__main__':
     all_volume_dfs = {}
     start_year = int(pd.Timestamp(start_date).strftime('%y'))
     end_year = int(pd.Timestamp(end_date).strftime('%y')) + 1
+
     for code in codes:
-        volume_df = blp.bdh([code + month + str(year) + ' Index'
-                for month in MONTH_CODES 
-                for year in range(start_year, end_year + 1)],
+        symbols = [code + month + str(year) + ' Index'
+                    for month in MONTH_CODES 
+                    for year in range(start_year, end_year + 1)]
+        volume_df = blp.bdh(symbols,
                 'PX_VOLUME',
                 start_date,
                 end_date,

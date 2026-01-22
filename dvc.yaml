@@ -56,30 +56,51 @@ stages:
           persist: true
 
   download_eurex_bbo-1m:
-    cmd: python -m data_tools.cli.batch_download_to_parquet_with_append --tickers FESX FESB FXXP FSMI FDAX --datasets XEUR.EOBI --futures --schema=bbo-1m --start_date=2025-03-10 --end_date=2025-12-17 --output_dir=data/raw/futures/bbo-1m/exchange=XEUR.EOBI --partition_period=none
+    cmd: python -m data_tools.cli.batch_download_to_parquet_with_append --tickers FESX FESB FXXP --datasets XEUR.EOBI --futures --schema=bbo-1m --start_date=2025-03-10 --end_date=${end_date} --output_dir=data/raw/futures/bbo-1m/exchange=XEUR.EOBI --partition_period=none
     params:
-      - start_date
       - end_date
     outs:
       - data/raw/futures/bbo-1m/exchange=XEUR.EOBI:
           persist: true
 
   download_ice_bbo-1m:
-    cmd: python -m data_tools.cli.batch_download_to_parquet_with_append --tickers Z --datasets IFLL.IMPACT --futures --schema=bbo-1m --start_date=2025-03-10 --end_date=2025-12-17 --output_dir=data/raw/futures/bbo-1m/exchange=IFLL.IMPACT --partition_period=none
+    cmd: python -m data_tools.cli.batch_download_to_parquet_with_append --tickers Z --datasets IFLL.IMPACT --futures --schema=bbo-1m --start_date=2025-03-10 --end_date=${end_date} --output_dir=data/raw/futures/bbo-1m/exchange=IFLL.IMPACT --partition_period=none
     params:
-      - start_date
       - end_date
     outs:
       - data/raw/futures/bbo-1m/exchange=IFLL.IMPACT:
           persist: true
 
   download_cme_bbo-1m:
-    cmd: python -m data_tools.cli.batch_download_to_parquet_with_append --tickers NIY --datasets GLBX.MDP3 --futures --schema=bbo-1m --start_date=2025-03-10 --end_date=2025-12-17 --output_dir=data/raw/futures/bbo-1m/exchange=GLBX.MDP3 --partition_period=none
+    cmd: python -m data_tools.cli.batch_download_to_parquet_with_append --tickers NIY --datasets GLBX.MDP3 --futures --schema=bbo-1m --start_date=2025-03-10 --end_date=${end_date} --output_dir=data/raw/futures/bbo-1m/exchange=GLBX.MDP3 --partition_period=none
     params:
-      - start_date
       - end_date
     outs:      
       - data/raw/futures/bbo-1m/exchange=GLBX.MDP3:
+          persist: true
+
+  download_eurex_ohlcv-1m:
+    cmd: python -m data_tools.cli.batch_download_to_parquet_with_append --tickers FESX FESB FXXP FSMI FDAX --datasets XEUR.EOBI --futures --schema=ohlcv-1m --start_date=2025-03-10 --end_date=${end_date} --output_dir=data/raw/futures/ohlcv-1m/exchange=XEUR.EOBI --partition_period=none
+    params:
+      - end_date
+    outs:
+      - data/raw/futures/ohlcv-1m/exchange=XEUR.EOBI:
+          persist: true
+
+  download_ice_ohlcv-1m:
+    cmd: python -m data_tools.cli.batch_download_to_parquet_with_append --tickers Z --datasets IFLL.IMPACT --futures --schema=ohlcv-1m --start_date=2025-03-10 --end_date=${end_date} --output_dir=data/raw/futures/ohlcv-1m/exchange=IFLL.IMPACT --partition_period=none
+    params:
+      - end_date
+    outs:
+      - data/raw/futures/ohlcv-1m/exchange=IFLL.IMPACT:
+          persist: true
+
+  download_cme_ohlcv-1m:
+    cmd: python -m data_tools.cli.batch_download_to_parquet_with_append --tickers NIY --datasets GLBX.MDP3 --futures --schema=ohlcv-1m --start_date=2025-03-10 --end_date=${end_date} --output_dir=data/raw/futures/ohlcv-1m/exchange=GLBX.MDP3 --partition_period=none
+    params:
+      - end_date
+    outs:
+      - data/raw/futures/ohlcv-1m/exchange=GLBX.MDP3:
           persist: true
 
   # nbbo creation from 1min data
@@ -362,6 +383,28 @@ stages:
     outs:
       - data/raw/currencies/minute_bars/JPYUSD_full_1min.txt
 
+  active_futures_series:
+    cmd: python src/active_futures_series.py data/raw/futures/bbo-1m data/processed/futures/active/bbo-1m
+    deps:
+      - src/active_futures_series.py
+      - data/raw/futures_symbols.csv
+      - data/raw/futures/bbo-1m
+      - data/raw/adr_info.csv
+      - data/raw/futures/daily_futures_volume.parquet
+    outs:
+      - data/processed/futures/active/bbo-1m
+
+  ohlcv-1m_active_futures_series:
+    cmd: python src/active_futures_series.py data/raw/futures/ohlcv-1m data/processed/futures/active/ohlcv-1m
+    deps:
+      - src/active_futures_series.py
+      - data/raw/futures_symbols.csv
+      - data/raw/futures/ohlcv-1m
+      - data/raw/adr_info.csv
+      - data/raw/futures/daily_futures_volume.parquet
+    outs:
+      - data/processed/futures/active/ohlcv-1m
+
   usd_index_futures:
     cmd: python src/usd_index_futures.py
     deps:
@@ -384,6 +427,36 @@ stages:
       - data/processed/futures/converted_minute_bars/symbol=FTI/FTI_close_to_usd_1min.parquet
       - data/processed/futures/converted_minute_bars/symbol=FCE/FCE_close_to_usd_1min.parquet
       - data/processed/futures/converted_minute_bars/symbol=NIY/NIY_close_to_usd_1min.parquet
+
+  bbo_usd_index_futures:
+    cmd: python src/bbo_usd_index_futures.py
+    deps:
+      - src/bbo_usd_index_futures.py
+      - data/processed/futures/active/bbo-1m/exchange=IFLL.IMPACT/code=Z/
+      - data/processed/futures/active/bbo-1m/exchange=XEUR.EOBI/code=FESX/
+      - data/processed/futures/active/bbo-1m/exchange=GLBX.MDP3/code=NIY/
+      - data/raw/currencies/minute_bars/GBPUSD_full_1min.txt
+      - data/raw/currencies/minute_bars/EURUSD_full_1min.txt
+      - data/raw/currencies/minute_bars/JPYUSD_full_1min.txt
+    outs:
+      - data/processed/futures/converted_bbo/symbol=FTUK/FTUK_close_to_usd_1min.parquet
+      - data/processed/futures/converted_bbo/symbol=FESX/FESX_close_to_usd_1min.parquet
+      - data/processed/futures/converted_bbo/symbol=NIY/NIY_close_to_usd_1min.parquet
+
+  ohlcv-1m_usd_index_futures:
+    cmd: python src/ohlcv_usd_index_futures.py data/processed/futures/active/ohlcv-1m data/processed/futures/converted_ohlcv
+    deps:
+      - src/ohlcv_usd_index_futures.py
+      - data/processed/futures/active/ohlcv-1m/exchange=IFLL.IMPACT/code=Z/
+      - data/processed/futures/active/ohlcv-1m/exchange=XEUR.EOBI/code=FESX/
+      - data/processed/futures/active/ohlcv-1m/exchange=GLBX.MDP3/code=NIY/
+      - data/raw/currencies/minute_bars/GBPUSD_full_1min.txt
+      - data/raw/currencies/minute_bars/EURUSD_full_1min.txt
+      - data/raw/currencies/minute_bars/JPYUSD_full_1min.txt
+    outs:
+      - data/processed/futures/converted_ohlcv/symbol=FTUK/FTUK_close_to_usd_1min.parquet
+      - data/processed/futures/converted_ohlcv/symbol=FESX/FESX_close_to_usd_1min.parquet
+      - data/processed/futures/converted_ohlcv/symbol=NIY/NIY_close_to_usd_1min.parquet
 
   adr_daily_mid:
     cmd: python -m src.daily_fixed_time_mid --nbbo_dir=data/raw/adrs/bbo-1m/nbbo --time_to_save_hrs=${fixed_trade_time_hours} --time_to_save_min=${fixed_trade_time_min} --tickers=data/raw/adr_info.csv --tickers_columns=adr --output_filename=data/processed/adrs/adr_daily_fixed_time_mid.csv
@@ -459,7 +532,7 @@ stages:
   #     - data/processed/fixed_time_signal.csv
 
   fixed_time_signal:
-    cmd: python src/from_full_futures_fixed_time_signal.py
+    cmd: python src/from_full_futures_fixed_time_signal.py data/processed/futures_only_signal data/processed/fixed_time_signal.csv
     deps:
       - src/from_full_futures_fixed_time_signal.py
       - data/processed/adrs/adr_mid_at_ord_auction_adjust_none.csv
@@ -477,8 +550,28 @@ stages:
     outs:
       - data/processed/fixed_time_signal.csv
 
+  db_fixed_time_signal:
+    cmd: python src/from_full_futures_fixed_time_signal.py data/processed/db_futures_only_signal data/processed/db_fixed_time_signal.csv
+    deps:
+      - src/from_full_futures_fixed_time_signal.py
+      - data/processed/adrs/adr_mid_at_ord_auction_adjust_none.csv
+      - data/processed/adrs/adr_daily_fixed_time_mid.csv
+      - data/processed/models/ordinary_betas_index_only.csv
+      - data/processed/futures/converted_bbo
+      #- data/processed/futures/converted_ohlcv
+      - data/processed/db_futures_only_signal/
+      - data/raw/adr_info.csv
+      - data/raw/futures_symbols.csv
+    params:
+      - fixed_trade_time_hours
+      - fixed_trade_time_min
+      - start_date
+      - end_date
+    outs:
+      - data/processed/db_fixed_time_signal.csv
+
   only_futures_full_signal:
-    cmd: python src/only_futures_full_signal.py
+    cmd: python src/only_futures_full_signal.py data/processed/futures/converted_minute_bars data/processed/futures_only_signal
     deps:
       - src/only_futures_full_signal.py
       - data/processed/adrs/adr_open_mean_premium.csv
@@ -496,6 +589,26 @@ stages:
       - end_date
     outs:
       - data/processed/futures_only_signal/
+
+  db_only_futures_full_signal:
+    cmd: python src/only_futures_full_signal.py data/processed/futures/converted_ohlcv data/processed/db_futures_only_signal
+    deps:
+      - src/only_futures_full_signal.py
+      - data/processed/adrs/adr_open_mean_premium.csv
+      - data/processed/ordinary/ord_close_to_usd_adr_PX_LAST_adjust_none.csv
+      - data/processed/adrs/adr_mid_at_ord_auction_adjust_none.csv
+      - data/processed/models/ordinary_betas_index_only.csv
+      - data/processed/futures/converted_ohlcv
+      - data/raw/adrs/bbo-1m/nbbo
+      - data/raw/adr_info.csv
+      - data/raw/futures_symbols.csv
+    params:
+      - fixed_trade_time_hours
+      - fixed_trade_time_min
+      - start_date
+      - end_date
+    outs:
+      - data/processed/db_futures_only_signal/
 
   stock_splits:
     cmd: python -m src.get_splits
@@ -580,6 +693,21 @@ stages:
     deps:
       - src/backtest_strategies/single_time_ADR.py
       - backtest_conifgs/hedged_single_time.yaml
+      - data/processed/fixed_time_signal.csv
+      - data/processed/adrs/adr_daily_fixed_time_mid.csv
+      - data/raw/adrs/adr_PX_LAST_adjust_none.csv
+      - data/raw/adrs/adr_turnover.csv
+      - data/raw/all_splits.csv
+      - data/processed/etfs/market/market_etf_daily_fixed_time_mid.csv
+      - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
+      - data/processed/market_etf_hedge_ratios.csv
+
+  db_hedged_backtest_fixed_time:
+    cmd: backtester_run backtest_conifgs/db_hedged_single_time.yaml
+    deps:
+      - src/backtest_strategies/single_time_ADR.py
+      - backtest_conifgs/db_hedged_single_time.yaml
+      - data/processed/db_fixed_time_signal.csv
       - data/processed/fixed_time_signal.csv
       - data/processed/adrs/adr_daily_fixed_time_mid.csv
       - data/raw/adrs/adr_PX_LAST_adjust_none.csv

@@ -8,21 +8,15 @@ import utils
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Process futures and ADR data to compute signals.')
-    parser.add_argument('futures_dir', type=str, help='Directory containing futures minute bar data.')
-    parser.add_argument('output_dir', type=str, help='Directory to save output data.')
-    args = parser.parse_args()
-
-    futures_dir = args.futures_dir
-    output_dir = args.output_dir
-
     domestic_close_mid_filename = os.path.join(SCRIPT_DIR, '..', 'data', 'processed', 'adrs', 'adr_mid_at_ord_auction_adjust_none.csv')
     ord_close_to_usd_filename = os.path.join(SCRIPT_DIR, '..', 'data', 'processed', 'ordinary', 'ord_close_to_usd_adr_PX_LAST_adjust_none.csv')
     mean_premium_filename = os.path.join(SCRIPT_DIR, '..', 'data', 'processed', 'adrs', 'adr_open_mean_premium.csv')
     betas_filename = os.path.join(SCRIPT_DIR, '..', 'data', 'processed', 'models', 'ordinary_betas_index_only.csv')
+    futures_dir = os.path.join(SCRIPT_DIR, '../data/processed/futures/converted_bbo')
     adr_nbbo_dir = os.path.join(SCRIPT_DIR, '../data/raw/adrs/bbo-1m/nbbo')
     adr_info_filename = os.path.join(SCRIPT_DIR, '..', 'data', 'raw', 'adr_info.csv')
     futures_symbols_filename = os.path.join(SCRIPT_DIR, '../data/raw/futures_symbols.csv')
+    output_dir = os.path.join(SCRIPT_DIR, f'..', 'data', 'processed', 'db_futures_only_signal')
 
     # Read ADR info
     adr_info = pd.read_csv(adr_info_filename)
@@ -53,9 +47,8 @@ if __name__ == '__main__':
     end_date = params['end_date']
     print("Reading Futures data...")
     df = pd.read_parquet(futures_dir,
-                    filters=[('timestamp','>=', pd.Timestamp(start_date, tz='America/New_York'))],
-                    columns=['timestamp','symbol','close'])
-    
+                        filters=[('timestamp','>=', pd.Timestamp(start_date, tz='America/New_York'))],
+                        columns=['timestamp','symbol','close'])
     df['date'] = df['timestamp'].dt.strftime('%Y-%m-%d')
     df = df.set_index('timestamp')
 
