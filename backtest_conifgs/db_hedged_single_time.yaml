@@ -1,6 +1,6 @@
 output:
   formats: ["csv", "json"]
-  path: "./adr_results/ohlcv_db_data/"
+  path: "./adr_results/bbo_db_data_updated/"
 
 strategy:
   module: src/backtest_strategies/hedged_single_time_ADR.py

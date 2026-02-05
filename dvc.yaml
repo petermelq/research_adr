@@ -1,4 +1,15 @@
 stages:
+  download_russell1000_frd_ohlcv-1m:
+    cmd: python -m data_tools.cli.frd_download_to_parquet_with_append --tickers=data/raw/russell1000_tickers.csv --tickers_columns=ticker --asset_types stock etf --start_date=${frd_start_date} --end_date=${end_date} --output_dir=data/raw/russell1000/ohlcv-1m --timeframe=1min --adjustment=UNADJUSTED --partition_period=none
+    deps:
+      - data/raw/russell1000_tickers.csv
+    params:
+      - frd_start_date
+      - end_date
+    outs:
+      - data/raw/russell1000/ohlcv-1m:
+          persist: true
+
   download_adr_tcbbo:
     cmd: python -m data_tools.cli.batch_download_to_parquet_with_append --schema=tcbbo --datasets XNAS.BASIC --tickers=data/raw/adr_info.csv --tickers_columns=adr --output_dir=data/raw/adrs/tcbbo --start_date=2024-07-01 --end_date=${end_date} --partition_period=date
     deps:
@@ -591,14 +602,14 @@ stages:
       - data/processed/futures_only_signal/
 
   db_only_futures_full_signal:
-    cmd: python src/only_futures_full_signal.py data/processed/futures/converted_ohlcv data/processed/db_futures_only_signal
+    cmd: python src/only_futures_full_signal.py data/processed/futures/converted_bbo data/processed/db_futures_only_signal
     deps:
       - src/only_futures_full_signal.py
       - data/processed/adrs/adr_open_mean_premium.csv
       - data/processed/ordinary/ord_close_to_usd_adr_PX_LAST_adjust_none.csv
       - data/processed/adrs/adr_mid_at_ord_auction_adjust_none.csv
       - data/processed/models/ordinary_betas_index_only.csv
-      - data/processed/futures/converted_ohlcv
+      - data/processed/futures/converted_bbo
       - data/raw/adrs/bbo-1m/nbbo
       - data/raw/adr_info.csv
       - data/raw/futures_symbols.csv
