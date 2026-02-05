@@ -1,5 +1,7 @@
 [core]
     autostage = true
     remote = s3_remote
+[cache]
+    type = hardlink
 ['remote "s3_remote"']
     url = s3://peterm-data/dvc_caches/research_adr
