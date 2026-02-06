@@ -10,6 +10,18 @@ stages:
       - data/raw/russell1000/ohlcv-1m:
           persist: true
 
+  russell1000_close_at_exchange_auction:
+    cmd: python src/russell1000_close_at_exchange_auction.py
+    deps:
+      - src/russell1000_close_at_exchange_auction.py
+      - data/raw/russell1000/ohlcv-1m
+      - data/raw/close_time_offsets.csv
+    params:
+      - frd_start_date
+      - end_date
+    outs:
+      - data/processed/russell1000/close_at_exchange_auction
+
   download_adr_tcbbo:
     cmd: python -m data_tools.cli.batch_download_to_parquet_with_append --schema=tcbbo --datasets XNAS.BASIC --tickers=data/raw/adr_info.csv --tickers_columns=adr --output_dir=data/raw/adrs/tcbbo --start_date=2024-07-01 --end_date=${end_date} --partition_period=date
     deps:

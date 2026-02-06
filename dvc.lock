@@ -1775,3 +1775,29 @@ stages:
       md5: f4c4c3157585ac5224c41fe4b74507d6.dir
       size: 2864795964
       nfiles: 996
+  russell1000_close_at_exchange_auction:
+    cmd: python src/russell1000_close_at_exchange_auction.py
+    deps:
+    - path: data/raw/close_time_offsets.csv
+      hash: md5
+      md5: 558511deb7181398359509dd20207a24
+      size: 170
+    - path: data/raw/russell1000/ohlcv-1m
+      hash: md5
+      md5: f4c4c3157585ac5224c41fe4b74507d6.dir
+      size: 2864795964
+      nfiles: 996
+    - path: src/russell1000_close_at_exchange_auction.py
+      hash: md5
+      md5: 004926431712adf6ea3c3216f0642e37
+      size: 5935
+    params:
+      params.yaml:
+        end_date: '2026-01-30'
+        frd_start_date: '2024-01-02'
+    outs:
+    - path: data/processed/russell1000/close_at_exchange_auction
+      hash: md5
+      md5: b7270cd0e24869be4852f25e5024eae0.dir
+      size: 44195667
+      nfiles: 13
