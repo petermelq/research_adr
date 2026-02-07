@@ -1,0 +1,5 @@
+outs:
+- md5: 8a78d717a64d6265640e77b52208a419
+  size: 9897
+  hash: md5
+  path: adr_info.csv
