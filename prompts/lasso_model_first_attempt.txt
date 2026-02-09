@@ -1,0 +1,116 @@
+The the goal is to use the adjusted data to train a model on the adjusted Russell 1000 daily returns (aligned to the ordinary close) to predict the ordinary daily returns (close-to-close). For now, we will ignore the stocks in Japan and Australia, where there is no overlap in trading time, and so no russell 1000 series was generated.
+
+I already have a model that predicts the ordinary returns based on their beta to their market indices. Those betas are found at data/processed/models/ordinary_betas_index_only.csv. The correspondence between the ordinary (and their adrs) and the corresponding index future symbol is found in data/raw/adr_info.csv. The correspondence between the index future symbols and the index symbol is found in data/raw/futures_symbols.csv.
+
+I want to use the new model to predict the residual of the adjusted daily returns of each ordinary stock using the adjusted daily returns of the Russell 1000 tickers (computed at the ordinary close). Before using the Russell 1000 returns as predictors, you should residualize them with respect to the index that I am already using in the module.
+
+Fit the residual with the Russell 1000 model using LASSO regression. Make the pipeline modular so another predictive model can be swapped in easily.
+
+Be mindful that because of differing holidays, the same days may not be available for the ordinary shares and Russell 1000 stocks. In this case, it is ok to skip days in computing returns, as long as the returns for the ordinary shares and Russell 1000 stocks cover the same aligned period. For example, if the ordinary shares have a holiday on July 14th, but trade on July 13th and July 15th, you can compute the ordinary return from july 13th to july 15th, and predict them using the russell stock returns from july 13th to july 15th.
+
+Fit the model on a rolling basis, using a year of data at a time. Refit the model every month. The fitting procedure should be as follows: Use the first 11 months of data as a training set, and the 12th month as a validation set used to tune the regularization parameter. once the best regularization parameter has been found, train on the entire 12 month period using that regularization parameter and save the model weights, as well as the regularization parameter. Use sci-kit learn to fit the LASSO model.
+
+Create a jupyter notebook than analyzes the average performance of each hyperparameter-tuned models for each ordinary stock.
+
+Before starting, ask any clarifying questions you need, then create a plan, including a plan for unit testing the analysis.
+
+
+
+
+
+
+
+
+
+
+
+
+  Data Structure & Sources:
+
+  1. Ordinary share prices: Where are the ordinary share prices located? Should I use:
+    - Bloomberg data you've downloaded previously for ordinary shares?
+    - The ordinary tickers from adr_info.csv with their exchange information?
+    - What field should I use from adr_info.csv to map ordinary ticker → exchange?
+
+    Use the ordinary prices at data/raw/ordinary/ord_PX_LAST_adjust_all.csv.
+    Use the ordinary tickers in adr_info.csv. The exchange for each ticker is also in that table. 
+
+  2. Exchange alignment: For each ordinary stock, should I use the Russell 1000 returns from the exchange file
+   matching where that ordinary stock trades? (e.g., if ordinary stock trades on XLON, use the XLON adjusted
+  Russell data?)
+    
+    Yes.
+
+  3. Date range: What time period should I run this analysis over? The same as the Russell data (2024-01-02 to
+   2026-01-30)?
+
+    Yes.
+
+  Model Specification:
+
+  4. Timing of returns: When predicting ordinary returns for day T, should I use:
+    - Same-day Russell 1000 returns (day T)? (I assume yes since there's trading overlap)
+    - Or do you want to predict next-day ordinary returns using today's Russell returns?
+    
+    Same day returns.
+
+  5. Russell 1000 residualization: When residualizing Russell 1000 returns w.r.t. the index, should I:
+    - Compute a single beta for each Russell stock vs the corresponding index?
+    - Use a rolling beta or static beta over the full period?
+    
+    Rolling beta using data from the last 60 business days.
+
+    - Apply this residualization before or during the model fitting process?
+
+    Before the model fitting. The features that go into the model should be the residualized returns.
+
+  6. Existing beta model residuals: To compute the residuals that we're trying to predict:
+    - Should I apply the existing betas from ordinary_betas_index_only.csv to compute predicted returns, then
+  subtract from actual returns?
+
+    Yes (from the same day index returns using the index prices in data/raw/indices)
+
+    - Are those betas static or do they vary over time?
+    They vary over time.
+
+  LASSO & Hyperparameter Tuning:
+
+  7. Alpha search grid: What range of alpha values should I search? (e.g., np.logspace(-4, 1, 50))
+    yes that range is reasonable.
+
+  8. Preprocessing: Should I:
+    - Standardize features (Russell 1000 residualized returns) before LASSO?
+        yes.
+
+    - Include an intercept in the model?
+        no.
+    - Handle missing values how? (drop, forward-fill, etc.)
+        Any returns that are missing set to zero.
+
+  Output & Storage:
+
+  9. Model storage: Should I save:
+    - One model per ordinary stock?
+        yes.
+
+    - Models in pickle format or something else?
+        pickle is fine.
+
+    - Where should models be saved? data/processed/models/lasso_russell1000/?
+        data/processed/models/with_us_stocks/lasso
+  10. Performance metrics: In the analysis notebook, which metrics are most important?
+    - R² on validation set?
+    - Mean squared error?
+    - Hit rate (sign prediction accuracy)?
+    - Information coefficient?
+        yes, information coefficient is most important.
+
+  Scope:
+
+  11. Which ordinary stocks: From adr_info.csv, should I include all ordinary stocks that trade on the 13
+  exchanges we have Russell data for (excluding XTKS and XASX)? Yes.
+
+
+  now the goal is to create a new intraday signal that can be used for trading the adrs, analagous to that
+  created by src/only_futures_full_signal.py. The signal is computed for each adr, each minute of the
+  trading day after the ordinary close. You compute the return of the corresponding index future from time of the ordinary close, as well as the returns of the russell 1000 stocks from the time of the ordinary close. You apply the index + russell 1000 lasso model to those returns to get an inferred intraday return of the ordinary. Then you compute the return of the adr since the ordinary close, and subtract it from the inferrred ordinary return, to get a predicted adr return. Do this for all adrs, and save the results at data/processed/index_russell_lasso_signal as parquet files partitioned by ticker. In computing the signal, only use the russell 1000 returns for the adrs for which there is an improvement over the baseline model in the IC of .04 or more. For those that don't show improvement, copy over the baseline model predictions from data/processed/futures_only_signal. Create a dvc rule for this signal generation.

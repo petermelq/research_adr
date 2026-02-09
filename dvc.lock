@@ -1801,3 +1801,106 @@ stages:
       md5: b7270cd0e24869be4852f25e5024eae0.dir
       size: 44195667
       nfiles: 13
+  lasso_prepare_features:
+    cmd: python src/prepare_lasso_features.py
+    deps:
+    - path: data/processed/models/ordinary_betas_index_only.csv
+      hash: md5
+      md5: ba460f37ce2cbad141fb2860c25bf2aa
+      size: 2060988
+    - path: data/processed/russell1000/close_at_exchange_auction_adjusted
+      hash: md5
+      md5: a2a2dbd36a9002a77e22a6e94bf7f06b.dir
+      size: 82157328
+      nfiles: 13
+    - path: data/raw/adr_info.csv
+      hash: md5
+      md5: 8a78d717a64d6265640e77b52208a419
+      size: 9897
+    - path: data/raw/indices/indices_PX_LAST.csv
+      hash: md5
+      md5: 2ea722794df088afd9fd01fae84d2de7
+      size: 177003
+    - path: data/raw/ordinary/ord_PX_LAST_adjust_all.csv
+      hash: md5
+      md5: 863a13eaade83e84450ac9fc5763cbf3
+      size: 815969
+    - path: src/prepare_lasso_features.py
+      hash: md5
+      md5: 68d0e28fda9ba915147f758e7bedc084
+      size: 9441
+    - path: src/utils_lasso_residuals.py
+      hash: md5
+      md5: d09aeba4478063051b800b77dc3d3934
+      size: 9525
+    params:
+      params.yaml:
+        end_date: '2026-01-30'
+        frd_start_date: '2015-01-02'
+    outs:
+    - path: data/processed/models/with_us_stocks/features
+      hash: md5
+      md5: 01679c2f65dbd51b218fd8017b4f1e2d.dir
+      size: 211568605
+      nfiles: 45
+  lasso_train_models:
+    cmd: python src/train_lasso_models.py
+    deps:
+    - path: data/processed/models/with_us_stocks/features
+      hash: md5
+      md5: 01679c2f65dbd51b218fd8017b4f1e2d.dir
+      size: 211568605
+      nfiles: 45
+    - path: src/train_lasso_models.py
+      hash: md5
+      md5: 8dada48dd949d93ad32a6480247c050e
+      size: 14351
+    outs:
+    - path: data/processed/models/with_us_stocks/lasso
+      hash: md5
+      md5: e8109702a2d476bc31e3f2a88712bc07.dir
+      size: 30820515
+      nfiles: 586
+  lasso_evaluate:
+    cmd: python src/evaluate_lasso_models.py
+    deps:
+    - path: data/processed/models/ordinary_betas_index_only.csv
+      hash: md5
+      md5: ba460f37ce2cbad141fb2860c25bf2aa
+      size: 2060988
+    - path: data/processed/models/with_us_stocks/features
+      hash: md5
+      md5: 01679c2f65dbd51b218fd8017b4f1e2d.dir
+      size: 211568605
+      nfiles: 45
+    - path: data/processed/models/with_us_stocks/lasso
+      hash: md5
+      md5: e8109702a2d476bc31e3f2a88712bc07.dir
+      size: 30820515
+      nfiles: 586
+    - path: data/raw/adr_info.csv
+      hash: md5
+      md5: 8a78d717a64d6265640e77b52208a419
+      size: 9897
+    - path: data/raw/indices/indices_PX_LAST.csv
+      hash: md5
+      md5: 2ea722794df088afd9fd01fae84d2de7
+      size: 177003
+    - path: data/raw/ordinary/ord_PX_LAST_adjust_all.csv
+      hash: md5
+      md5: 863a13eaade83e84450ac9fc5763cbf3
+      size: 815969
+    - path: src/evaluate_lasso_models.py
+      hash: md5
+      md5: ef5096ee26fb30c038b61335bc851caf
+      size: 7442
+    - path: src/utils_lasso_residuals.py
+      hash: md5
+      md5: d09aeba4478063051b800b77dc3d3934
+      size: 9525
+    outs:
+    - path: data/processed/models/with_us_stocks/lasso_evaluation
+      hash: md5
+      md5: 8a39bd766a032ae382f3f0ce9d389fd5.dir
+      size: 42873
+      nfiles: 1

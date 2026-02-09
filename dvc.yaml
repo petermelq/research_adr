@@ -22,6 +22,29 @@ stages:
     outs:
       - data/processed/russell1000/close_at_exchange_auction
 
+  russell1000_adjustments:
+    cmd: python src/get_russell1000_adjustments.py
+    deps:
+      - src/get_russell1000_adjustments.py
+      - data/raw/russell1000_tickers.csv
+    params:
+      - frd_start_date
+      - end_date
+    outs:
+      - data/processed/russell1000/adjustment_factors.csv
+
+  russell1000_close_at_exchange_auction_adjusted:
+    cmd: python src/russell1000_close_at_exchange_auction_adjusted.py
+    deps:
+      - src/russell1000_close_at_exchange_auction_adjusted.py
+      - data/processed/russell1000/close_at_exchange_auction
+      - data/processed/russell1000/adjustment_factors.csv
+    params:
+      - frd_start_date
+      - end_date
+    outs:
+      - data/processed/russell1000/close_at_exchange_auction_adjusted
+
   download_adr_tcbbo:
     cmd: python -m data_tools.cli.batch_download_to_parquet_with_append --schema=tcbbo --datasets XNAS.BASIC --tickers=data/raw/adr_info.csv --tickers_columns=adr --output_dir=data/raw/adrs/tcbbo --start_date=2024-07-01 --end_date=${end_date} --partition_period=date
     deps:
@@ -754,3 +777,71 @@ stages:
       - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
       - data/processed/market_etf_hedge_ratios.csv
       - data/processed/adrs/minute_volume_stats
+  lasso_prepare_features:
+    cmd: python src/prepare_lasso_features.py
+    deps:
+      - src/prepare_lasso_features.py
+      - src/utils_lasso_residuals.py
+      - data/raw/ordinary/ord_PX_LAST_adjust_all.csv
+      - data/raw/adr_info.csv
+      - data/raw/indices/indices_PX_LAST.csv
+      - data/processed/models/ordinary_betas_index_only.csv
+      - data/processed/russell1000/close_at_exchange_auction_adjusted
+    params:
+      - frd_start_date
+      - end_date
+    outs:
+      - data/processed/models/with_us_stocks/features
+
+  lasso_train_models:
+    cmd: python src/train_lasso_models.py
+    deps:
+      - src/train_lasso_models.py
+      - data/processed/models/with_us_stocks/features
+    outs:
+      - data/processed/models/with_us_stocks/lasso
+
+  lasso_evaluate:
+    cmd: python src/evaluate_lasso_models.py
+    deps:
+      - src/evaluate_lasso_models.py
+      - src/utils_lasso_residuals.py
+      - data/processed/models/with_us_stocks/lasso
+      - data/processed/models/with_us_stocks/features
+      - data/raw/ordinary/ord_PX_LAST_adjust_all.csv
+      - data/raw/indices/indices_PX_LAST.csv
+      - data/processed/models/ordinary_betas_index_only.csv
+      - data/raw/adr_info.csv
+    outs:
+      - data/processed/models/with_us_stocks/lasso_evaluation
+
+  compute_russell_betas:
+    cmd: python src/compute_russell_betas.py
+    deps:
+      - src/compute_russell_betas.py
+      - data/processed/russell1000/close_at_exchange_auction_adjusted
+      - data/raw/indices/indices_PX_LAST.csv
+    params:
+      - frd_start_date
+      - end_date
+    outs:
+      - data/processed/russell1000/russell_betas
+
+  index_russell_lasso_signal:
+    cmd: python src/index_russell_lasso_signal.py
+    deps:
+      - src/index_russell_lasso_signal.py
+      - src/train_lasso_models.py
+      - data/processed/futures/converted_minute_bars
+      - data/raw/adr_info.csv
+      - data/raw/futures_symbols.csv
+      - data/processed/models/with_us_stocks/lasso
+      - data/processed/models/with_us_stocks/lasso_evaluation
+      - data/raw/russell1000/ohlcv-1m
+      - data/processed/russell1000/russell_betas
+      - data/processed/futures_only_signal
+    params:
+      - start_date
+      - end_date
+    outs:
+      - data/processed/index_russell_lasso_signal
