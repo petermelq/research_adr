@@ -17,12 +17,12 @@ from joblib import Parallel, delayed
 __script_dir__ = Path(__file__).parent.absolute()
 
 
-# Hardcoded mapping from index futures to index symbols
-# Based on the available indices in indices_PX_LAST.csv
+# Mapping from index futures (bloomberg_symbol in adr_info.csv) to underlying
+# cash index symbols (from futures_symbols.csv 'index' column)
 INDEX_FUTURE_TO_SYMBOL = {
     'NH': 'NKY',    # Nikkei 225 (Japan)
-    'Z': 'UKX',     # FTSE 100 (UK/Hong Kong)
-    'VG': 'SXXP',   # STOXX Europe 600 (Europe)
+    'Z': 'UKX',     # FTSE 100 (UK)
+    'VG': 'SX5E',   # Euro Stoxx 50 (Europe)
 }
 
 
@@ -190,7 +190,7 @@ def _residualize_single_ticker(ticker, ticker_returns, index_aligned, common_dat
     return residuals
 
 
-def residualize_returns(returns, index_returns, window=60, n_jobs=28):
+def residualize_returns(returns, index_returns, window=60, n_jobs=4):
     """
     Residualize returns with respect to index using rolling beta.
 

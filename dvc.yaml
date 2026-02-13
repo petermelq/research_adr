@@ -819,6 +819,7 @@ stages:
     cmd: python src/compute_russell_betas.py
     deps:
       - src/compute_russell_betas.py
+      - src/utils_lasso_residuals.py
       - data/processed/russell1000/close_at_exchange_auction_adjusted
       - data/raw/indices/indices_PX_LAST.csv
     params:
@@ -831,6 +832,7 @@ stages:
     cmd: python src/index_russell_lasso_signal.py
     deps:
       - src/index_russell_lasso_signal.py
+      - src/utils_lasso_residuals.py
       - src/train_lasso_models.py
       - data/processed/futures/converted_minute_bars
       - data/raw/adr_info.csv

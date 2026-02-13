@@ -30,8 +30,9 @@ __script_dir__ = Path(__file__).parent.absolute()
 
 # LASSO-eligible tickers (mean IC improvement >= 0.04)
 LASSO_ELIGIBLE = [
-    'ARGX', 'ASML', 'AZN', 'BP', 'BTI', 'DEO', 'E', 'EQNR',
-    'GSK', 'HLN', 'IHG', 'NGG', 'NVS', 'RIO', 'SHEL', 'TS', 'TTE', 'UL',
+    'ARGX', 'ASML', 'AZN', 'BP', 'BTI', 'BUD', 'DEO', 'E', 'EQNR',
+    'FMS', 'GMAB', 'GSK', 'HLN', 'IHG', 'NGG', 'NVS', 'RIO',
+    'SHEL', 'SNY', 'TS', 'TTE', 'UL',
 ]
 
 # Offset between exchange close and the actual closing auction time
@@ -103,6 +104,9 @@ def build_russell_wide_df(russell_ohlcv_dir, tickers, dates_set, close_times_by_
     Returns:
         DataFrame with tz-aware ET DatetimeIndex, columns = ticker names, values = Close price
     """
+    # Pre-build a Series mapping date_str -> close_time for vectorized filtering
+    close_time_series = pd.Series(close_times_by_date)
+
     all_series = {}
     loaded = 0
 
@@ -119,14 +123,12 @@ def build_russell_wide_df(russell_ohlcv_dir, tickers, dates_set, close_times_by_
 
             df.index = df.index.tz_localize('America/New_York')
 
-            # Filter to timestamps at or after exchange close
-            keep_mask = pd.Series(False, index=df.index)
-            for date_str, close_time in close_times_by_date.items():
-                day_mask = df['date'] == date_str
-                if day_mask.any():
-                    keep_mask = keep_mask | (day_mask & (df.index >= close_time))
-
-            filtered = df[keep_mask]['Close']
+            # Vectorized filtering: map each row's date to its close time,
+            # then compare timestamp >= close_time
+            mapped = df['date'].map(close_time_series)
+            row_close_times = pd.DatetimeIndex(mapped.values, tz='America/New_York')
+            keep_mask = df.index >= row_close_times
+            filtered = df.loc[keep_mask, 'Close']
             if not filtered.empty:
                 all_series[ticker] = filtered
                 loaded += 1
@@ -202,25 +204,28 @@ def compute_lasso_signal_for_exchange(
         print(f"  No Russell minute data available, skipping exchange")
         return {}
 
+    # Add date string column for fast groupby/lookup (avoid repeated .normalize())
+    russell_wide['_date_str'] = russell_wide.index.strftime('%Y-%m-%d')
+
     # Forward-fill within each date to handle missing minutes
-    date_labels = russell_wide.index.normalize()
+    print(f"  Forward-filling within each date...")
     parts = []
-    for day_ts in date_labels.unique():
-        day_slice = russell_wide[date_labels == day_ts].ffill()
-        parts.append(day_slice)
+    for date_str, group in russell_wide.groupby('_date_str', sort=False):
+        parts.append(group.drop(columns='_date_str').ffill())
     russell_wide = pd.concat(parts)
+    russell_wide['_date_str'] = russell_wide.index.strftime('%Y-%m-%d')
 
     # Compute Russell close price at exchange close for each date
     # (first minute at or after close time for each date)
     print(f"  Computing Russell close prices at exchange close...")
     russell_close_prices = {}
-    for date_str in available_dates:
+    for date_str, group in russell_wide.groupby('_date_str', sort=False):
+        if date_str not in close_times_by_date:
+            continue
         close_time = close_times_by_date[date_str]
-        day_ts = pd.Timestamp(date_str, tz='America/New_York')
-        day_data = russell_wide[russell_wide.index.normalize() == day_ts]
-        at_close = day_data[day_data.index >= close_time]
+        at_close = group[group.index >= close_time]
         if not at_close.empty:
-            russell_close_prices[date_str] = at_close.iloc[0]
+            russell_close_prices[date_str] = at_close.iloc[0].drop('_date_str')
 
     # Map ADR tickers to futures symbols
     merged_info = adr_info.merge(futures_symbols, left_on='index_future_bbg', right_on='bloomberg_symbol')
@@ -327,8 +332,7 @@ def compute_lasso_signal_for_exchange(
                 continue
 
             # Get Russell prices for all minutes in this date (vectorized)
-            day_ts_tz = pd.Timestamp(date_str, tz='America/New_York')
-            day_russell = russell_wide[russell_wide.index.normalize() == day_ts_tz]
+            day_russell = russell_wide[russell_wide['_date_str'] == date_str].drop(columns='_date_str')
             if day_russell.empty:
                 dates_fallback += 1
                 continue
