@@ -16,7 +16,14 @@ from pathlib import Path
 
 sys.path.append(os.path.dirname(__file__))
 from utils import load_params
-from utils_lasso_residuals import load_index_mapping
+from utils_lasso_residuals import (
+    load_index_mapping,
+    INDEX_TO_FX_CURRENCY,
+    load_fx_minute,
+    compute_exchange_close_times,
+    compute_fx_daily_at_close,
+    convert_returns_to_usd,
+)
 
 __script_dir__ = Path(__file__).parent.absolute()
 
@@ -90,6 +97,25 @@ def main():
     output_dir = __script_dir__ / '..' / 'data' / 'processed' / 'russell1000' / 'russell_betas'
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    # Load close time offsets and precompute FX daily returns
+    offsets_df = pd.read_csv(__script_dir__ / '..' / 'data' / 'raw' / 'close_time_offsets.csv')
+    exchange_offsets = dict(zip(offsets_df['exchange_mic'], offsets_df['offset']))
+
+    fx_minute_cache = {}
+    fx_daily_by_exchange = {}
+    for exchange_mic, index_symbol in exchange_to_index.items():
+        currency = INDEX_TO_FX_CURRENCY.get(index_symbol)
+        if currency is None:
+            continue
+        if currency not in fx_minute_cache:
+            fx_minute_cache[currency] = load_fx_minute(currency)
+        offset_str = exchange_offsets.get(exchange_mic, '0min')
+        close_times = compute_exchange_close_times(exchange_mic, offset_str, start_date, end_date)
+        fx_daily_by_exchange[exchange_mic] = compute_fx_daily_at_close(
+            fx_minute_cache[currency], close_times
+        )
+        print(f"  {exchange_mic} ({currency}USD): {fx_daily_by_exchange[exchange_mic].dropna().shape[0]} FX return days")
+
     csv_files = sorted(input_dir.glob('*.csv'))
     print(f"Found {len(csv_files)} exchange files")
 
@@ -117,6 +143,12 @@ def main():
         # Compute returns
         russell_returns = russell_prices.pct_change()
         index_ret = index_px[index_symbol].pct_change()
+
+        # Convert index returns to USD
+        fx_daily = fx_daily_by_exchange.get(exchange_mic)
+        if fx_daily is not None:
+            index_ret = convert_returns_to_usd(index_ret, fx_daily)
+            print(f"    Converted index returns to USD")
 
         # Compute rolling betas
         print(f"    Computing rolling {WINDOW}-day betas...")

@@ -522,8 +522,8 @@ stages:
     deps:
     - path: data/raw/currencies/minute_bars/USDJPY_full_1min.txt
       hash: md5
-      md5: ed2caa5e8f6f1245d55f2ee5352fbc28
-      size: 316300187
+      md5: 2a2ce94b3b57ff39c2a97ab0f1ab8b09
+      size: 319627072
     - path: src/usdjpy_to_jpyusd_bars.py
       hash: md5
       md5: a7a414fd0cf3abfb0ceff6b669260d4c
@@ -531,8 +531,8 @@ stages:
     outs:
     - path: data/raw/currencies/minute_bars/JPYUSD_full_1min.txt
       hash: md5
-      md5: 6613d2c5a8f6f3693ec4097679f35444
-      size: 620495691
+      md5: 4904d7b7cdb3ca6300f9641b39702f4c
+      size: 626109645
   adr_daily_fixed_time_mid:
     cmd: python -m src.daily_fixed_time_mid --nbbo_dir=data/raw/adrs/bbo-1m/nbbo
       --time_to_save_hrs=14 --time_to_save_min=0 --tickers=data/raw/adr_info.csv

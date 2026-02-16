@@ -9,6 +9,7 @@ This module provides functions for:
 """
 
 import pandas as pd
+import pandas_market_calendars as mcal
 import numpy as np
 from pathlib import Path
 import os
@@ -23,6 +24,14 @@ INDEX_FUTURE_TO_SYMBOL = {
     'NH': 'NKY',    # Nikkei 225 (Japan)
     'Z': 'UKX',     # FTSE 100 (UK)
     'VG': 'SX5E',   # Euro Stoxx 50 (Europe)
+}
+
+# Mapping from cash index to FX currency for USD conversion.
+# Cross-currency stocks (e.g. CHF stocks mapping to SX5E/EUR) use the
+# index's FX pair, assuming the cross rate is constant over the daily return.
+INDEX_TO_FX_CURRENCY = {
+    'SX5E': 'EUR',  # EURUSD
+    'UKX': 'GBP',   # GBPUSD
 }
 
 
@@ -79,6 +88,109 @@ def load_index_mapping():
     exchange_to_index = dict(zip(adr_info['exchange'], adr_info['index_symbol']))
 
     return ordinary_to_index, exchange_to_index
+
+
+def load_fx_minute(currency):
+    """
+    Load FX minute bar data for a currency pair (XXXUSD).
+
+    Args:
+        currency: Currency code (e.g., 'EUR', 'GBP')
+
+    Returns:
+        Series with tz-aware ET timestamp index and close rate values
+    """
+    fx_dir = __script_dir__ / '..' / 'data' / 'raw' / 'currencies' / 'minute_bars'
+    fx_file = fx_dir / f'{currency}USD_full_1min.txt'
+    fx_df = pd.read_csv(
+        fx_file, header=None, index_col=None,
+        names=['date', 'time', 'open', 'high', 'low', 'close', 'volume']
+    )
+    fx_df['timestamp'] = pd.to_datetime(
+        fx_df['date'].astype(str) + ' ' + fx_df['time'].astype(str)
+    ).dt.tz_localize('America/New_York')
+    return fx_df.set_index('timestamp')['close']
+
+
+def compute_exchange_close_times(exchange_mic, offset_str, start_date, end_date):
+    """
+    Compute tz-aware ET close times for an exchange (normal close days only).
+
+    Args:
+        exchange_mic: Exchange MIC code (e.g., 'XLON')
+        offset_str: Offset string compatible with pd.Timedelta (e.g., '6min')
+        start_date: Start date
+        end_date: End date
+
+    Returns:
+        Series indexed by date (datetime) with tz-aware ET close times as values
+    """
+    cal = mcal.get_calendar(exchange_mic)
+    sched = cal.schedule(start_date=start_date, end_date=end_date)
+    close_times_et = sched['market_close'].dt.tz_convert('America/New_York')
+
+    # Filter to normal close days only
+    close_times_only = close_times_et.dt.time
+    most_common_close = close_times_only.mode()[0]
+    is_normal_close = close_times_only == most_common_close
+    close_times_et = close_times_et[is_normal_close]
+
+    # Add offset
+    close_times_et = close_times_et + pd.Timedelta(offset_str)
+
+    return close_times_et
+
+
+def compute_fx_daily_at_close(fx_minute, close_times):
+    """
+    Compute daily FX returns using FX rate at exchange close time.
+
+    For each date, looks up the FX rate at or before the exchange close time,
+    then computes close-to-close FX returns.
+
+    Args:
+        fx_minute: Series with tz-aware ET timestamp index and close rate values
+        close_times: Series indexed by date with tz-aware ET close times
+
+    Returns:
+        Series indexed by date with daily FX returns
+    """
+    fx_at_close = pd.Series(index=close_times.index, dtype=float)
+
+    for date, close_time in close_times.items():
+        # Find FX rate at or before close time
+        mask = fx_minute.index <= close_time
+        if mask.any():
+            fx_at_close.loc[date] = fx_minute.loc[mask].iloc[-1]
+
+    fx_at_close = fx_at_close.dropna()
+    fx_returns = fx_at_close.pct_change()
+    return fx_returns
+
+
+def convert_returns_to_usd(native_returns, fx_returns):
+    """
+    Convert native-currency returns to USD.
+
+    Formula: r_usd = (1 + r_native) * (1 + r_fx) - 1
+
+    Args:
+        native_returns: Series or DataFrame of returns in native currency
+        fx_returns: Series of FX returns (XXXUSD), indexed by date
+
+    Returns:
+        Same type as native_returns, with USD-converted returns
+    """
+    if isinstance(native_returns, pd.DataFrame):
+        common_dates = native_returns.index.intersection(fx_returns.index)
+        fx_aligned = fx_returns.loc[common_dates]
+        native_aligned = native_returns.loc[common_dates]
+        return (1 + native_aligned).multiply(1 + fx_aligned, axis=0) - 1
+    else:
+        common_dates = native_returns.index.intersection(fx_returns.index)
+        fx_aligned = fx_returns.loc[common_dates]
+        native_aligned = native_returns.loc[common_dates]
+        return (1 + native_aligned) * (1 + fx_aligned) - 1
 
 
 def compute_aligned_returns(prices, dates=None):

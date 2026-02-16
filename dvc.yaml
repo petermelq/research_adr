@@ -787,6 +787,9 @@ stages:
       - data/raw/indices/indices_PX_LAST.csv
       - data/processed/models/ordinary_betas_index_only.csv
       - data/processed/russell1000/close_at_exchange_auction_adjusted
+      - data/raw/currencies/minute_bars/EURUSD_full_1min.txt
+      - data/raw/currencies/minute_bars/GBPUSD_full_1min.txt
+      - data/raw/close_time_offsets.csv
     params:
       - frd_start_date
       - end_date
@@ -822,6 +825,9 @@ stages:
       - src/utils_lasso_residuals.py
       - data/processed/russell1000/close_at_exchange_auction_adjusted
       - data/raw/indices/indices_PX_LAST.csv
+      - data/raw/currencies/minute_bars/EURUSD_full_1min.txt
+      - data/raw/currencies/minute_bars/GBPUSD_full_1min.txt
+      - data/raw/close_time_offsets.csv
     params:
       - frd_start_date
       - end_date

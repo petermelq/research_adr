@@ -23,6 +23,11 @@ from utils_lasso_residuals import (
     residualize_returns,
     get_existing_beta_residuals,
     fill_missing_values,
+    INDEX_TO_FX_CURRENCY,
+    load_fx_minute,
+    compute_exchange_close_times,
+    compute_fx_daily_at_close,
+    convert_returns_to_usd,
 )
 
 __script_dir__ = Path(__file__).parent.absolute()
@@ -61,7 +66,7 @@ def load_data():
 
 def prepare_features_for_ticker(ordinary_ticker, exchange_mic, adr_ticker, index_symbol,
                                 ordinary_prices, russell_prices, index_prices, betas,
-                                start_date, end_date):
+                                start_date, end_date, fx_daily_returns=None):
     """
     Prepare features for one ordinary stock.
 
@@ -76,6 +81,7 @@ def prepare_features_for_ticker(ordinary_ticker, exchange_mic, adr_ticker, index
         betas: DataFrame with time-varying betas
         start_date: Start date for analysis
         end_date: End date for analysis
+        fx_daily_returns: Series of daily FX returns at exchange close (optional)
 
     Returns:
         DataFrame with columns: date, ordinary_residual, russell_residual_*
@@ -114,6 +120,11 @@ def prepare_features_for_ticker(ordinary_ticker, exchange_mic, adr_ticker, index
     # Compute index returns on same dates
     index_returns = compute_aligned_returns(index_px, dates=ordinary_returns.index)
     index_returns = index_returns[index_symbol]  # Convert to Series
+
+    # Convert index and ordinary returns to USD
+    if fx_daily_returns is not None:
+        index_returns = convert_returns_to_usd(index_returns, fx_daily_returns)
+        ordinary_returns = convert_returns_to_usd(ordinary_returns, fx_daily_returns)
 
     # Compute Russell returns
     # Align to ordinary trading dates
@@ -192,6 +203,26 @@ def main():
     print(f"  Index prices: {index_prices.shape}")
     print(f"  Betas: {betas.shape}")
 
+    # Precompute FX daily returns per exchange
+    print("\nPrecomputing FX daily returns per exchange...")
+    offsets_df = pd.read_csv(__script_dir__ / '..' / 'data' / 'raw' / 'close_time_offsets.csv')
+    exchange_offsets = dict(zip(offsets_df['exchange_mic'], offsets_df['offset']))
+
+    fx_minute_cache = {}
+    fx_daily_by_exchange = {}
+    for exchange_mic, index_symbol in exchange_to_index.items():
+        currency = INDEX_TO_FX_CURRENCY.get(index_symbol)
+        if currency is None:
+            continue
+        if currency not in fx_minute_cache:
+            fx_minute_cache[currency] = load_fx_minute(currency)
+        offset_str = exchange_offsets.get(exchange_mic, '0min')
+        close_times = compute_exchange_close_times(exchange_mic, offset_str, start_date, end_date)
+        fx_daily_by_exchange[exchange_mic] = compute_fx_daily_at_close(
+            fx_minute_cache[currency], close_times
+        )
+        print(f"  {exchange_mic} ({currency}USD): {fx_daily_by_exchange[exchange_mic].dropna().shape[0]} FX return days")
+
     # Create output directory
     output_dir = __script_dir__ / '..' / 'data' / 'processed' / 'models' / 'with_us_stocks' / 'features'
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -223,10 +254,11 @@ def main():
 
         # Prepare features
         try:
+            fx_daily = fx_daily_by_exchange.get(exchange_mic)
             features = prepare_features_for_ticker(
                 ordinary_ticker, exchange_mic, adr_ticker, index_symbol,
                 ordinary_prices, russell_prices, index_prices, betas,
-                start_date, end_date
+                start_date, end_date, fx_daily_returns=fx_daily
             )
 
             if features is not None:
