@@ -1,0 +1,5 @@
+outs:
+- md5: 02c63679f3fe993ff61186cb5efa03e6
+  size: 176
+  hash: md5
+  path: sector_etfs.csv
