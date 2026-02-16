@@ -65,16 +65,16 @@ stages:
       size: 319071844
     - path: data/raw/currencies/minute_bars/EURUSD_full_1min.txt
       hash: md5
-      md5: e96553658e4514bc6ac0160528b64f3f
-      size: 320135929
+      md5: eb1ee156a6a3a6906ca057d676f2f311
+      size: 323030509
     - path: data/raw/currencies/minute_bars/GBPUSD_full_1min.txt
       hash: md5
-      md5: dca33902789f603b15aa8471774c736b
-      size: 319715409
+      md5: e7079762a462bff8708325add420ff45
+      size: 322618266
     - path: data/raw/currencies/minute_bars/JPYUSD_full_1min.txt
       hash: md5
-      md5: 6613d2c5a8f6f3693ec4097679f35444
-      size: 620495691
+      md5: 4904d7b7cdb3ca6300f9641b39702f4c
+      size: 626109645
     - path: data/raw/ordinary/ord_PX_LAST_adjust_all.csv
       hash: md5
       md5: 863a13eaade83e84450ac9fc5763cbf3
@@ -90,12 +90,12 @@ stages:
     outs:
     - path: data/processed/ordinary/ord_close_to_usd_adr_PX_LAST_adjust_all.csv
       hash: md5
-      md5: a98789c25d1a20d109a704d67ceeb675
-      size: 1416906
+      md5: 47401a6e785170cd44816912a7f867da
+      size: 1433812
     - path: data/processed/ordinary/ord_close_to_usd_adr_PX_LAST_adjust_none.csv
       hash: md5
-      md5: e6484b9d5efa0d0042386861021c1859
-      size: 1326606
+      md5: 38c653084bdf0db02bb9caa02145fb70
+      size: 1343490
   download_adr_close:
     cmd: python src/download_bbg_daily.py data/raw/adr_info.csv 
       data/raw/adrs/adr_PX_LAST_adjust_none.csv --tickers_columns=adr 
@@ -218,16 +218,16 @@ stages:
     deps:
     - path: data/raw/currencies/minute_bars/EURUSD_full_1min.txt
       hash: md5
-      md5: e96553658e4514bc6ac0160528b64f3f
-      size: 320135929
+      md5: eb1ee156a6a3a6906ca057d676f2f311
+      size: 323030509
     - path: data/raw/currencies/minute_bars/GBPUSD_full_1min.txt
       hash: md5
-      md5: dca33902789f603b15aa8471774c736b
-      size: 319715409
+      md5: e7079762a462bff8708325add420ff45
+      size: 322618266
     - path: data/raw/currencies/minute_bars/JPYUSD_full_1min.txt
       hash: md5
-      md5: 6613d2c5a8f6f3693ec4097679f35444
-      size: 620495691
+      md5: 4904d7b7cdb3ca6300f9641b39702f4c
+      size: 626109645
     - path: 
         data/raw/futures/minute_bars/FCE_full_1min_continuous_ratio_adjusted.txt
       hash: md5
@@ -781,8 +781,8 @@ stages:
       size: 2060988
     - path: data/processed/ordinary/ord_close_to_usd_adr_PX_LAST_adjust_none.csv
       hash: md5
-      md5: e6484b9d5efa0d0042386861021c1859
-      size: 1326606
+      md5: 38c653084bdf0db02bb9caa02145fb70
+      size: 1343490
     - path: data/raw/adr_info.csv
       hash: md5
       md5: 8a78d717a64d6265640e77b52208a419
@@ -956,44 +956,44 @@ stages:
     deps:
     - path: backtest_conifgs/hedged_single_time.yaml
       hash: md5
-      md5: 049691db2677cd80e74b0e50bee2efe0
-      size: 3048
+      md5: beebc996a1837d21fc5feb6cd7ef36bf
+      size: 3043
     - path: data/processed/adrs/adr_daily_fixed_time_mid.csv
       hash: md5
-      md5: 2ee41ff810c69f19b4c35ee2f46ebd35
-      size: 972233
+      md5: fcbdccf0e909efc1e267f0950a9d80d7
+      size: 988015
     - path: data/processed/etfs/market/market_etf_daily_fixed_time_mid.csv
       hash: md5
-      md5: acee6c44d2dab5bcb9704cf52ee44aed
-      size: 100338
+      md5: 6742b8ac27b429fbdaf355abb652fd82
+      size: 101951
     - path: data/processed/fixed_time_signal.csv
       hash: md5
-      md5: aa1cfcf13b0182c15b85de4d69fa6053
-      size: 2095273
+      md5: e6991a82515b9a26dd3eb258b21518e6
+      size: 2096356
     - path: data/processed/market_etf_hedge_ratios.csv
       hash: md5
-      md5: 8feeed1654d44358deec06923b0e128d
-      size: 1863714
+      md5: d3828a3a54336abf859a7adb418904da
+      size: 1895234
     - path: data/raw/adrs/adr_PX_LAST_adjust_none.csv
       hash: md5
-      md5: 6d253be9a7e6dff98360e5e3186b88a6
-      size: 617152
+      md5: 3cc471ab6fa20a91c0c87400032a2f0f
+      size: 627046
     - path: data/raw/adrs/adr_turnover.csv
       hash: md5
-      md5: 5a2e6fbfec55686c229540ff32ff1ab7
-      size: 1151983
+      md5: 87c5d573fb65ea0327c855b262efe01e
+      size: 1163693
     - path: data/raw/all_splits.csv
       hash: md5
-      md5: e271a937d3806c714d44cea94a51e797
-      size: 15412
+      md5: bde6ab3858d26326764b1802f956b840
+      size: 15032
     - path: data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
       hash: md5
-      md5: 60ff5f6ba44f0d2a37d2fde053c6bb94
-      size: 66431
-    - path: src/backtest_strategies/single_time_ADR.py
+      md5: 3f3b1afdce63c51adcf47086574f5f78
+      size: 67469
+    - path: src/backtest_strategies/hedged_single_time_ADR.py
       hash: md5
-      md5: 07aa1746b1814802ac6e10865c600228
-      size: 8138
+      md5: ce23fc22423c858db311ec73af0e3cc3
+      size: 12668
   minute_vwap_hedged_ADR_backtest:
     cmd: backtester_run backtest_conifgs/minute_vwap_hedged_ADR.yaml
     deps:
