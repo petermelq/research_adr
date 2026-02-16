@@ -344,6 +344,15 @@ stages:
     outs:
       - data/raw/indices/indices_PX_LAST.csv
 
+  download_close_times:
+    cmd: python src/download_close_times.py
+    deps:
+      - src/download_close_times.py
+      - data/raw/adr_info.csv
+      - data/raw/futures_symbols.csv
+    outs:
+      - data/raw/bloomberg_close_times.csv
+
   earnings:
     cmd: python src/get_earnings.py
     deps:
@@ -681,10 +690,16 @@ stages:
     cmd: python src/get_betas_no_sector.py
     deps:
       - src/get_betas_no_sector.py
+      - src/utils_lasso_residuals.py
       - data/raw/adr_info.csv
       - data/raw/futures_symbols.csv
       - data/raw/ordinary/ord_PX_LAST_adjust_split.csv
       - data/raw/indices/indices_PX_LAST.csv
+      - data/raw/bloomberg_close_times.csv
+      - data/raw/close_time_offsets.csv
+      - data/raw/futures/minute_bars/FESX_full_1min_continuous_ratio_adjusted.txt
+      - data/raw/futures/minute_bars/FTUK_full_1min_continuous_ratio_adjusted.txt
+      - data/raw/futures/minute_bars/NIY_full_1min_continuous_ratio_adjusted.txt
     params:
       - pred.lookback_days
     outs:
