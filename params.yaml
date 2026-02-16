@@ -6,7 +6,7 @@ daily_time_for_cov_hours: 13
 
 # dates for data download
 start_date: "2018-05-01"
-end_date: "2026-01-30"
+end_date: "2026-02-13"
 
 frd_start_date: "2015-01-02"
 
