@@ -1,0 +1,5 @@
+outs:
+- md5: 11222b5e0895a16ab8ff98128cc0c649
+  size: 322100760
+  hash: md5
+  path: AUDUSD_full_1min.txt
