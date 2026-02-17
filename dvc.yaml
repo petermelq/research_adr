@@ -683,20 +683,28 @@ stages:
     outs:
       - data/raw/all_dividends.csv
 
-  index_only_model:
-    cmd: python src/get_betas_no_sector.py
+  build_aligned_index_prices:
+    cmd: python src/build_aligned_index_prices.py
     deps:
-      - src/get_betas_no_sector.py
-      - src/utils_lasso_residuals.py
+      - src/build_aligned_index_prices.py
       - data/raw/adr_info.csv
       - data/raw/futures_symbols.csv
-      - data/raw/ordinary/ord_PX_LAST_adjust_split.csv
       - data/raw/indices/indices_PX_LAST.csv
       - data/raw/bloomberg_close_times.csv
       - data/raw/close_time_offsets.csv
       - data/raw/futures/minute_bars/FESX_full_1min_continuous_ratio_adjusted.txt
       - data/raw/futures/minute_bars/FTUK_full_1min_continuous_ratio_adjusted.txt
       - data/raw/futures/minute_bars/NIY_full_1min_continuous_ratio_adjusted.txt
+    outs:
+      - data/processed/aligned_index_prices.csv
+
+  index_only_model:
+    cmd: python src/get_betas_no_sector.py
+    deps:
+      - src/get_betas_no_sector.py
+      - data/raw/adr_info.csv
+      - data/raw/ordinary/ord_PX_LAST_adjust_split.csv
+      - data/processed/aligned_index_prices.csv
     params:
       - pred.lookback_days
     outs:

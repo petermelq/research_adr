@@ -19,7 +19,8 @@ if __name__ == "__main__":
     all_tickers = ordinary_tickers + index_tickers
 
     # Pull BLOOMBERG_CLOSE_TIME
-    close_times = blp.bdp(all_tickers, 'BLOOMBERG_CLOSE_TIME')
+    close_times = blp.bds(all_tickers, 'BLOOMBERG_CLOSE_TIME')
+    close_times.columns = ['BLOOMBERG_CLOSE_TIME']
 
     # Save to CSV
     output_filename = os.path.join(SCRIPT_DIR, '../data/raw/bloomberg_close_times.csv')
