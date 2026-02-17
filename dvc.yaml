@@ -151,26 +151,29 @@ stages:
 
   # nbbo creation from 1min data
   create_nbbo_adr_bbo-1m:
-    cmd: python -m data_tools.cli.nbbo_consolidate_bbo_1m --tickers=data/raw/adr_info.csv --tickers_columns=adr --raw_data_dir=data/raw/adrs/bbo-1m/by_exchange --output_dir=data/raw/adrs/bbo-1m/nbbo --parallel --ncores=10 --partition_period=none
+    cmd: python -m data_tools.cli.nbbo_consolidate_bbo_1m_with_append --tickers=data/raw/adr_info.csv --tickers_columns=adr --raw_data_dir=data/raw/adrs/bbo-1m/by_exchange --output_dir=data/raw/adrs/bbo-1m/nbbo --parallel --ncores=20 --partition_period=none
     deps:
       - data/raw/adr_info.csv
       - data/raw/adrs/bbo-1m/by_exchange
     outs:
-      - data/raw/adrs/bbo-1m/nbbo
+      - data/raw/adrs/bbo-1m/nbbo:
+          persist: true
 
   create_nbbo_market_etf_bbo-1m:
-    cmd: python -m data_tools.cli.nbbo_consolidate_bbo_1m --tickers=data/raw/adr_info.csv --tickers_columns=market_etf_hedge --raw_data_dir=data/raw/etfs/market/bbo-1m/by_exchange --output_dir=data/raw/etfs/market/bbo-1m/nbbo --parallel --ncores=10 --partition_period=none
+    cmd: python -m data_tools.cli.nbbo_consolidate_bbo_1m_with_append --tickers=data/raw/adr_info.csv --tickers_columns=market_etf_hedge --raw_data_dir=data/raw/etfs/market/bbo-1m/by_exchange --output_dir=data/raw/etfs/market/bbo-1m/nbbo --parallel --ncores=20 --partition_period=none
     deps:
       - data/raw/etfs/market/bbo-1m/by_exchange
     outs:
-      - data/raw/etfs/market/bbo-1m/nbbo
+      - data/raw/etfs/market/bbo-1m/nbbo:
+          persist: true
 
   create_nbbo_sector_etf_bbo-1m:
-    cmd: python -m data_tools.cli.nbbo_consolidate_bbo_1m --tickers=data/raw/sector_etfs.csv --tickers_columns=hedge --raw_data_dir=data/raw/etfs/sector/bbo-1m/by_exchange --output_dir=data/raw/etfs/sector/bbo-1m/nbbo --parallel --ncores=10 --partition_period=none
+    cmd: python -m data_tools.cli.nbbo_consolidate_bbo_1m_with_append --tickers=data/raw/sector_etfs.csv --tickers_columns=hedge --raw_data_dir=data/raw/etfs/sector/bbo-1m/by_exchange --output_dir=data/raw/etfs/sector/bbo-1m/nbbo --parallel --ncores=20 --partition_period=none
     deps:
       - data/raw/etfs/sector/bbo-1m/by_exchange
     outs:
-      - data/raw/etfs/sector/bbo-1m/nbbo
+      - data/raw/etfs/sector/bbo-1m/nbbo:
+          persist: true
 
   # daily closing price data download
   download_adr_close:
@@ -340,6 +343,15 @@ stages:
       - pred.lookback_days
     outs:
       - data/raw/indices/indices_PX_LAST.csv
+
+  download_close_times:
+    cmd: python src/download_close_times.py
+    deps:
+      - src/download_close_times.py
+      - data/raw/adr_info.csv
+      - data/raw/futures_symbols.csv
+    outs:
+      - data/raw/bloomberg_close_times.csv
 
   earnings:
     cmd: python src/get_earnings.py
@@ -674,14 +686,28 @@ stages:
     outs:
       - data/raw/all_dividends.csv
 
+  build_aligned_index_prices:
+    cmd: python src/build_aligned_index_prices.py
+    deps:
+      - src/build_aligned_index_prices.py
+      - data/raw/adr_info.csv
+      - data/raw/futures_symbols.csv
+      - data/raw/indices/indices_PX_LAST.csv
+      - data/raw/bloomberg_close_times.csv
+      - data/raw/close_time_offsets.csv
+      - data/raw/futures/minute_bars/FESX_full_1min_continuous_ratio_adjusted.txt
+      - data/raw/futures/minute_bars/FTUK_full_1min_continuous_ratio_adjusted.txt
+      - data/raw/futures/minute_bars/NIY_full_1min_continuous_ratio_adjusted.txt
+    outs:
+      - data/processed/aligned_index_prices.csv
+
   index_only_model:
     cmd: python src/get_betas_no_sector.py
     deps:
       - src/get_betas_no_sector.py
       - data/raw/adr_info.csv
-      - data/raw/futures_symbols.csv
       - data/raw/ordinary/ord_PX_LAST_adjust_split.csv
-      - data/raw/indices/indices_PX_LAST.csv
+      - data/processed/aligned_index_prices.csv
     params:
       - pred.lookback_days
     outs:
@@ -737,7 +763,21 @@ stages:
   hedged_backtest_fixed_time:
     cmd: backtester_run backtest_conifgs/hedged_single_time.yaml
     deps:
-      - src/backtest_strategies/single_time_ADR.py
+      - src/backtest_strategies/hedged_single_time_ADR.py
+      - backtest_conifgs/hedged_single_time.yaml
+      - data/processed/fixed_time_signal.csv
+      - data/processed/adrs/adr_daily_fixed_time_mid.csv
+      - data/raw/adrs/adr_PX_LAST_adjust_none.csv
+      - data/raw/adrs/adr_turnover.csv
+      - data/raw/all_splits.csv
+      - data/processed/etfs/market/market_etf_daily_fixed_time_mid.csv
+      - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
+      - data/processed/market_etf_hedge_ratios.csv
+  
+  fx_hedged_backtest_fixed_time:
+    cmd: backtester_run backtest_conifgs/fx_hedged_single_time.yaml
+    deps:
+      - src/backtest_strategies/hedged_single_time_ADR.py
       - backtest_conifgs/hedged_single_time.yaml
       - data/processed/fixed_time_signal.csv
       - data/processed/adrs/adr_daily_fixed_time_mid.csv
@@ -751,7 +791,7 @@ stages:
   db_hedged_backtest_fixed_time:
     cmd: backtester_run backtest_conifgs/db_hedged_single_time.yaml
     deps:
-      - src/backtest_strategies/single_time_ADR.py
+      - src/backtest_strategies/hedged_single_time_ADR.py
       - backtest_conifgs/db_hedged_single_time.yaml
       - data/processed/db_fixed_time_signal.csv
       - data/processed/fixed_time_signal.csv
