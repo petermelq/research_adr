@@ -1,0 +1,541 @@
+schema: '2.0'
+stages:
+  download_close_times:
+    cmd: python src/download_close_times.py
+    deps:
+    - path: data/raw/adr_info.csv
+      hash: md5
+      md5: 8a78d717a64d6265640e77b52208a419
+      size: 9897
+    - path: data/raw/futures_symbols.csv
+      hash: md5
+      md5: 5267b344488684cac15e122c556a2037
+      size: 196
+    - path: src/download_close_times.py
+      hash: md5
+      md5: 01bbd6bfb1a501b45966a5e570c633fc
+      size: 1108
+    outs:
+    - path: data/raw/bloomberg_close_times.csv
+      hash: md5
+      md5: 15741a5de431652dab9b6291db8e5331
+      size: 1467
+  build_aligned_index_prices:
+    cmd: python src/build_aligned_index_prices.py
+    deps:
+    - path: data/raw/adr_info.csv
+      hash: md5
+      md5: 8a78d717a64d6265640e77b52208a419
+      size: 9897
+    - path: data/raw/bloomberg_close_times.csv
+      hash: md5
+      md5: 15741a5de431652dab9b6291db8e5331
+      size: 1467
+    - path: data/raw/close_time_offsets.csv
+      hash: md5
+      md5: 558511deb7181398359509dd20207a24
+      size: 170
+    - path: 
+        data/raw/futures/minute_bars/FESX_full_1min_continuous_ratio_adjusted.txt
+      hash: md5
+      md5: 26db5f388a2b21a0f86c4a0a2294de7e
+      size: 228883581
+    - path: 
+        data/raw/futures/minute_bars/FTUK_full_1min_continuous_ratio_adjusted.txt
+      hash: md5
+      md5: 924b86de43041f280f282d21b3926462
+      size: 217793886
+    - path: 
+        data/raw/futures/minute_bars/NIY_full_1min_continuous_ratio_adjusted.txt
+      hash: md5
+      md5: 9f5a27f57298f38a9018b9b6c88647d3
+      size: 248446606
+    - path: data/raw/futures_symbols.csv
+      hash: md5
+      md5: 5267b344488684cac15e122c556a2037
+      size: 196
+    - path: data/raw/indices/indices_PX_LAST.csv
+      hash: md5
+      md5: 9e7e421b0caa8a19bef694a8a8ade054
+      size: 177834
+    - path: src/build_aligned_index_prices.py
+      hash: md5
+      md5: f0a5258fa7d1e2b64504b82b0bce5d9b
+      size: 6327
+    outs:
+    - path: data/processed/aligned_index_prices.csv
+      hash: md5
+      md5: 8db1bc6307ed47d8d08b005978ed152a
+      size: 934160
+  lasso_prepare_features:
+    cmd: python src/prepare_lasso_features.py
+    deps:
+    - path: data/processed/aligned_index_prices.csv
+      hash: md5
+      md5: 3e394ab377ec19410eb0737de441c5bb
+      size: 929654
+    - path: data/processed/models/ordinary_betas_index_only.csv
+      hash: md5
+      md5: 2cdca6770009bb9457497f5c4caac9e2
+      size: 2059098
+    - path: data/processed/russell1000/close_at_exchange_auction_adjusted
+      hash: md5
+      md5: a2a2dbd36a9002a77e22a6e94bf7f06b.dir
+      size: 82157328
+      nfiles: 13
+    - path: data/raw/adr_info.csv
+      hash: md5
+      md5: 8a78d717a64d6265640e77b52208a419
+      size: 9897
+    - path: data/raw/close_time_offsets.csv
+      hash: md5
+      md5: 558511deb7181398359509dd20207a24
+      size: 170
+    - path: data/raw/currencies/minute_bars/EURUSD_full_1min.txt
+      hash: md5
+      md5: eb1ee156a6a3a6906ca057d676f2f311
+      size: 323030509
+    - path: data/raw/currencies/minute_bars/GBPUSD_full_1min.txt
+      hash: md5
+      md5: e7079762a462bff8708325add420ff45
+      size: 322618266
+    - path: data/raw/ordinary/ord_PX_LAST_adjust_all.csv
+      hash: md5
+      md5: 863a13eaade83e84450ac9fc5763cbf3
+      size: 815969
+    - path: src/prepare_lasso_features.py
+      hash: md5
+      md5: be4680a02fd74b3de125ce874529bdb0
+      size: 10280
+    - path: src/utils_lasso_residuals.py
+      hash: md5
+      md5: 0449c1bb698a8efee2afa44e19d307b1
+      size: 11184
+    params:
+      params.yaml:
+        end_date: '2026-02-13'
+        frd_start_date: '2015-01-02'
+    outs:
+    - path: data/processed/models/with_us_stocks/features
+      hash: md5
+      md5: cb0506a5900fbea313b40875f58b3c75.dir
+      size: 206552591
+      nfiles: 45
+  compute_russell_betas:
+    cmd: python src/compute_russell_betas.py
+    deps:
+    - path: data/processed/aligned_index_prices.csv
+      hash: md5
+      md5: 3e394ab377ec19410eb0737de441c5bb
+      size: 929654
+    - path: data/processed/russell1000/close_at_exchange_auction_adjusted
+      hash: md5
+      md5: a2a2dbd36a9002a77e22a6e94bf7f06b.dir
+      size: 82157328
+      nfiles: 13
+    - path: data/raw/close_time_offsets.csv
+      hash: md5
+      md5: 558511deb7181398359509dd20207a24
+      size: 170
+    - path: data/raw/currencies/minute_bars/EURUSD_full_1min.txt
+      hash: md5
+      md5: eb1ee156a6a3a6906ca057d676f2f311
+      size: 323030509
+    - path: data/raw/currencies/minute_bars/GBPUSD_full_1min.txt
+      hash: md5
+      md5: e7079762a462bff8708325add420ff45
+      size: 322618266
+    - path: src/compute_russell_betas.py
+      hash: md5
+      md5: d69a3532050cc9695a4a6c6d5cf043d3
+      size: 6460
+    - path: src/utils_lasso_residuals.py
+      hash: md5
+      md5: 0449c1bb698a8efee2afa44e19d307b1
+      size: 11184
+    params:
+      params.yaml:
+        end_date: '2026-02-13'
+        frd_start_date: '2015-01-02'
+    outs:
+    - path: data/processed/russell1000/russell_betas
+      hash: md5
+      md5: 05be5c9257bcc07c66cd966c20b74176.dir
+      size: 58573633
+      nfiles: 13
+  lasso_train_models:
+    cmd: python src/train_lasso_models.py
+    deps:
+    - path: data/processed/models/with_us_stocks/features
+      hash: md5
+      md5: cb0506a5900fbea313b40875f58b3c75.dir
+      size: 206552591
+      nfiles: 45
+    - path: src/train_lasso_models.py
+      hash: md5
+      md5: 8dada48dd949d93ad32a6480247c050e
+      size: 14351
+    outs:
+    - path: data/processed/models/with_us_stocks/lasso
+      hash: md5
+      md5: 3f1369421f1406ef92c21473bede029a.dir
+      size: 30820583
+      nfiles: 586
+  lasso_evaluate:
+    cmd: python src/evaluate_lasso_models.py
+    deps:
+    - path: data/processed/models/ordinary_betas_index_only.csv
+      hash: md5
+      md5: 2cdca6770009bb9457497f5c4caac9e2
+      size: 2059098
+    - path: data/processed/models/with_us_stocks/features
+      hash: md5
+      md5: cb0506a5900fbea313b40875f58b3c75.dir
+      size: 206552591
+      nfiles: 45
+    - path: data/processed/models/with_us_stocks/lasso
+      hash: md5
+      md5: 3f1369421f1406ef92c21473bede029a.dir
+      size: 30820583
+      nfiles: 586
+    - path: data/raw/adr_info.csv
+      hash: md5
+      md5: 8a78d717a64d6265640e77b52208a419
+      size: 9897
+    - path: data/raw/indices/indices_PX_LAST.csv
+      hash: md5
+      md5: 2ea722794df088afd9fd01fae84d2de7
+      size: 177003
+    - path: data/raw/ordinary/ord_PX_LAST_adjust_all.csv
+      hash: md5
+      md5: 863a13eaade83e84450ac9fc5763cbf3
+      size: 815969
+    - path: src/evaluate_lasso_models.py
+      hash: md5
+      md5: ef5096ee26fb30c038b61335bc851caf
+      size: 7442
+    - path: src/utils_lasso_residuals.py
+      hash: md5
+      md5: 0449c1bb698a8efee2afa44e19d307b1
+      size: 11184
+    outs:
+    - path: data/processed/models/with_us_stocks/lasso_evaluation
+      hash: md5
+      md5: 1429bae95aa4bc9c47be21b7c2406800.dir
+      size: 42760
+      nfiles: 1
+  index_russell_lasso_signal:
+    cmd: python src/index_russell_lasso_signal.py
+    deps:
+    - path: data/processed/futures/converted_minute_bars
+      hash: md5
+      md5: 5aec63e513c7a4a65847ba6be1a159fd.dir
+      size: 667944194
+      nfiles: 7
+    - path: data/processed/futures_only_signal
+      hash: md5
+      md5: 3755ee2d5a2a3144803efe1116413be9.dir
+      size: 430449041
+      nfiles: 54
+    - path: data/processed/models/with_us_stocks/lasso
+      hash: md5
+      md5: 3f1369421f1406ef92c21473bede029a.dir
+      size: 30820583
+      nfiles: 586
+    - path: data/processed/models/with_us_stocks/lasso_evaluation
+      hash: md5
+      md5: 1429bae95aa4bc9c47be21b7c2406800.dir
+      size: 42760
+      nfiles: 1
+    - path: data/processed/russell1000/russell_betas
+      hash: md5
+      md5: 05be5c9257bcc07c66cd966c20b74176.dir
+      size: 58573633
+      nfiles: 13
+    - path: data/raw/adr_info.csv
+      hash: md5
+      md5: 8a78d717a64d6265640e77b52208a419
+      size: 9897
+    - path: data/raw/futures_symbols.csv
+      hash: md5
+      md5: 5267b344488684cac15e122c556a2037
+      size: 196
+    - path: data/raw/russell1000/ohlcv-1m
+      hash: md5
+      md5: f4c4c3157585ac5224c41fe4b74507d6.dir
+      size: 2864795964
+      nfiles: 996
+    - path: src/index_russell_lasso_signal.py
+      hash: md5
+      md5: 49453d715a51c17713d13c714031a22b
+      size: 20152
+    - path: src/train_lasso_models.py
+      hash: md5
+      md5: 8dada48dd949d93ad32a6480247c050e
+      size: 14351
+    - path: src/utils_lasso_residuals.py
+      hash: md5
+      md5: 0449c1bb698a8efee2afa44e19d307b1
+      size: 11184
+    params:
+      params.yaml:
+        end_date: '2026-02-13'
+        start_date: '2018-05-01'
+    outs:
+    - path: data/processed/index_russell_lasso_signal
+      hash: md5
+      md5: 2c7576b9f8cde6618cd00ba06382a507.dir
+      size: 430467691
+      nfiles: 54
+  download_index_close:
+    cmd: python src/download_bbg_daily.py data/raw/futures_symbols.csv 
+      data/raw/indices/indices_PX_LAST.csv --tickers_columns=index 
+      --symbol_suffix=" Index" --pad_lookback=280 --field=PX_LAST
+    deps:
+    - path: data/raw/adr_info.csv
+      hash: md5
+      md5: 8a78d717a64d6265640e77b52208a419
+      size: 9897
+    - path: src/download_bbg_daily.py
+      hash: md5
+      md5: f2284d47f57e603dd007bd5220f0befd
+      size: 2751
+    params:
+      params.yaml:
+        end_date: '2026-02-13'
+        pred.lookback_days: 280
+        start_date: '2018-05-01'
+    outs:
+    - path: data/raw/indices/indices_PX_LAST.csv
+      hash: md5
+      md5: 9e7e421b0caa8a19bef694a8a8ade054
+      size: 177834
+  usdjpy_to_jpyusd:
+    cmd: python src/usdjpy_to_jpyusd_bars.py
+    deps:
+    - path: data/raw/currencies/minute_bars/USDJPY_full_1min.txt
+      hash: md5
+      md5: 2a2ce94b3b57ff39c2a97ab0f1ab8b09
+      size: 319627072
+    - path: src/usdjpy_to_jpyusd_bars.py
+      hash: md5
+      md5: a7a414fd0cf3abfb0ceff6b669260d4c
+      size: 700
+    outs:
+    - path: data/raw/currencies/minute_bars/JPYUSD_full_1min.txt
+      hash: md5
+      md5: 4904d7b7cdb3ca6300f9641b39702f4c
+      size: 626109645
+  usd_index_futures:
+    cmd: python src/usd_index_futures.py
+    deps:
+    - path: data/raw/currencies/minute_bars/EURUSD_full_1min.txt
+      hash: md5
+      md5: eb1ee156a6a3a6906ca057d676f2f311
+      size: 323030509
+    - path: data/raw/currencies/minute_bars/GBPUSD_full_1min.txt
+      hash: md5
+      md5: e7079762a462bff8708325add420ff45
+      size: 322618266
+    - path: data/raw/currencies/minute_bars/JPYUSD_full_1min.txt
+      hash: md5
+      md5: 4904d7b7cdb3ca6300f9641b39702f4c
+      size: 626109645
+    - path: 
+        data/raw/futures/minute_bars/FCE_full_1min_continuous_ratio_adjusted.txt
+      hash: md5
+      md5: 07f2073eba49306df391ff0f21146271
+      size: 181789696
+    - path: 
+        data/raw/futures/minute_bars/FDAX_full_1min_continuous_ratio_adjusted.txt
+      hash: md5
+      md5: c9a6ef41946e9534c321b7ffb1a739aa
+      size: 252072284
+    - path: 
+        data/raw/futures/minute_bars/FESX_full_1min_continuous_ratio_adjusted.txt
+      hash: md5
+      md5: 26db5f388a2b21a0f86c4a0a2294de7e
+      size: 228883581
+    - path: 
+        data/raw/futures/minute_bars/FTI_full_1min_continuous_ratio_adjusted.txt
+      hash: md5
+      md5: be912b207a4cf7e45118c6edfe2dc738
+      size: 145701558
+    - path: 
+        data/raw/futures/minute_bars/FTUK_full_1min_continuous_ratio_adjusted.txt
+      hash: md5
+      md5: 924b86de43041f280f282d21b3926462
+      size: 217793886
+    - path: 
+        data/raw/futures/minute_bars/FXXP_full_1min_continuous_ratio_adjusted.txt
+      hash: md5
+      md5: 525b1b2d93195b6b8880077d3e554828
+      size: 94085778
+    - path: 
+        data/raw/futures/minute_bars/NIY_full_1min_continuous_ratio_adjusted.txt
+      hash: md5
+      md5: 9f5a27f57298f38a9018b9b6c88647d3
+      size: 248446606
+    - path: src/usd_index_futures.py
+      hash: md5
+      md5: d9fca0f2badefac808bbffcba9dcc853
+      size: 4650
+    outs:
+    - path: 
+        data/processed/futures/converted_minute_bars/symbol=FCE/FCE_close_to_usd_1min.parquet
+      hash: md5
+      md5: ee633d61e9088686552bcb360bf62824
+      size: 89733772
+    - path: 
+        data/processed/futures/converted_minute_bars/symbol=FDAX/FDAX_close_to_usd_1min.parquet
+      hash: md5
+      md5: b1680a9c2a81d2accf178bdec63aabae
+      size: 123309433
+    - path: 
+        data/processed/futures/converted_minute_bars/symbol=FESX/FESX_close_to_usd_1min.parquet
+      hash: md5
+      md5: ec01205fb74a3872825339be3cd90681
+      size: 108030757
+    - path: 
+        data/processed/futures/converted_minute_bars/symbol=FTI/FTI_close_to_usd_1min.parquet
+      hash: md5
+      md5: 4b9fe0950ba599131bc07c060e5e3f54
+      size: 75086477
+    - path: 
+        data/processed/futures/converted_minute_bars/symbol=FTUK/FTUK_close_to_usd_1min.parquet
+      hash: md5
+      md5: 6f995564376ec463a41ca450c6c72fc6
+      size: 110639552
+    - path: 
+        data/processed/futures/converted_minute_bars/symbol=FXXP/FXXP_close_to_usd_1min.parquet
+      hash: md5
+      md5: f1d69637822ecf0dc7379c2ff7c65595
+      size: 50447397
+    - path: 
+        data/processed/futures/converted_minute_bars/symbol=NIY/NIY_close_to_usd_1min.parquet
+      hash: md5
+      md5: bf5faa337ffda03679b5404a7c9d0a31
+      size: 136684627
+  download_adr_close:
+    cmd: python src/download_bbg_daily.py data/raw/adr_info.csv 
+      data/raw/adrs/adr_PX_LAST_adjust_none.csv --tickers_columns=adr 
+      --field=PX_LAST
+    deps:
+    - path: data/raw/adr_info.csv
+      hash: md5
+      md5: 8a78d717a64d6265640e77b52208a419
+      size: 9897
+    - path: src/download_bbg_daily.py
+      hash: md5
+      md5: f2284d47f57e603dd007bd5220f0befd
+      size: 2751
+    params:
+      params.yaml:
+        end_date: '2026-02-13'
+        start_date: '2018-05-01'
+    outs:
+    - path: data/raw/adrs/adr_PX_LAST_adjust_none.csv
+      hash: md5
+      md5: 5a27a76709b1eb40660a2dfdc7c7bc6e
+      size: 630390
+  adr_adjustments:
+    cmd: python src/get_adjustments.py data/raw/adrs/adr_PX_LAST_adjust_none.csv
+      data/processed/adrs/adr_adjustment_factors.csv --symbol_suffix=" US 
+      Equity"
+    deps:
+    - path: data/raw/adrs/adr_PX_LAST_adjust_none.csv
+      hash: md5
+      md5: 5a27a76709b1eb40660a2dfdc7c7bc6e
+      size: 630390
+    - path: src/get_adjustments.py
+      hash: md5
+      md5: 68ed05c2f22665e85f1319021dd057fe
+      size: 4260
+    outs:
+    - path: data/processed/adrs/adr_adjustment_factors.csv
+      hash: md5
+      md5: 8c5265549dbba4f32e77082e42509a4a
+      size: 132036
+  adr_open_mean_premium:
+    cmd: python -m src.adr_open_mean_prem
+    deps:
+    - path: data/raw/adr_info.csv
+      hash: md5
+      md5: 8a78d717a64d6265640e77b52208a419
+      size: 9897
+    - path: src/adr_open_mean_prem.py
+      hash: md5
+      md5: e4842b49209faaaeb1ac40514ebd8646
+      size: 908
+    params:
+      params.yaml:
+        avg_premium_lookback_days: 250
+    outs:
+    - path: data/processed/adrs/adr_open_mean_premium.csv
+      hash: md5
+      md5: 7200b41c16054c733167065e1a61e77a
+      size: 2096081
+  download_ord_close:
+    cmd: python src/download_bbg_daily.py data/raw/adr_info.csv 
+      data/raw/ordinary/ord_PX_LAST_adjust_none.csv --tickers_columns=id 
+      --include_suffix --field=PX_LAST
+    deps:
+    - path: data/raw/adr_info.csv
+      hash: md5
+      md5: 8a78d717a64d6265640e77b52208a419
+      size: 9897
+    - path: src/download_bbg_daily.py
+      hash: md5
+      md5: f2284d47f57e603dd007bd5220f0befd
+      size: 2751
+    params:
+      params.yaml:
+        end_date: '2026-02-13'
+        start_date: '2018-05-01'
+    outs:
+    - path: data/raw/ordinary/ord_PX_LAST_adjust_none.csv
+      hash: md5
+      md5: a06d386efb13b59e79cf6101320a2060
+      size: 705414
+  adj_download_ord_close:
+    cmd: python src/download_bbg_daily.py data/raw/adr_info.csv 
+      data/raw/ordinary/ord_PX_LAST_adjust_all.csv --tickers_columns=id 
+      --include_suffix --adjust=all --field=PX_LAST
+    deps:
+    - path: data/raw/adr_info.csv
+      hash: md5
+      md5: 8a78d717a64d6265640e77b52208a419
+      size: 9897
+    - path: src/download_bbg_daily.py
+      hash: md5
+      md5: f2284d47f57e603dd007bd5220f0befd
+      size: 2751
+    params:
+      params.yaml:
+        end_date: '2026-02-13'
+        start_date: '2018-05-01'
+    outs:
+    - path: data/raw/ordinary/ord_PX_LAST_adjust_all.csv
+      hash: md5
+      md5: ee307c51cfd58f55b403075a7af89ac5
+      size: 819743
+  stock_splits:
+    cmd: python -m src.get_splits
+    deps:
+    - path: data/raw/adr_info.csv
+      hash: md5
+      md5: 8a78d717a64d6265640e77b52208a419
+      size: 9897
+    - path: data/raw/sector_etfs.csv
+      hash: md5
+      md5: 02c63679f3fe993ff61186cb5efa03e6
+      size: 176
+    - path: src/get_splits.py
+      hash: md5
+      md5: ed87ad44d0870fcfa24b5f67b5589aea
+      size: 984
+    outs:
+    - path: data/raw/all_splits.csv
+      hash: md5
+      md5: bde6ab3858d26326764b1802f956b840
+      size: 15032
