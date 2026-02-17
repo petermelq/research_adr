@@ -1870,13 +1870,13 @@ stages:
       size: 2060988
     - path: data/processed/models/with_us_stocks/features
       hash: md5
-      md5: 01679c2f65dbd51b218fd8017b4f1e2d.dir
-      size: 211568605
+      md5: a78d719d7540d7dbb005ec32bfe09b21.dir
+      size: 193271751
       nfiles: 45
     - path: data/processed/models/with_us_stocks/lasso
       hash: md5
-      md5: e8109702a2d476bc31e3f2a88712bc07.dir
-      size: 30820515
+      md5: c8549b9d78f0f1c8d64ad5a870e0ed15.dir
+      size: 30820721
       nfiles: 586
     - path: data/raw/adr_info.csv
       hash: md5
@@ -1896,11 +1896,53 @@ stages:
       size: 7442
     - path: src/utils_lasso_residuals.py
       hash: md5
-      md5: d09aeba4478063051b800b77dc3d3934
-      size: 9525
+      md5: 7f2eaf7e991de0c2ca488345b1e0efe6
+      size: 13488
     outs:
     - path: data/processed/models/with_us_stocks/lasso_evaluation
       hash: md5
-      md5: 8a39bd766a032ae382f3f0ce9d389fd5.dir
-      size: 42873
+      md5: 802bc77cb905cc280da74a92bb95cce6.dir
+      size: 42827
       nfiles: 1
+  compute_russell_betas:
+    cmd: python src/compute_russell_betas.py
+    deps:
+    - path: data/processed/russell1000/close_at_exchange_auction_adjusted
+      hash: md5
+      md5: a2a2dbd36a9002a77e22a6e94bf7f06b.dir
+      size: 82157328
+      nfiles: 13
+    - path: data/raw/close_time_offsets.csv
+      hash: md5
+      md5: 558511deb7181398359509dd20207a24
+      size: 170
+    - path: data/raw/currencies/minute_bars/EURUSD_full_1min.txt
+      hash: md5
+      md5: eb1ee156a6a3a6906ca057d676f2f311
+      size: 323030509
+    - path: data/raw/currencies/minute_bars/GBPUSD_full_1min.txt
+      hash: md5
+      md5: e7079762a462bff8708325add420ff45
+      size: 322618266
+    - path: data/raw/indices/indices_PX_LAST.csv
+      hash: md5
+      md5: 2ea722794df088afd9fd01fae84d2de7
+      size: 177003
+    - path: src/compute_russell_betas.py
+      hash: md5
+      md5: 055f3989128f99db5fe35a3f600cdf0c
+      size: 6041
+    - path: src/utils_lasso_residuals.py
+      hash: md5
+      md5: 7f2eaf7e991de0c2ca488345b1e0efe6
+      size: 13488
+    params:
+      params.yaml:
+        end_date: '2026-01-30'
+        frd_start_date: '2015-01-02'
+    outs:
+    - path: data/processed/russell1000/russell_betas
+      hash: md5
+      md5: 58839c7b9d11405f9a11ec366dfcc850.dir
+      size: 53999312
+      nfiles: 13
