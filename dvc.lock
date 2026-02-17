@@ -597,6 +597,29 @@ stages:
       hash: md5
       md5: 8a78d717a64d6265640e77b52208a419
       size: 9897
+    - path: data/raw/bloomberg_close_times.csv
+      hash: md5
+      md5: 15741a5de431652dab9b6291db8e5331
+      size: 1467
+    - path: data/raw/close_time_offsets.csv
+      hash: md5
+      md5: 558511deb7181398359509dd20207a24
+      size: 170
+    - path: 
+        data/raw/futures/minute_bars/FESX_full_1min_continuous_ratio_adjusted.txt
+      hash: md5
+      md5: 26db5f388a2b21a0f86c4a0a2294de7e
+      size: 228883581
+    - path: 
+        data/raw/futures/minute_bars/FTUK_full_1min_continuous_ratio_adjusted.txt
+      hash: md5
+      md5: 924b86de43041f280f282d21b3926462
+      size: 217793886
+    - path: 
+        data/raw/futures/minute_bars/NIY_full_1min_continuous_ratio_adjusted.txt
+      hash: md5
+      md5: 9f5a27f57298f38a9018b9b6c88647d3
+      size: 248446606
     - path: data/raw/futures_symbols.csv
       hash: md5
       md5: 5267b344488684cac15e122c556a2037
@@ -611,16 +634,20 @@ stages:
       size: 797173
     - path: src/get_betas_no_sector.py
       hash: md5
-      md5: 4b27d950313d5e1ad6e94b8802924640
-      size: 6419
+      md5: 5d297880e6595f54296fb05867d0c4b2
+      size: 10685
+    - path: src/utils_lasso_residuals.py
+      hash: md5
+      md5: 7f2eaf7e991de0c2ca488345b1e0efe6
+      size: 13488
     params:
       params.yaml:
         pred.lookback_days: 280
     outs:
     - path: data/processed/models/ordinary_betas_index_only.csv
       hash: md5
-      md5: 27c146b004f901e11792691b77add791
-      size: 2071356
+      md5: 8841b53b2a953b09d174d734b8180889
+      size: 1986105
   fixed_time_signal:
     cmd: python src/from_full_futures_fixed_time_signal.py 
       data/processed/futures_only_signal data/processed/fixed_time_signal.csv
@@ -640,13 +667,13 @@ stages:
       nfiles: 7
     - path: data/processed/futures_only_signal/
       hash: md5
-      md5: 14bdbfa9056ead040d687f78d459a76a.dir
-      size: 438461022
+      md5: 5415e3eeb5d719da118c8ab5fbc3a29b.dir
+      size: 431408271
       nfiles: 54
     - path: data/processed/models/ordinary_betas_index_only.csv
       hash: md5
-      md5: 27c146b004f901e11792691b77add791
-      size: 2071356
+      md5: 8841b53b2a953b09d174d734b8180889
+      size: 1986105
     - path: data/raw/adr_info.csv
       hash: md5
       md5: 8a78d717a64d6265640e77b52208a419
@@ -668,8 +695,8 @@ stages:
     outs:
     - path: data/processed/fixed_time_signal.csv
       hash: md5
-      md5: f842791509adad6acef99f8b20f9f268
-      size: 2136435
+      md5: 4adb3b1daa1f5990991c8d21ebbd3d65
+      size: 2073448
   stock_splits:
     cmd: python -m src.get_splits
     deps:
@@ -777,8 +804,8 @@ stages:
       nfiles: 7
     - path: data/processed/models/ordinary_betas_index_only.csv
       hash: md5
-      md5: 27c146b004f901e11792691b77add791
-      size: 2071356
+      md5: 8841b53b2a953b09d174d734b8180889
+      size: 1986105
     - path: data/processed/ordinary/ord_close_to_usd_adr_PX_LAST_adjust_none.csv
       hash: md5
       md5: e1d1413e06dda7785c70e558de25a44f
@@ -809,8 +836,8 @@ stages:
     outs:
     - path: data/processed/futures_only_signal/
       hash: md5
-      md5: 14bdbfa9056ead040d687f78d459a76a.dir
-      size: 438461022
+      md5: 5415e3eeb5d719da118c8ab5fbc3a29b.dir
+      size: 431408271
       nfiles: 54
   download_adr_tcbbo:
     cmd: python -m data_tools.cli.batch_download_to_parquet_with_append 
@@ -968,8 +995,8 @@ stages:
       size: 102491
     - path: data/processed/fixed_time_signal.csv
       hash: md5
-      md5: f842791509adad6acef99f8b20f9f268
-      size: 2136435
+      md5: 4adb3b1daa1f5990991c8d21ebbd3d65
+      size: 2073448
     - path: data/processed/market_etf_hedge_ratios.csv
       hash: md5
       md5: 6c688e1b450bff266b3e689dc21f400e
@@ -1904,3 +1931,23 @@ stages:
       md5: 8a39bd766a032ae382f3f0ce9d389fd5.dir
       size: 42873
       nfiles: 1
+  download_close_times:
+    cmd: python src/download_close_times.py
+    deps:
+    - path: data/raw/adr_info.csv
+      hash: md5
+      md5: 8a78d717a64d6265640e77b52208a419
+      size: 9897
+    - path: data/raw/futures_symbols.csv
+      hash: md5
+      md5: 5267b344488684cac15e122c556a2037
+      size: 196
+    - path: src/download_close_times.py
+      hash: md5
+      md5: 6effbc77beb1979755fa29c21d93d5e2
+      size: 1136
+    outs:
+    - path: data/raw/bloomberg_close_times.csv
+      hash: md5
+      md5: 15741a5de431652dab9b6291db8e5331
+      size: 1467
