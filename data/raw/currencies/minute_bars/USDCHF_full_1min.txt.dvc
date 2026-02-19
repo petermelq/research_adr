@@ -1,0 +1,5 @@
+outs:
+- md5: bce1b2831f0ddb91f749c793bd406e2f
+  size: 320182524
+  hash: md5
+  path: USDCHF_full_1min.txt
