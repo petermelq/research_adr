@@ -1,4 +1,4 @@
-fixed_trade_time_min: 30
+fixed_trade_time_min: 0
 fixed_trade_time_hours: 14
 
 daily_time_for_cov_min: 0
@@ -8,7 +8,7 @@ daily_time_for_cov_hours: 13
 start_date: "2018-05-01"
 end_date: "2026-02-13"
 
-frd_start_date: "2015-01-02"
+frd_start_date: "2024-01-02"
 
 data_offset:
   milliseconds: 100

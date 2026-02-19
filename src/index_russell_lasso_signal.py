@@ -2,13 +2,16 @@
 Generate LASSO-augmented intraday signal for ADR arbitrage.
 
 For LASSO-eligible ADRs (IC improvement >= 0.04):
-  signal = beta * futures_return_since_close + lasso_residual_pred - adr_return_since_close
+  signal = baseline_signal + lasso_residual_pred
 
 For non-LASSO ADRs:
   Copies baseline signal from data/processed/futures_only_signal/
 
 LASSO residual prediction uses Russell 1000 intraday returns, residualized
 against the index futures return, then fed through the trained LASSO model.
+
+Memory-efficient: only loads Russell tickers with non-zero LASSO coefficients.
+Uses sparse prediction to bypass full scaler.transform().
 """
 
 import os
@@ -36,7 +39,6 @@ LASSO_ELIGIBLE = [
 ]
 
 # Offset between exchange close and the actual closing auction time
-# (same values used in only_futures_full_signal.py)
 TIME_FUTURES_AFTER_CLOSE = {
     'XLON': pd.Timedelta('6min'),
     'XAMS': pd.Timedelta('6min'),
@@ -58,7 +60,7 @@ TIME_FUTURES_AFTER_CLOSE = {
 
 def load_lasso_models(model_dir):
     """
-    Load all LASSO models for eligible tickers, organized by ticker and date range.
+    Load all LASSO models for eligible tickers.
 
     Returns:
         dict: {ticker: [(test_start, test_end, model_data), ...]}
@@ -83,34 +85,84 @@ def load_lasso_models(model_dir):
     return models
 
 
-def get_model_for_date(ticker_models, date):
+def precompute_sparse_models(models):
     """
-    Find the model whose test_period contains the given date.
+    Precompute adjusted coefficients for sparse prediction.
 
-    Returns model_data dict or None.
+    Since fit_intercept=False (intercept=0):
+      prediction = sum_{i in nz} (coef[i]/scale[i]) * feature[i]
+                   - sum_{i in nz} (coef[i]*mean[i]/scale[i])
+
+    Returns:
+        sparse_models: {ticker: [(test_start, test_end, sparse_data), ...]}
     """
-    date_ts = pd.Timestamp(date)
-    for test_start, test_end, model_data in ticker_models:
+    sparse_models = {}
+
+    for ticker, ticker_models in models.items():
+        sparse_ticker = []
+        for test_start, test_end, model_data in ticker_models:
+            model_obj = model_data['model']
+            feature_names = model_data['feature_names']
+            coefs = model_obj.model.coef_
+            nonzero_idx = np.where(coefs != 0)[0]
+
+            if len(nonzero_idx) == 0:
+                sparse_ticker.append((test_start, test_end, {
+                    'offset': 0.0,
+                    'nonzero_tickers': [],
+                    'adjusted_coefs': np.array([]),
+                }))
+            else:
+                nz_coefs = coefs[nonzero_idx]
+                nz_means = model_obj.scaler.mean_[nonzero_idx]
+                nz_scales = model_obj.scaler.scale_[nonzero_idx]
+
+                adjusted_coefs = nz_coefs / nz_scales
+                offset = -np.sum(nz_coefs * nz_means / nz_scales)
+
+                nz_tickers = [feature_names[i].replace('russell_', '', 1)
+                              for i in nonzero_idx]
+
+                sparse_ticker.append((test_start, test_end, {
+                    'offset': offset,
+                    'nonzero_tickers': nz_tickers,
+                    'adjusted_coefs': adjusted_coefs,
+                }))
+
+        sparse_models[ticker] = sparse_ticker
+
+    return sparse_models
+
+
+def get_needed_tickers_for_exchange(sparse_models, eligible_tickers):
+    """Get union of non-zero Russell tickers needed for one exchange's models."""
+    needed = set()
+    for ticker in eligible_tickers:
+        if ticker not in sparse_models:
+            continue
+        for _, _, sparse_data in sparse_models[ticker]:
+            needed.update(sparse_data['nonzero_tickers'])
+    return needed
+
+
+def get_sparse_model_for_date(sparse_ticker_models, date_ts):
+    """Find the sparse model whose test_period contains the given date."""
+    for test_start, test_end, sparse_data in sparse_ticker_models:
         if test_start <= date_ts <= test_end:
-            return model_data
+            return sparse_data
     return None
 
 
-def build_russell_wide_df(russell_ohlcv_dir, tickers, dates_set, close_times_by_date):
+def load_russell_minute_data(russell_ohlcv_dir, tickers, dates_set):
     """
-    Load Russell minute bars and build a wide DataFrame: (timestamp x ticker) of Close prices.
-    Only includes timestamps at or after exchange close for each date.
+    Load Russell minute bar close prices for specified tickers only.
+    No close-time filtering — data shared across exchanges.
 
     Returns:
-        DataFrame with tz-aware ET DatetimeIndex, columns = ticker names, values = Close price
+        dict: {ticker: Series with tz-aware ET index and float32 Close values}
     """
-    # Pre-build a Series mapping date_str -> close_time for vectorized filtering
-    close_time_series = pd.Series(close_times_by_date)
-
     all_series = {}
-    loaded = 0
-
-    for ticker in tqdm(tickers, desc="Loading Russell minute bars"):
+    for ticker in tqdm(sorted(tickers), desc="Loading Russell minute bars"):
         parquet_path = russell_ohlcv_dir / f'ticker={ticker}' / 'data.parquet'
         if not parquet_path.exists():
             continue
@@ -120,282 +172,13 @@ def build_russell_wide_df(russell_ohlcv_dir, tickers, dates_set, close_times_by_
             df = df[df['date'].isin(dates_set)]
             if df.empty:
                 continue
-
             df.index = df.index.tz_localize('America/New_York')
-
-            # Vectorized filtering: map each row's date to its close time,
-            # then compare timestamp >= close_time
-            mapped = df['date'].map(close_time_series)
-            row_close_times = pd.DatetimeIndex(mapped.values, tz='America/New_York')
-            keep_mask = df.index >= row_close_times
-            filtered = df.loc[keep_mask, 'Close']
-            if not filtered.empty:
-                all_series[ticker] = filtered
-                loaded += 1
+            all_series[ticker] = df['Close'].astype(np.float32)
         except Exception:
             continue
 
-    print(f"  Loaded minute bars for {loaded} Russell tickers")
-    if not all_series:
-        return pd.DataFrame()
-
-    # Combine into wide DataFrame (timestamps as index, tickers as columns)
-    wide = pd.DataFrame(all_series)
-    return wide
-
-
-def compute_lasso_signal_for_exchange(
-    exchange_mic,
-    eligible_tickers_on_exchange,
-    models,
-    russell_ohlcv_dir,
-    russell_betas_path,
-    futures_dir,
-    adr_info,
-    futures_symbols,
-    close_times_df,
-    start_date,
-    end_date,
-):
-    """
-    Compute LASSO-augmented signal for all eligible tickers on one exchange.
-
-    Vectorized: builds a wide Russell price DataFrame, computes returns and
-    residuals as matrix operations, then applies LASSO models.
-    """
-    print(f"\n{'=' * 60}")
-    print(f"Processing exchange: {exchange_mic}")
-    print(f"Eligible tickers: {eligible_tickers_on_exchange}")
-    print(f"{'=' * 60}")
-
-    offset = TIME_FUTURES_AFTER_CLOSE[exchange_mic]
-
-    # Get exchange-to-index mapping
-    _, exchange_to_index = load_index_mapping()
-    index_symbol = exchange_to_index.get(exchange_mic)
-    if index_symbol is None:
-        print(f"  No index mapping for {exchange_mic}, skipping")
-        return {}
-
-    # Load Russell betas for this exchange
-    if not russell_betas_path.exists():
-        print(f"  Russell betas not found: {russell_betas_path}, skipping")
-        return {}
-    russell_betas = pd.read_parquet(russell_betas_path)
-    russell_betas.index = pd.to_datetime(russell_betas.index)
-    russell_tickers = russell_betas.columns.tolist()
-    print(f"  Russell betas: {russell_betas.shape}")
-
-    # Close times for this exchange
-    close_df = close_times_df
-    available_dates = sorted(close_df.index.tolist())
-
-    # Build close_times_by_date
-    close_times_by_date = {}
-    for date_str in available_dates:
-        close_times_by_date[date_str] = close_df.loc[date_str] + offset
-
-    # Build wide Russell price DataFrame (vectorized approach)
-    dates_set = set(available_dates)
-    print(f"  Loading Russell minute bars for {len(russell_tickers)} tickers, {len(available_dates)} dates...")
-    russell_wide = build_russell_wide_df(russell_ohlcv_dir, russell_tickers, dates_set, close_times_by_date)
-
-    if russell_wide.empty:
-        print(f"  No Russell minute data available, skipping exchange")
-        return {}
-
-    # Add date string column for fast groupby/lookup (avoid repeated .normalize())
-    russell_wide['_date_str'] = russell_wide.index.strftime('%Y-%m-%d')
-
-    # Forward-fill within each date to handle missing minutes
-    print(f"  Forward-filling within each date...")
-    parts = []
-    for date_str, group in russell_wide.groupby('_date_str', sort=False):
-        parts.append(group.drop(columns='_date_str').ffill())
-    russell_wide = pd.concat(parts)
-    russell_wide['_date_str'] = russell_wide.index.strftime('%Y-%m-%d')
-
-    # Compute Russell close price at exchange close for each date
-    # (first minute at or after close time for each date)
-    print(f"  Computing Russell close prices at exchange close...")
-    russell_close_prices = {}
-    for date_str, group in russell_wide.groupby('_date_str', sort=False):
-        if date_str not in close_times_by_date:
-            continue
-        close_time = close_times_by_date[date_str]
-        at_close = group[group.index >= close_time]
-        if not at_close.empty:
-            russell_close_prices[date_str] = at_close.iloc[0].drop('_date_str')
-
-    # Map ADR tickers to futures symbols
-    merged_info = adr_info.merge(futures_symbols, left_on='index_future_bbg', right_on='bloomberg_symbol')
-    stock_to_frd = merged_info.set_index(merged_info['adr'].str.replace(' US Equity', ''))['first_rate_symbol'].to_dict()
-
-    # Load futures data once for this exchange's index future
-    # All tickers on same exchange use the same index future
-    # Get the futures symbol from the first eligible ticker
-    futures_symbol = None
-    for ticker in eligible_tickers_on_exchange:
-        fs = stock_to_frd.get(ticker)
-        if fs:
-            futures_symbol = fs
-            break
-
-    if futures_symbol is None:
-        print(f"  No futures mapping for any ticker on {exchange_mic}")
-        return {}
-
-    print(f"  Loading futures data for {futures_symbol}...")
-    futures_df_raw = pd.read_parquet(
-        futures_dir,
-        filters=[('timestamp', '>=', pd.Timestamp(start_date, tz='America/New_York'))],
-        columns=['timestamp', 'symbol', 'close']
-    )
-    futures_df_raw = futures_df_raw[futures_df_raw['symbol'] == futures_symbol].copy()
-    futures_df_raw['date'] = futures_df_raw['timestamp'].dt.strftime('%Y-%m-%d')
-    futures_df_raw = futures_df_raw.set_index('timestamp')
-
-    # Get futures close price at exchange close for each date
-    merged_fut = futures_df_raw.merge(close_df.rename('domestic_close_time'), left_on='date', right_index=True)
-    fut_domestic_close = merged_fut.groupby('date')[['domestic_close_time', 'close']].apply(
-        lambda x: x[x.index <= x['domestic_close_time'] + offset].iloc[-1]['close']
-        if (x.index <= x['domestic_close_time'] + offset).any() else np.nan
-    ).to_frame(name='fut_domestic_close')
-
-    # Reindex futures for fast lookup: forward-fill so every minute has a price
-    futures_close_series = futures_df_raw['close']
-
-    # Precompute LASSO predictions for each (date, minute) — shared across all tickers on this exchange
-    # that use the same model feature set. However, each ticker may use a different model.
-    # So we compute predictions per ticker.
-
-    results = {}
-    for ticker in eligible_tickers_on_exchange:
-        print(f"\n  Processing {ticker}...")
-
-        # Load baseline signal
-        baseline_path = __script_dir__ / '..' / 'data' / 'processed' / 'futures_only_signal' / f'ticker={ticker}' / 'data.parquet'
-        if not baseline_path.exists():
-            print(f"    No baseline signal, skipping")
-            continue
-        baseline_signal = pd.read_parquet(baseline_path)
-
-        # Get this ticker's LASSO models
-        ticker_models = models.get(ticker)
-        if not ticker_models:
-            print(f"    No LASSO models, copying baseline")
-            results[ticker] = baseline_signal
-            continue
-
-        augmented_parts = []
-        dates_processed = 0
-        dates_fallback = 0
-
-        for date_str in available_dates:
-            date_ts = pd.Timestamp(date_str)
-
-            # Get model for this date
-            model_data = get_model_for_date(ticker_models, date_ts)
-            if model_data is None:
-                dates_fallback += 1
-                continue
-
-            model = model_data['model']
-            feature_names = model_data['feature_names']
-
-            # Check Russell close prices exist for this date
-            if date_str not in russell_close_prices:
-                dates_fallback += 1
-                continue
-
-            russ_close = russell_close_prices[date_str]
-
-            # Check futures close price at exchange close
-            if date_str not in fut_domestic_close.index:
-                dates_fallback += 1
-                continue
-            fut_close_price = fut_domestic_close.loc[date_str, 'fut_domestic_close']
-            if np.isnan(fut_close_price):
-                dates_fallback += 1
-                continue
-
-            # Get Russell betas for this date (most recent available)
-            beta_dates = russell_betas.index[russell_betas.index <= date_ts]
-            if len(beta_dates) == 0:
-                dates_fallback += 1
-                continue
-            date_betas = russell_betas.loc[beta_dates[-1]]
-
-            # Get baseline signal timestamps for this date
-            baseline_date = baseline_signal[baseline_signal['date'] == date_str]
-            if baseline_date.empty:
-                continue
-
-            # Get Russell prices for all minutes in this date (vectorized)
-            day_russell = russell_wide[russell_wide['_date_str'] == date_str].drop(columns='_date_str')
-            if day_russell.empty:
-                dates_fallback += 1
-                continue
-
-            # Align Russell data to baseline signal timestamps
-            # Use reindex with ffill to get Russell prices at each baseline timestamp
-            common_cols = day_russell.columns
-            aligned_russell = day_russell.reindex(baseline_date.index, method='ffill')
-
-            # Compute returns: (current_price - close_price) / close_price
-            # russ_close is a Series indexed by ticker
-            russ_close_aligned = russ_close.reindex(common_cols)
-            valid_cols = russ_close_aligned.dropna().index
-            returns_matrix = (aligned_russell[valid_cols] - russ_close_aligned[valid_cols]) / russ_close_aligned[valid_cols]
-
-            # Get futures prices at each baseline timestamp (for residualization)
-            fut_prices = futures_close_series.reindex(baseline_date.index, method='ffill')
-            index_fut_returns = (fut_prices - fut_close_price) / fut_close_price
-
-            # Residualize: russell_residual = russell_return - beta * index_fut_return
-            betas_aligned = date_betas.reindex(valid_cols).fillna(0.0)
-            residuals_matrix = returns_matrix.sub(
-                index_fut_returns.values[:, np.newaxis] * betas_aligned.values[np.newaxis, :],
-            )
-            residuals_matrix = residuals_matrix.fillna(0.0)
-
-            # Build feature matrix matching model's feature_names order
-            # feature_names are like 'russell_AAPL' -> map to ticker 'AAPL'
-            russ_ticker_order = [fn.replace('russell_', '', 1) for fn in feature_names]
-
-            # Reindex residuals to match feature order, fill missing with 0
-            feature_matrix = residuals_matrix.reindex(columns=russ_ticker_order, fill_value=0.0).values
-
-            # Apply LASSO model (vectorized prediction for all minutes at once)
-            feature_scaled = model.scaler.transform(feature_matrix)
-            lasso_preds = model.model.predict(feature_scaled)
-
-            # Add LASSO prediction to baseline signal
-            augmented = baseline_date[['signal']].copy()
-            augmented['signal'] = augmented['signal'].values + lasso_preds
-            augmented['date'] = date_str
-            augmented_parts.append(augmented)
-            dates_processed += 1
-
-        # Combine augmented dates
-        if augmented_parts:
-            augmented_signal = pd.concat(augmented_parts)
-        else:
-            augmented_signal = pd.DataFrame(columns=['signal', 'date'])
-
-        # For dates without LASSO coverage, use baseline
-        all_baseline_dates = set(baseline_signal['date'].unique())
-        augmented_dates = set(augmented_signal['date'].unique()) if not augmented_signal.empty else set()
-        missing_dates = all_baseline_dates - augmented_dates
-
-        if missing_dates:
-            fallback = baseline_signal[baseline_signal['date'].isin(missing_dates)]
-            augmented_signal = pd.concat([augmented_signal, fallback]).sort_index()
-
-        results[ticker] = augmented_signal
-        print(f"    {dates_processed} dates augmented, {dates_fallback} fallback, {len(missing_dates)} copied from baseline")
-
-    return results
+    print(f"  Loaded {len(all_series)} Russell tickers")
+    return all_series
 
 
 def main():
@@ -424,26 +207,27 @@ def main():
     adr_info['adr'] = adr_info['adr'].str.replace(' US Equity', '')
     adr_tickers = adr_info['adr'].tolist()
     exchange_dict = adr_info.set_index('adr')['exchange'].to_dict()
-    exchanges = adr_info['exchange'].unique().tolist()
 
     # Load futures symbols
     futures_symbols_path = data_dir / 'data' / 'raw' / 'futures_symbols.csv'
     futures_symbols = pd.read_csv(futures_symbols_path)
 
-    # Load LASSO models
+    # Map ADR tickers to FRD futures symbols
+    adr_info['index_future_bbg'] = adr_info['index_future_bbg'].str.strip()
+    futures_symbols['bloomberg_symbol'] = futures_symbols['bloomberg_symbol'].str.strip()
+    merged_info = adr_info.merge(futures_symbols, left_on='index_future_bbg',
+                                  right_on='bloomberg_symbol')
+    stock_to_frd = merged_info.set_index('adr_x' if 'adr_x' in merged_info.columns else 'adr')[
+        'first_rate_symbol'].to_dict()
+
+    # Load LASSO models and precompute sparse prediction params
     print("\nLoading LASSO models...")
     models = load_lasso_models(model_dir)
     print(f"Loaded models for {len(models)} tickers")
 
-    # Create close times for each exchange
-    close_times = {}
-    for ex in exchanges:
-        close_times[ex] = (
-            mcal.get_calendar(ex)
-            .schedule(start_date=start_date, end_date=end_date)['market_close']
-            .dt.tz_convert('America/New_York')
-        ).rename('domestic_close_time')
-        close_times[ex].index = close_times[ex].index.astype(str)
+    print("Precomputing sparse model parameters...")
+    sparse_models = precompute_sparse_models(models)
+    del models  # free raw model objects
 
     # Group eligible tickers by exchange
     eligible_by_exchange = {}
@@ -454,29 +238,229 @@ def main():
 
     print(f"\nLASSO-eligible tickers by exchange:")
     for ex, tickers in eligible_by_exchange.items():
-        print(f"  {ex}: {tickers}")
+        needed = get_needed_tickers_for_exchange(sparse_models, tickers)
+        print(f"  {ex}: {tickers} ({len(needed)} Russell tickers needed)")
 
-    # Process each exchange
+    # Process each exchange (load Russell data per-exchange to limit memory)
     all_results = {}
-    for exchange_mic, tickers in eligible_by_exchange.items():
-        russell_betas_path = russell_betas_dir / f'{exchange_mic}.parquet'
+    for exchange_mic, eligible_tickers in eligible_by_exchange.items():
+        print(f"\n{'=' * 60}")
+        print(f"Processing exchange: {exchange_mic}")
+        print(f"{'=' * 60}")
 
-        results = compute_lasso_signal_for_exchange(
-            exchange_mic=exchange_mic,
-            eligible_tickers_on_exchange=tickers,
-            models=models,
-            russell_ohlcv_dir=russell_ohlcv_dir,
-            russell_betas_path=russell_betas_path,
-            futures_dir=futures_dir,
-            adr_info=adr_info,
-            futures_symbols=futures_symbols,
-            close_times_df=close_times[exchange_mic],
-            start_date=start_date,
-            end_date=end_date,
+        offset = TIME_FUTURES_AFTER_CLOSE[exchange_mic]
+
+        # Close times for this exchange
+        close_df = (
+            mcal.get_calendar(exchange_mic)
+            .schedule(start_date=start_date, end_date=end_date)['market_close']
+            .dt.tz_convert('America/New_York')
+        ).rename('domestic_close_time')
+        close_df.index = close_df.index.astype(str)
+        available_dates = sorted(close_df.index.tolist())
+
+        # Get needed Russell tickers for this exchange only
+        needed_tickers = get_needed_tickers_for_exchange(
+            sparse_models, eligible_tickers)
+        print(f"  Need {len(needed_tickers)} Russell tickers for this exchange")
+
+        if not needed_tickers:
+            print(f"  No non-zero models, skipping")
+            continue
+
+        # Load Russell betas
+        betas_path = russell_betas_dir / f'{exchange_mic}.parquet'
+        if not betas_path.exists():
+            print(f"  Russell betas not found, skipping")
+            continue
+        russell_betas = pd.read_parquet(betas_path)
+        russell_betas.index = pd.to_datetime(russell_betas.index)
+
+        # Load Russell minute data for THIS exchange's needed tickers
+        exchange_dates = set(available_dates)
+        russell_data = load_russell_minute_data(
+            russell_ohlcv_dir, needed_tickers, exchange_dates)
+
+        # Load futures data for this exchange
+        futures_symbol = None
+        for ticker in eligible_tickers:
+            fs = stock_to_frd.get(ticker)
+            if fs:
+                futures_symbol = fs
+                break
+        if futures_symbol is None:
+            print(f"  No futures mapping, skipping")
+            del russell_data
+            continue
+
+        print(f"  Loading futures data for {futures_symbol}...")
+        futures_df_raw = pd.read_parquet(
+            futures_dir,
+            filters=[('timestamp', '>=', pd.Timestamp(start_date, tz='America/New_York'))],
+            columns=['timestamp', 'symbol', 'close']
         )
-        all_results.update(results)
+        futures_df_raw = futures_df_raw[futures_df_raw['symbol'] == futures_symbol].copy()
+        futures_df_raw['date'] = futures_df_raw['timestamp'].dt.strftime('%Y-%m-%d')
+        futures_df_raw = futures_df_raw.set_index('timestamp')
 
-    # Save augmented signals for LASSO-eligible tickers
+        # Futures close price at exchange close for each date
+        merged_fut = futures_df_raw.merge(
+            close_df.rename('domestic_close_time'), left_on='date', right_index=True)
+        fut_domestic_close = merged_fut.groupby('date')[['domestic_close_time', 'close']].apply(
+            lambda x: x[x.index <= x['domestic_close_time'] + offset].iloc[-1]['close']
+            if (x.index <= x['domestic_close_time'] + offset).any() else np.nan
+        ).to_frame(name='fut_domestic_close')
+
+        futures_close_series = futures_df_raw['close']
+
+        # Load baseline signals for all eligible tickers
+        baseline_signals = {}
+        for ticker in eligible_tickers:
+            bp = baseline_signal_dir / f'ticker={ticker}' / 'data.parquet'
+            if bp.exists():
+                baseline_signals[ticker] = pd.read_parquet(bp)
+
+        # Results storage per ticker
+        ticker_augmented = {t: [] for t in eligible_tickers}
+        ticker_fallback_count = {t: 0 for t in eligible_tickers}
+
+        # Process date by date
+        print(f"  Processing {len(available_dates)} dates...")
+        for date_str in tqdm(available_dates, desc=f"  {exchange_mic}"):
+            date_ts = pd.Timestamp(date_str)
+            close_time = close_df.loc[date_str] + offset
+
+            # Get Russell data for this date, after close
+            # Build small DataFrame on the fly from dict of Series
+            day_cols = {}
+            for t, series in russell_data.items():
+                day_series = series.loc[date_str:date_str]
+                after = day_series[day_series.index >= close_time]
+                if not after.empty:
+                    day_cols[t] = after
+            if not day_cols:
+                for t in eligible_tickers:
+                    ticker_fallback_count[t] += 1
+                continue
+
+            after_close = pd.DataFrame(day_cols)
+            # Forward-fill within this date
+            after_close = after_close.ffill()
+
+            # Russell close prices (first row at/after close time)
+            russell_close = after_close.iloc[0]
+            valid_tickers = russell_close.dropna().index
+
+            # Check futures
+            if date_str not in fut_domestic_close.index:
+                for t in eligible_tickers:
+                    ticker_fallback_count[t] += 1
+                continue
+            fut_close_price = fut_domestic_close.loc[date_str, 'fut_domestic_close']
+            if np.isnan(fut_close_price):
+                for t in eligible_tickers:
+                    ticker_fallback_count[t] += 1
+                continue
+
+            # Get Russell betas for this date
+            beta_dates = russell_betas.index[russell_betas.index <= date_ts]
+            if len(beta_dates) == 0:
+                for t in eligible_tickers:
+                    ticker_fallback_count[t] += 1
+                continue
+            date_betas = russell_betas.loc[beta_dates[-1]]
+            betas_aligned = date_betas.reindex(valid_tickers).fillna(0.0)
+
+            # Process each eligible ticker on this exchange
+            for ticker in eligible_tickers:
+                if ticker not in baseline_signals:
+                    continue
+                if ticker not in sparse_models:
+                    ticker_fallback_count[ticker] += 1
+                    continue
+
+                # Get sparse model for this date
+                sparse_data = get_sparse_model_for_date(
+                    sparse_models[ticker], date_ts)
+                if sparse_data is None:
+                    ticker_fallback_count[ticker] += 1
+                    continue
+
+                nz_tickers = sparse_data['nonzero_tickers']
+                if not nz_tickers:
+                    ticker_fallback_count[ticker] += 1
+                    continue
+
+                # Get baseline timestamps for this date
+                baseline_df = baseline_signals[ticker]
+                baseline_date = baseline_df[baseline_df['date'] == date_str]
+                if baseline_date.empty:
+                    continue
+
+                # Align Russell after-close data to baseline timestamps
+                aligned_russell = after_close[valid_tickers].reindex(
+                    baseline_date.index, method='ffill')
+
+                # Compute Russell returns since close
+                returns_matrix = (aligned_russell - russell_close[valid_tickers]) / russell_close[valid_tickers]
+
+                # Compute futures returns at each baseline timestamp
+                fut_prices = futures_close_series.reindex(
+                    baseline_date.index, method='ffill')
+                index_fut_returns = (fut_prices - fut_close_price) / fut_close_price
+
+                # Residualize: residual = return - beta * index_return
+                residuals_matrix = returns_matrix.sub(
+                    index_fut_returns.values[:, np.newaxis] * betas_aligned.values[np.newaxis, :],
+                )
+                residuals_matrix = residuals_matrix.fillna(0.0)
+
+                # Sparse prediction: only use non-zero coefficient tickers
+                available_nz = [t for t in nz_tickers
+                                if t in residuals_matrix.columns]
+                if not available_nz:
+                    ticker_fallback_count[ticker] += 1
+                    continue
+
+                feature_vals = residuals_matrix[available_nz].values
+                coef_map = dict(zip(nz_tickers, sparse_data['adjusted_coefs']))
+                coefs = np.array([coef_map[t] for t in available_nz])
+
+                preds = sparse_data['offset'] + feature_vals @ coefs
+
+                # Add LASSO prediction to baseline signal
+                augmented = baseline_date[['signal']].copy()
+                augmented['signal'] = augmented['signal'].values + preds
+                augmented['date'] = date_str
+                ticker_augmented[ticker].append(augmented)
+
+        # Free Russell data for this exchange
+        del russell_data
+
+        # Combine results for this exchange
+        for ticker in eligible_tickers:
+            parts_list = ticker_augmented[ticker]
+            if parts_list:
+                augmented_signal = pd.concat(parts_list)
+            else:
+                augmented_signal = pd.DataFrame(columns=['signal', 'date'])
+
+            # Fill missing dates from baseline
+            if ticker in baseline_signals:
+                baseline_df = baseline_signals[ticker]
+                all_baseline_dates = set(baseline_df['date'].unique())
+                augmented_dates = set(augmented_signal['date'].unique()) if not augmented_signal.empty else set()
+                missing_dates = all_baseline_dates - augmented_dates
+                if missing_dates:
+                    fallback = baseline_df[baseline_df['date'].isin(missing_dates)]
+                    augmented_signal = pd.concat([augmented_signal, fallback]).sort_index()
+
+            all_results[ticker] = augmented_signal
+            n_aug = len(parts_list)
+            n_fb = ticker_fallback_count[ticker]
+            print(f"  {ticker}: {n_aug} dates augmented, {n_fb} fallback")
+
+    # Save augmented signals
     print(f"\n{'=' * 60}")
     print("Saving results...")
     for ticker, signal_df in all_results.items():
@@ -491,18 +475,15 @@ def main():
     for ticker in non_lasso_tickers:
         src_path = baseline_signal_dir / f'ticker={ticker}'
         dst_path = output_dir / f'ticker={ticker}'
-
         if not src_path.exists():
-            print(f"  Warning: No baseline signal for {ticker}")
             continue
-
         dst_path.mkdir(parents=True, exist_ok=True)
         src_file = src_path / 'data.parquet'
         dst_file = dst_path / 'data.parquet'
         if src_file.exists():
             shutil.copy2(src_file, dst_file)
 
-    # Also copy LASSO-eligible tickers that had no models
+    # Copy LASSO-eligible tickers that had no models
     for ticker in LASSO_ELIGIBLE:
         if ticker not in all_results:
             src_path = baseline_signal_dir / f'ticker={ticker}'

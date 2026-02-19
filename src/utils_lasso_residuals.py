@@ -13,7 +13,6 @@ import pandas_market_calendars as mcal
 import numpy as np
 from pathlib import Path
 import os
-from joblib import Parallel, delayed
 
 __script_dir__ = Path(__file__).parent.absolute()
 
@@ -27,19 +26,15 @@ INDEX_FUTURE_TO_SYMBOL = {
 }
 
 # Mapping from cash index to FX currency for USD conversion.
-# Cross-currency stocks (e.g. CHF stocks mapping to SX5E/EUR) use the
-# index's FX pair, assuming the cross rate is constant over the daily return.
 INDEX_TO_FX_CURRENCY = {
     'SX5E': 'EUR',  # EURUSD
     'UKX': 'GBP',   # GBPUSD
+    'NKY': 'JPY',   # JPYUSD
 }
 
-
-def load_ordinary_exchange_mapping():
+def load_ordinary_exchange_mapping(include_asia=False):
     """
     Load mapping from ordinary ticker to exchange MIC.
-
-    Excludes XTKS (Tokyo) and XASX (Australia) as we don't have Russell data.
 
     Returns:
         dict: {ordinary_ticker: exchange_mic}
@@ -48,9 +43,9 @@ def load_ordinary_exchange_mapping():
     adr_info_path = __script_dir__ / '..' / 'data' / 'raw' / 'adr_info.csv'
     adr_info = pd.read_csv(adr_info_path)
 
-    # Exclude exchanges we don't have Russell data for
-    excluded_exchanges = ['XTKS', 'XASX']
-    adr_info = adr_info[~adr_info['exchange'].isin(excluded_exchanges)]
+    if not include_asia:
+        excluded_exchanges = ['XTKS', 'XASX']
+        adr_info = adr_info[~adr_info['exchange'].isin(excluded_exchanges)]
 
     # Create mappings
     ordinary_to_exchange = dict(zip(adr_info['id'], adr_info['exchange']))
@@ -62,7 +57,7 @@ def load_ordinary_exchange_mapping():
     return ordinary_to_exchange, ordinary_to_adr
 
 
-def load_index_mapping():
+def load_index_mapping(include_asia=False):
     """
     Load mapping from ordinary ticker to index symbol.
 
@@ -73,9 +68,9 @@ def load_index_mapping():
     adr_info_path = __script_dir__ / '..' / 'data' / 'raw' / 'adr_info.csv'
     adr_info = pd.read_csv(adr_info_path)
 
-    # Exclude exchanges we don't have Russell data for
-    excluded_exchanges = ['XTKS', 'XASX']
-    adr_info = adr_info[~adr_info['exchange'].isin(excluded_exchanges)]
+    if not include_asia:
+        excluded_exchanges = ['XTKS', 'XASX']
+        adr_info = adr_info[~adr_info['exchange'].isin(excluded_exchanges)]
 
     # Strip whitespace from index_future_bbg before mapping
     adr_info['index_future_bbg'] = adr_info['index_future_bbg'].str.strip()
@@ -145,8 +140,8 @@ def compute_fx_daily_at_close(fx_minute, close_times):
     """
     Compute daily FX returns using FX rate at exchange close time.
 
-    For each date, looks up the FX rate at or before the exchange close time,
-    then computes close-to-close FX returns.
+    For each date, looks up the FX rate at or before the exchange close time
+    using binary search, then computes close-to-close FX returns.
 
     Args:
         fx_minute: Series with tz-aware ET timestamp index and close rate values
@@ -155,17 +150,18 @@ def compute_fx_daily_at_close(fx_minute, close_times):
     Returns:
         Series indexed by date with daily FX returns
     """
-    fx_at_close = pd.Series(index=close_times.index, dtype=float)
-
-    for date, close_time in close_times.items():
-        # Find FX rate at or before close time
-        mask = fx_minute.index <= close_time
-        if mask.any():
-            fx_at_close.loc[date] = fx_minute.loc[mask].iloc[-1]
-
-    fx_at_close = fx_at_close.dropna()
-    fx_returns = fx_at_close.pct_change()
-    return fx_returns
+    fx_idx_int = fx_minute.index.values.astype('int64')
+    ct_int = close_times.values.astype('int64')
+    # searchsorted(side='right') gives index of first element > close_time
+    # subtract 1 to get last element <= close_time
+    indices = np.searchsorted(fx_idx_int, ct_int, side='right') - 1
+    valid = indices >= 0
+    fx_at_close = pd.Series(
+        data=fx_minute.values[indices[valid]],
+        index=close_times.index[valid],
+        dtype=float,
+    )
+    return fx_at_close.pct_change()
 
 
 def convert_returns_to_usd(native_returns, fx_returns):
@@ -199,6 +195,7 @@ def compute_aligned_returns(prices, dates=None):
 
     For each target date, finds the most recent previous date with data
     and computes the return from that date to the target date.
+    Uses vectorized binary search for efficiency.
 
     Args:
         prices: DataFrame with dates as index, tickers as columns
@@ -210,135 +207,64 @@ def compute_aligned_returns(prices, dates=None):
     if dates is None:
         dates = prices.index
 
-    # Convert to pandas DatetimeIndex if not already
     dates = pd.DatetimeIndex(dates)
-    prices_index = pd.DatetimeIndex(prices.index)
+    prices_int = prices.index.values.astype('int64')
+    target_int = dates.values.astype('int64')
 
-    # Initialize returns dataframe
-    returns = pd.DataFrame(index=dates, columns=prices.columns, dtype=float)
+    # searchsorted(side='right') gives index of first element > target
+    # so idx-1 is the most recent date <= target (curr), idx-2 is previous
+    idx = np.searchsorted(prices_int, target_int, side='right')
+    valid = idx >= 2
 
-    for date in dates:
-        # Find the most recent date with data on or before this date
-        available_dates = prices_index[prices_index <= date]
+    returns = pd.DataFrame(np.nan, index=dates, columns=prices.columns, dtype=float)
 
-        if len(available_dates) >= 2:
-            # Use the most recent two dates
-            prev_date = available_dates[-2]
-            curr_date = available_dates[-1]
-
-            # Compute return
-            prev_prices = prices.loc[prev_date]
-            curr_prices = prices.loc[curr_date]
-
-            # Handle missing values: if either is NaN, return is NaN
-            ret = (curr_prices - prev_prices) / prev_prices
-            returns.loc[date] = ret
+    if valid.any():
+        curr_idx = idx[valid] - 1
+        prev_idx = idx[valid] - 2
+        curr_prices = prices.values[curr_idx]
+        prev_prices = prices.values[prev_idx]
+        ret_vals = (curr_prices - prev_prices) / prev_prices
+        returns.values[np.where(valid)[0]] = ret_vals
 
     return returns
 
 
-def _residualize_single_ticker(ticker, ticker_returns, index_aligned, common_dates, window=60):
-    """
-    Residualize a single ticker's returns (helper for parallel processing).
-
-    Args:
-        ticker: Ticker name
-        ticker_returns: Series of returns for this ticker
-        index_aligned: Series of index returns (aligned to common dates)
-        common_dates: DatetimeIndex of common dates
-        window: Number of days for rolling beta calculation
-
-    Returns:
-        Series of residualized returns for this ticker
-    """
-    residuals = pd.Series(index=common_dates, dtype=float, name=ticker)
-    ticker_returns = ticker_returns.dropna()
-
-    # For each date, compute beta using prior window days
-    for i in range(len(common_dates)):
-        date = common_dates[i]
-
-        # Skip if not enough history
-        if i < window:
-            continue
-
-        # Get historical returns for beta calculation
-        start_idx = max(0, i - window)
-        hist_ticker = ticker_returns.iloc[start_idx:i]
-        hist_index = index_aligned.iloc[start_idx:i]
-
-        # Align historical data (only use dates where both are available)
-        hist_dates = hist_ticker.index.intersection(hist_index.index)
-        if len(hist_dates) < 20:  # Require at least 20 observations
-            continue
-
-        hist_ticker_aligned = hist_ticker.loc[hist_dates]
-        hist_index_aligned = hist_index.loc[hist_dates]
-
-        # Drop NaN from both series before computing cov/var
-        valid_mask = hist_ticker_aligned.notna() & hist_index_aligned.notna()
-        hist_ticker_clean = hist_ticker_aligned[valid_mask]
-        hist_index_clean = hist_index_aligned[valid_mask]
-
-        if len(hist_ticker_clean) < 20:
-            continue
-
-        # Compute beta using covariance
-        cov = np.cov(hist_ticker_clean, hist_index_clean)[0, 1]
-        var = np.var(hist_index_clean)
-
-        if var > 0:
-            beta = cov / var
-        else:
-            beta = 0
-
-        # Compute residual for current date
-        if date in ticker_returns.index and date in index_aligned.index:
-            curr_return = ticker_returns.loc[date]
-            curr_index_return = index_aligned.loc[date]
-            if not (np.isnan(curr_return) or np.isnan(curr_index_return)):
-                residuals.loc[date] = curr_return - beta * curr_index_return
-
-    return residuals
-
-
-def residualize_returns(returns, index_returns, window=60, n_jobs=4):
+def residualize_returns(returns, index_returns, window=60):
     """
     Residualize returns with respect to index using rolling beta.
 
-    Uses parallel processing to speed up computation across tickers.
-
-    For each date, computes beta using the prior 'window' days,
-    then residualizes: residual = return - beta * index_return
+    For each date, computes beta using the prior 'window' days via
+    vectorized rolling covariance, then residualizes:
+        residual = return - beta * index_return
 
     Args:
         returns: DataFrame with dates as index, tickers as columns
         index_returns: Series with dates as index, index returns as values
         window: Number of days for rolling beta calculation
-        n_jobs: Number of parallel jobs (default 28, use -1 for all cores)
 
     Returns:
         DataFrame with residualized returns (same shape as input)
     """
-    # Align indices
     common_dates = returns.index.intersection(index_returns.index)
-    returns_aligned = returns.loc[common_dates]
-    index_aligned = index_returns.loc[common_dates]
+    R = returns.loc[common_dates]
+    I = index_returns.loc[common_dates]
 
-    # Parallel computation across tickers
-    residuals_list = Parallel(n_jobs=n_jobs, verbose=0)(
-        delayed(_residualize_single_ticker)(
-            ticker,
-            returns_aligned[ticker],
-            index_aligned,
-            common_dates,
-            window
-        )
-        for ticker in returns.columns
-    )
+    # Rolling population covariance via E[R*I] - E[R]*E[I]
+    RI = R.multiply(I, axis=0)
+    roll_mean_RI = RI.rolling(window, min_periods=20).mean()
+    roll_mean_R = R.rolling(window, min_periods=20).mean()
+    roll_mean_I = I.rolling(window, min_periods=20).mean()
+    roll_cov = roll_mean_RI.subtract(roll_mean_R.multiply(roll_mean_I, axis=0))
 
-    # Combine results into DataFrame
-    residuals = pd.concat(residuals_list, axis=1)
+    # Rolling population variance of index
+    idx_var = I.rolling(window, min_periods=20).var(ddof=0)
+
+    # Compute betas = cov / var
+    betas = roll_cov.divide(idx_var, axis=0)
+    betas[idx_var == 0] = 0
+
+    # Residualize
+    residuals = R - betas.multiply(I, axis=0)
 
     return residuals
 
