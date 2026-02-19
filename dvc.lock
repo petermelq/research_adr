@@ -621,36 +621,15 @@ stages:
     cmd: python src/from_full_futures_fixed_time_signal.py 
       data/processed/futures_only_signal data/processed/fixed_time_signal.csv
     deps:
-    - path: data/processed/adrs/adr_daily_fixed_time_mid.csv
-      hash: md5
-      md5: a58849322be000ab56348dea748c56be
-      size: 993522
-    - path: data/processed/adrs/adr_mid_at_ord_auction_adjust_none.csv
-      hash: md5
-      md5: 54c0ccd02ef11c49927bfa178de514ef
-      size: 843051
-    - path: data/processed/futures/converted_minute_bars
-      hash: md5
-      md5: 36f051be595797bf9d461f8363e3c65d.dir
-      size: 694162836
-      nfiles: 7
     - path: data/processed/futures_only_signal/
       hash: md5
       md5: 5a70140772da78d9e0031cde3d672120.dir
       size: 438610761
       nfiles: 54
-    - path: data/processed/models/ordinary_betas_index_only.csv
-      hash: md5
-      md5: e940833dd176fdda85180d67220e6b1a
-      size: 2069465
     - path: data/raw/adr_info.csv
       hash: md5
       md5: 8a78d717a64d6265640e77b52208a419
       size: 9897
-    - path: data/raw/futures_symbols.csv
-      hash: md5
-      md5: 5267b344488684cac15e122c556a2037
-      size: 196
     - path: src/from_full_futures_fixed_time_signal.py
       hash: md5
       md5: 45d6c10a80d5dc722536f1ec9bfbf835
@@ -659,13 +638,13 @@ stages:
       params.yaml:
         end_date: '2026-02-13'
         fixed_trade_time_hours: 14
-        fixed_trade_time_min: 30
+        fixed_trade_time_min: 0
         start_date: '2018-05-01'
     outs:
     - path: data/processed/fixed_time_signal.csv
       hash: md5
-      md5: 57eb2419a97e5bbd271b0c87adbbb934
-      size: 2137745
+      md5: 9facb869420e276d7c56486c9d366153
+      size: 2139493
   stock_splits:
     cmd: python -m src.get_splits
     deps:
@@ -952,8 +931,8 @@ stages:
     deps:
     - path: backtest_conifgs/hedged_single_time.yaml
       hash: md5
-      md5: dc20b25bad9b5b468fef64f847326a20
-      size: 3043
+      md5: 52189c5bf64d8f4e6c8a4ebc2e87b507
+      size: 3009
     - path: data/processed/adrs/adr_daily_fixed_time_mid.csv
       hash: md5
       md5: a58849322be000ab56348dea748c56be
@@ -962,14 +941,14 @@ stages:
       hash: md5
       md5: 398f52be555ac152cd95bcdd9e173361
       size: 102491
-    - path: data/processed/fixed_time_signal.csv
-      hash: md5
-      md5: 57eb2419a97e5bbd271b0c87adbbb934
-      size: 2137745
     - path: data/processed/market_etf_hedge_ratios.csv
       hash: md5
       md5: 6c688e1b450bff266b3e689dc21f400e
       size: 1905541
+    - path: data/processed/ridge_fixed_time_signal.csv
+      hash: md5
+      md5: 584ebc3157deaf6323586332e670004a
+      size: 2139247
     - path: data/raw/adrs/adr_PX_LAST_adjust_none.csv
       hash: md5
       md5: 5a27a76709b1eb40660a2dfdc7c7bc6e
@@ -988,8 +967,8 @@ stages:
       size: 67811
     - path: src/backtest_strategies/hedged_single_time_ADR.py
       hash: md5
-      md5: fbe973b0aab98e401a98ba91dd93cabc
-      size: 12556
+      md5: 8eb09d8aef1d823fdbf609392e8981b1
+      size: 12564
   minute_vwap_hedged_ADR_backtest:
     cmd: backtester_run backtest_conifgs/minute_vwap_hedged_ADR.yaml
     deps:
@@ -1751,9 +1730,9 @@ stages:
       md5: 1da1385c7f798e9cc6be647945840bc0
       size: 8633442
   download_russell1000_frd_ohlcv-1m:
-    cmd: python -m data_tools.cli.frd_download_to_parquet_with_append 
+    cmd: yes y | python -m data_tools.cli.frd_download_to_parquet_with_append 
       --tickers=data/raw/russell1000_tickers.csv --tickers_columns=ticker 
-      --asset_types stock etf --start_date=2024-01-02 --end_date=2026-01-30 
+      --asset_types stock etf --start_date=2024-01-02 --end_date=2026-02-13 
       --output_dir=data/raw/russell1000/ohlcv-1m --timeframe=1min 
       --adjustment=UNADJUSTED --partition_period=none
     deps:
@@ -1763,7 +1742,7 @@ stages:
       size: 4318
     params:
       params.yaml:
-        end_date: '2026-01-30'
+        end_date: '2026-02-13'
         frd_start_date: '2024-01-02'
     outs:
     - path: data/raw/russell1000/ohlcv-1m
@@ -1785,17 +1764,17 @@ stages:
       nfiles: 996
     - path: src/russell1000_close_at_exchange_auction.py
       hash: md5
-      md5: 004926431712adf6ea3c3216f0642e37
-      size: 5935
+      md5: 5b85e46333545e745ee771feecd78b7b
+      size: 9157
     params:
       params.yaml:
-        end_date: '2026-01-30'
+        end_date: '2026-02-13'
         frd_start_date: '2024-01-02'
     outs:
     - path: data/processed/russell1000/close_at_exchange_auction
       hash: md5
-      md5: b7270cd0e24869be4852f25e5024eae0.dir
-      size: 44195667
+      md5: 8fa9b04da26d19c4f8b765427d6fd973.dir
+      size: 40344347
       nfiles: 13
   lasso_prepare_features:
     cmd: python src/prepare_lasso_features.py
@@ -1967,3 +1946,938 @@ stages:
       hash: md5
       md5: 8db1bc6307ed47d8d08b005978ed152a
       size: 934160
+  build_sector_etf_tickers:
+    cmd: python src/build_sector_etf_tickers.py
+    deps:
+    - path: data/raw/sector_etfs.csv
+      hash: md5
+      md5: 02c63679f3fe993ff61186cb5efa03e6
+      size: 176
+    - path: src/build_sector_etf_tickers.py
+      hash: md5
+      md5: dfc9c15b34032224e8b14ae67e1704cc
+      size: 761
+    outs:
+    - path: data/processed/sector_etfs/sector_etf_tickers.csv
+      hash: md5
+      md5: 1938db5e66eec4b68dd6dbbd0c98085e
+      size: 46
+  download_sector_etf_frd_ohlcv-1m:
+    cmd: yes y | python -m data_tools.cli.frd_download_to_parquet_with_append 
+      --tickers=data/processed/sector_etfs/sector_etf_tickers.csv 
+      --tickers_columns=ticker --asset_types etf --start_date=2018-05-01 
+      --end_date=2026-02-13 --output_dir=data/raw/sector_etfs/ohlcv-1m 
+      --timeframe=1min --adjustment=UNADJUSTED --partition_period=none
+    deps:
+    - path: data/processed/sector_etfs/sector_etf_tickers.csv
+      hash: md5
+      md5: 1938db5e66eec4b68dd6dbbd0c98085e
+      size: 46
+    params:
+      params.yaml:
+        end_date: '2026-02-13'
+        start_date: '2018-05-01'
+    outs:
+    - path: data/raw/sector_etfs/ohlcv-1m
+      hash: md5
+      md5: 5bb8b8a3353bcf34818e0fa16898da12.dir
+      size: 88167320
+      nfiles: 2804
+  sector_etf_close_at_exchange_auction:
+    cmd: python src/sector_etf_close_at_exchange_auction.py
+    deps:
+    - path: data/raw/adr_info.csv
+      hash: md5
+      md5: 8a78d717a64d6265640e77b52208a419
+      size: 9897
+    - path: data/raw/close_time_offsets.csv
+      hash: md5
+      md5: 558511deb7181398359509dd20207a24
+      size: 170
+    - path: data/raw/sector_etfs.csv
+      hash: md5
+      md5: 02c63679f3fe993ff61186cb5efa03e6
+      size: 176
+    - path: data/raw/sector_etfs/ohlcv-1m
+      hash: md5
+      md5: 5bb8b8a3353bcf34818e0fa16898da12.dir
+      size: 88167320
+      nfiles: 2804
+    - path: src/sector_etf_close_at_exchange_auction.py
+      hash: md5
+      md5: 462ed7dcd26d40b3bd116e30f8e435be
+      size: 5354
+    params:
+      params.yaml:
+        end_date: '2026-02-13'
+        frd_start_date: '2015-01-02'
+    outs:
+    - path: data/processed/sector_etfs/close_at_exchange_auction
+      hash: md5
+      md5: 96b20d99995bf1467bcbb4b79ee3d90b.dir
+      size: 124605
+      nfiles: 1
+  sector_ridge_prepare_features:
+    cmd: python src/prepare_sector_etf_ridge_features.py
+    deps:
+    - path: data/processed/aligned_index_prices.csv
+      hash: md5
+      md5: 8db1bc6307ed47d8d08b005978ed152a
+      size: 934160
+    - path: data/processed/models/ordinary_betas_index_only.csv
+      hash: md5
+      md5: e940833dd176fdda85180d67220e6b1a
+      size: 2069465
+    - path: data/processed/sector_etfs/close_at_exchange_auction
+      hash: md5
+      md5: 96b20d99995bf1467bcbb4b79ee3d90b.dir
+      size: 124605
+      nfiles: 1
+    - path: data/raw/adr_info.csv
+      hash: md5
+      md5: 8a78d717a64d6265640e77b52208a419
+      size: 9897
+    - path: data/raw/close_time_offsets.csv
+      hash: md5
+      md5: 558511deb7181398359509dd20207a24
+      size: 170
+    - path: data/raw/currencies/minute_bars/EURUSD_full_1min.txt
+      hash: md5
+      md5: 1fa215767e34813b1ee01e908dc16a93
+      size: 323163903
+    - path: data/raw/currencies/minute_bars/GBPUSD_full_1min.txt
+      hash: md5
+      md5: 3c35f9d3c65f94c8a043ddf391b16cbb
+      size: 322751468
+    - path: data/raw/ordinary/ord_PX_LAST_adjust_all.csv
+      hash: md5
+      md5: ee307c51cfd58f55b403075a7af89ac5
+      size: 819743
+    - path: data/raw/sector_etfs.csv
+      hash: md5
+      md5: 02c63679f3fe993ff61186cb5efa03e6
+      size: 176
+    - path: src/prepare_sector_etf_ridge_features.py
+      hash: md5
+      md5: 3b33ee42e378a59ec489177d703d0966
+      size: 7495
+    - path: src/utils_lasso_residuals.py
+      hash: md5
+      md5: 5eaf0a59f94c68a67326d1e0afdb6b3b
+      size: 11183
+    params:
+      params.yaml:
+        end_date: '2026-02-13'
+        frd_start_date: '2015-01-02'
+    outs:
+    - path: data/processed/models/with_us_stocks/features_sector_etf
+      hash: md5
+      md5: 71294ee877d0ccddc37815ae4614b557.dir
+      size: 686944
+      nfiles: 14
+  sector_ridge_train_models:
+    cmd: python src/train_ridge_sector_models.py
+    deps:
+    - path: data/processed/models/with_us_stocks/features_sector_etf
+      hash: md5
+      md5: 71294ee877d0ccddc37815ae4614b557.dir
+      size: 686944
+      nfiles: 14
+    - path: src/train_ridge_models.py
+      hash: md5
+      md5: 462c68469e39f5e5972e28369c782ba5
+      size: 14362
+    - path: src/train_ridge_sector_models.py
+      hash: md5
+      md5: 4f29043e060a1d1a88f40a9ec7da2ce5
+      size: 1398
+    outs:
+    - path: data/processed/models/with_us_stocks/ridge_sector_etf
+      hash: md5
+      md5: 4dd51dbc190b98127c575ffcfb63f95f.dir
+      size: 2143838
+      nfiles: 1097
+  compute_sector_etf_betas:
+    cmd: python src/compute_sector_etf_betas.py
+    deps:
+    - path: data/processed/aligned_index_prices.csv
+      hash: md5
+      md5: 8db1bc6307ed47d8d08b005978ed152a
+      size: 934160
+    - path: data/processed/sector_etfs/close_at_exchange_auction
+      hash: md5
+      md5: 96b20d99995bf1467bcbb4b79ee3d90b.dir
+      size: 124605
+      nfiles: 1
+    - path: data/raw/close_time_offsets.csv
+      hash: md5
+      md5: 558511deb7181398359509dd20207a24
+      size: 170
+    - path: data/raw/currencies/minute_bars/EURUSD_full_1min.txt
+      hash: md5
+      md5: 1fa215767e34813b1ee01e908dc16a93
+      size: 323163903
+    - path: data/raw/currencies/minute_bars/GBPUSD_full_1min.txt
+      hash: md5
+      md5: 3c35f9d3c65f94c8a043ddf391b16cbb
+      size: 322751468
+    - path: src/compute_russell_betas.py
+      hash: md5
+      md5: 331e77e48f72a3934c61e0208940c149
+      size: 6459
+    - path: src/compute_sector_etf_betas.py
+      hash: md5
+      md5: a026b4353a8b605f20d90d733e18f1f5
+      size: 3464
+    - path: src/utils_lasso_residuals.py
+      hash: md5
+      md5: 5eaf0a59f94c68a67326d1e0afdb6b3b
+      size: 11183
+    params:
+      params.yaml:
+        end_date: '2026-02-13'
+        frd_start_date: '2015-01-02'
+    outs:
+    - path: data/processed/sector_etfs/sector_etf_betas
+      hash: md5
+      md5: 5c30d2e10f6cfdaac28abb8e0aee20fb.dir
+      size: 151888
+      nfiles: 1
+  index_sector_etf_ridge_signal:
+    cmd: python src/index_sector_etf_ridge_signal.py
+    deps:
+    - path: data/processed/futures/converted_minute_bars
+      hash: md5
+      md5: 36f051be595797bf9d461f8363e3c65d.dir
+      size: 694162836
+      nfiles: 7
+    - path: data/processed/futures_only_signal
+      hash: md5
+      md5: 5a70140772da78d9e0031cde3d672120.dir
+      size: 438610761
+      nfiles: 54
+    - path: data/processed/models/with_us_stocks/ridge_sector_etf
+      hash: md5
+      md5: 4dd51dbc190b98127c575ffcfb63f95f.dir
+      size: 2143838
+      nfiles: 1097
+    - path: data/processed/sector_etfs/sector_etf_betas
+      hash: md5
+      md5: 5c30d2e10f6cfdaac28abb8e0aee20fb.dir
+      size: 151888
+      nfiles: 1
+    - path: data/raw/adr_info.csv
+      hash: md5
+      md5: 8a78d717a64d6265640e77b52208a419
+      size: 9897
+    - path: data/raw/futures_symbols.csv
+      hash: md5
+      md5: 5267b344488684cac15e122c556a2037
+      size: 196
+    - path: data/raw/sector_etfs.csv
+      hash: md5
+      md5: 02c63679f3fe993ff61186cb5efa03e6
+      size: 176
+    - path: data/raw/sector_etfs/ohlcv-1m
+      hash: md5
+      md5: 5bb8b8a3353bcf34818e0fa16898da12.dir
+      size: 88167320
+      nfiles: 2804
+    - path: src/index_sector_etf_ridge_signal.py
+      hash: md5
+      md5: c93155da8f1658f296e2466fd3d01c27
+      size: 11972
+    - path: src/train_ridge_models.py
+      hash: md5
+      md5: 462c68469e39f5e5972e28369c782ba5
+      size: 14362
+    - path: src/train_ridge_sector_models.py
+      hash: md5
+      md5: 4f29043e060a1d1a88f40a9ec7da2ce5
+      size: 1398
+    params:
+      params.yaml:
+        end_date: '2026-02-13'
+        start_date: '2018-05-01'
+    outs:
+    - path: data/processed/index_sector_etf_ridge_signal
+      hash: md5
+      md5: a08e6026e6985d22c164e36c1e974222.dir
+      size: 428188529
+      nfiles: 54
+  evaluate_sector_etf_ridge_signal:
+    cmd: python src/evaluate_sector_etf_ridge_signal.py
+    deps:
+    - path: data/processed/futures_only_signal
+      hash: md5
+      md5: 5a70140772da78d9e0031cde3d672120.dir
+      size: 438610761
+      nfiles: 54
+    - path: data/processed/index_sector_etf_ridge_signal
+      hash: md5
+      md5: a08e6026e6985d22c164e36c1e974222.dir
+      size: 428188529
+      nfiles: 54
+    - path: data/processed/market_etf_hedge_ratios.csv
+      hash: md5
+      md5: 6c688e1b450bff266b3e689dc21f400e
+      size: 1905541
+    - path: data/raw/adr_info.csv
+      hash: md5
+      md5: 8a78d717a64d6265640e77b52208a419
+      size: 9897
+    - path: data/raw/adrs/adr_PX_LAST_adjust_none.csv
+      hash: md5
+      md5: 5a27a76709b1eb40660a2dfdc7c7bc6e
+      size: 630390
+    - path: data/raw/adrs/bbo-1m/nbbo
+      hash: md5
+      md5: 19b77a49dce018f26f42104b6690cec6.dir
+      size: 2816110403
+      nfiles: 54
+    - path: data/raw/etfs/market/bbo-1m/nbbo
+      hash: md5
+      md5: 3f463655594195991d753df6dee635b1.dir
+      size: 187578375
+      nfiles: 4
+    - path: data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
+      hash: md5
+      md5: 7c6fbd5a5909b4373d98b77cd265d580
+      size: 67811
+    - path: data/raw/sector_etfs.csv
+      hash: md5
+      md5: 02c63679f3fe993ff61186cb5efa03e6
+      size: 176
+    - path: src/evaluate_sector_etf_ridge_signal.py
+      hash: md5
+      md5: f127e72d261196a3fbaeac5a49d0deb9
+      size: 6492
+    outs:
+    - path: data/processed/models/with_us_stocks/ridge_sector_etf_evaluation
+      hash: md5
+      md5: 6122b3b6682deddc327479f34611069a.dir
+      size: 449
+      nfiles: 1
+  evaluate_sector_etf_ridge_signal_parity_notebook:
+    cmd: jupyter nbconvert --to notebook --execute --inplace 
+      notebooks/sector_ridge_signal_ic_comparison_parity.ipynb
+    deps:
+    - path: data/processed/futures_only_signal
+      hash: md5
+      md5: 5a70140772da78d9e0031cde3d672120.dir
+      size: 438610761
+      nfiles: 54
+    - path: data/processed/index_sector_etf_ridge_signal
+      hash: md5
+      md5: a08e6026e6985d22c164e36c1e974222.dir
+      size: 428188529
+      nfiles: 54
+    - path: data/processed/market_etf_hedge_ratios.csv
+      hash: md5
+      md5: 6c688e1b450bff266b3e689dc21f400e
+      size: 1905541
+    - path: data/raw/adr_info.csv
+      hash: md5
+      md5: 8a78d717a64d6265640e77b52208a419
+      size: 9897
+    - path: data/raw/adrs/adr_PX_LAST_adjust_none.csv
+      hash: md5
+      md5: 5a27a76709b1eb40660a2dfdc7c7bc6e
+      size: 630390
+    - path: data/raw/adrs/bbo-1m/nbbo
+      hash: md5
+      md5: 19b77a49dce018f26f42104b6690cec6.dir
+      size: 2816110403
+      nfiles: 54
+    - path: data/raw/etfs/market/bbo-1m/nbbo
+      hash: md5
+      md5: 3f463655594195991d753df6dee635b1.dir
+      size: 187578375
+      nfiles: 4
+    - path: data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
+      hash: md5
+      md5: 7c6fbd5a5909b4373d98b77cd265d580
+      size: 67811
+    - path: data/raw/sector_etfs.csv
+      hash: md5
+      md5: 02c63679f3fe993ff61186cb5efa03e6
+      size: 176
+    - path: notebooks/sector_ridge_signal_ic_comparison_parity.ipynb
+      hash: md5
+      md5: c80658ed3ed2799e9b98a783bfe8e470
+      size: 163280
+    outs:
+    - path: 
+        data/processed/models/with_us_stocks/ridge_sector_etf_parity_notebook
+      hash: md5
+      md5: bc5e73dc41da6d0ea75729e57a4b8dd2.dir
+      size: 2776
+      nfiles: 4
+  evaluate_sector_etf_ridge_signal_parity_script:
+    cmd: python src/evaluate_sector_etf_ridge_signal_parity.py
+    deps:
+    - path: data/processed/futures_only_signal
+      hash: md5
+      md5: 5a70140772da78d9e0031cde3d672120.dir
+      size: 438610761
+      nfiles: 54
+    - path: data/processed/index_sector_etf_ridge_signal
+      hash: md5
+      md5: a08e6026e6985d22c164e36c1e974222.dir
+      size: 428188529
+      nfiles: 54
+    - path: data/processed/market_etf_hedge_ratios.csv
+      hash: md5
+      md5: 6c688e1b450bff266b3e689dc21f400e
+      size: 1905541
+    - path: data/raw/adr_info.csv
+      hash: md5
+      md5: 8a78d717a64d6265640e77b52208a419
+      size: 9897
+    - path: data/raw/adrs/adr_PX_LAST_adjust_none.csv
+      hash: md5
+      md5: 5a27a76709b1eb40660a2dfdc7c7bc6e
+      size: 630390
+    - path: data/raw/adrs/bbo-1m/nbbo
+      hash: md5
+      md5: 19b77a49dce018f26f42104b6690cec6.dir
+      size: 2816110403
+      nfiles: 54
+    - path: data/raw/etfs/market/bbo-1m/nbbo
+      hash: md5
+      md5: 3f463655594195991d753df6dee635b1.dir
+      size: 187578375
+      nfiles: 4
+    - path: data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
+      hash: md5
+      md5: 7c6fbd5a5909b4373d98b77cd265d580
+      size: 67811
+    - path: data/raw/sector_etfs.csv
+      hash: md5
+      md5: 02c63679f3fe993ff61186cb5efa03e6
+      size: 176
+    - path: src/evaluate_sector_etf_ridge_signal_parity.py
+      hash: md5
+      md5: 706a1a0ec9ad81b7268b81d95419e27a
+      size: 11066
+    outs:
+    - path: data/processed/models/with_us_stocks/ridge_sector_etf_parity_script
+      hash: md5
+      md5: c5bd6a3096d24afe4e5251fd8453e25d.dir
+      size: 2745
+      nfiles: 4
+  compare_sector_etf_ridge_signal_parity:
+    cmd: python src/compare_sector_etf_parity_outputs.py
+    deps:
+    - path: 
+        data/processed/models/with_us_stocks/ridge_sector_etf_parity_notebook
+      hash: md5
+      md5: bc5e73dc41da6d0ea75729e57a4b8dd2.dir
+      size: 2776
+      nfiles: 4
+    - path: data/processed/models/with_us_stocks/ridge_sector_etf_parity_script
+      hash: md5
+      md5: c5bd6a3096d24afe4e5251fd8453e25d.dir
+      size: 2745
+      nfiles: 4
+    - path: src/compare_sector_etf_parity_outputs.py
+      hash: md5
+      md5: 09a410cb622ce3cd4e979f5cb1b57f49
+      size: 2863
+  prepare_russell_features_extended:
+    cmd: python src/prepare_russell_features_extended.py
+    deps:
+    - path: data/processed/aligned_index_prices.csv
+      hash: md5
+      md5: 8db1bc6307ed47d8d08b005978ed152a
+      size: 934160
+    - path: data/processed/models/ordinary_betas_index_only.csv
+      hash: md5
+      md5: e940833dd176fdda85180d67220e6b1a
+      size: 2069465
+    - path: data/processed/russell1000/close_at_exchange_auction_adjusted
+      hash: md5
+      md5: 86a6470fa17afd67433394ad43319d94.dir
+      size: 57629755
+      nfiles: 9
+    - path: data/raw/adr_info.csv
+      hash: md5
+      md5: 8a78d717a64d6265640e77b52208a419
+      size: 9897
+    - path: data/raw/close_time_offsets.csv
+      hash: md5
+      md5: 558511deb7181398359509dd20207a24
+      size: 170
+    - path: data/raw/currencies/minute_bars/EURUSD_full_1min.txt
+      hash: md5
+      md5: 1fa215767e34813b1ee01e908dc16a93
+      size: 323163903
+    - path: data/raw/currencies/minute_bars/GBPUSD_full_1min.txt
+      hash: md5
+      md5: 3c35f9d3c65f94c8a043ddf391b16cbb
+      size: 322751468
+    - path: data/raw/ordinary/ord_PX_LAST_adjust_all.csv
+      hash: md5
+      md5: ee307c51cfd58f55b403075a7af89ac5
+      size: 819743
+    - path: src/prepare_russell_features_extended.py
+      hash: md5
+      md5: d1e933b5f1ee38c486d9c34fd87639be
+      size: 7639
+    - path: src/utils_lasso_residuals.py
+      hash: md5
+      md5: 5eaf0a59f94c68a67326d1e0afdb6b3b
+      size: 11183
+    params:
+      params.yaml:
+        end_date: '2026-02-13'
+        start_date: '2018-05-01'
+    outs:
+    - path: data/processed/models/with_us_stocks/features_extended
+      hash: md5
+      md5: 403f8859d1b2f5502e3a0d654331616c.dir
+      size: 179221840
+      nfiles: 39
+  ridge_long_train_models:
+    cmd: python src/train_russell_experiment_models.py --model-kind ridge 
+      --features-dir data/processed/models/with_us_stocks/features_extended 
+      --output-dir data/processed/models/with_us_stocks/ridge_long 
+      --train-months 14 --val-months 6
+    deps:
+    - path: data/processed/models/with_us_stocks/features_extended
+      hash: md5
+      md5: 403f8859d1b2f5502e3a0d654331616c.dir
+      size: 179221840
+      nfiles: 39
+    - path: src/train_russell_experiment_models.py
+      hash: md5
+      md5: 4e59571616543be9c9d1972477fe7815
+      size: 21571
+    outs:
+    - path: data/processed/models/with_us_stocks/ridge_long
+      hash: md5
+      md5: d09b2c6eb10ebb4ba1847f41b3bb5f89.dir
+      size: 3680861
+      nfiles: 196
+  index_russell_ridge_long_signal:
+    cmd: python src/index_russell_experiment_signal.py --model-kind ridge 
+      --model-dir data/processed/models/with_us_stocks/ridge_long --output-dir 
+      data/processed/index_russell_ridge_long_signal
+    deps:
+    - path: data/processed/futures/converted_minute_bars
+      hash: md5
+      md5: 36f051be595797bf9d461f8363e3c65d.dir
+      size: 694162836
+      nfiles: 7
+    - path: data/processed/futures_only_signal
+      hash: md5
+      md5: 5a70140772da78d9e0031cde3d672120.dir
+      size: 438610761
+      nfiles: 54
+    - path: data/processed/models/with_us_stocks/ridge_long
+      hash: md5
+      md5: d09b2c6eb10ebb4ba1847f41b3bb5f89.dir
+      size: 3680861
+      nfiles: 196
+    - path: data/processed/russell1000/russell_betas
+      hash: md5
+      md5: 60230c3a28cd27c04bb48c664adcf4ad.dir
+      size: 60872730
+      nfiles: 13
+    - path: data/raw/adr_info.csv
+      hash: md5
+      md5: 8a78d717a64d6265640e77b52208a419
+      size: 9897
+    - path: data/raw/futures_symbols.csv
+      hash: md5
+      md5: 5267b344488684cac15e122c556a2037
+      size: 196
+    - path: data/raw/russell1000/ohlcv-1m
+      hash: md5
+      md5: f4c4c3157585ac5224c41fe4b74507d6.dir
+      size: 2864795964
+      nfiles: 996
+    - path: src/index_russell_experiment_signal.py
+      hash: md5
+      md5: 1f9cf6e85097eca20349e7e5c117d589
+      size: 14408
+    params:
+      params.yaml:
+        end_date: '2026-02-13'
+        start_date: '2018-05-01'
+    outs:
+    - path: data/processed/index_russell_ridge_long_signal
+      hash: md5
+      md5: f980d53f4c66b582530c7dae6c1aa9f9.dir
+      size: 14936536
+      nfiles: 39
+  evaluate_ridge_long_notebook:
+    cmd: jupyter nbconvert --to notebook --execute --inplace 
+      notebooks/ridge_long_signal_ic_comparison.ipynb
+    deps:
+    - path: data/processed/futures_only_signal
+      hash: md5
+      md5: 5a70140772da78d9e0031cde3d672120.dir
+      size: 438610761
+      nfiles: 54
+    - path: data/processed/index_russell_ridge_long_signal
+      hash: md5
+      md5: f980d53f4c66b582530c7dae6c1aa9f9.dir
+      size: 14936536
+      nfiles: 39
+    - path: data/processed/market_etf_hedge_ratios.csv
+      hash: md5
+      md5: 6c688e1b450bff266b3e689dc21f400e
+      size: 1905541
+    - path: data/raw/adrs/adr_PX_LAST_adjust_none.csv
+      hash: md5
+      md5: 5a27a76709b1eb40660a2dfdc7c7bc6e
+      size: 630390
+    - path: data/raw/adrs/bbo-1m/nbbo
+      hash: md5
+      md5: 19b77a49dce018f26f42104b6690cec6.dir
+      size: 2816110403
+      nfiles: 54
+    - path: data/raw/etfs/market/bbo-1m/nbbo
+      hash: md5
+      md5: 3f463655594195991d753df6dee635b1.dir
+      size: 187578375
+      nfiles: 4
+    - path: data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
+      hash: md5
+      md5: 7c6fbd5a5909b4373d98b77cd265d580
+      size: 67811
+    - path: notebooks/ridge_long_signal_ic_comparison.ipynb
+      hash: md5
+      md5: 144674688ee73b46754e3ed48bb8c1ee
+      size: 189602
+  ridge_fixed_time_signal:
+    cmd: python src/from_full_futures_fixed_time_signal.py 
+      data/processed/index_russell_ridge_long_signal/ 
+      data/processed/ridge_fixed_time_signal.csv
+    deps:
+    - path: data/processed/index_russell_ridge_long_signal/
+      hash: md5
+      md5: a241dec2684a05a01591eee741f216f8.dir
+      size: 437591254
+      nfiles: 54
+    - path: data/raw/adr_info.csv
+      hash: md5
+      md5: 8a78d717a64d6265640e77b52208a419
+      size: 9897
+    - path: src/from_full_futures_fixed_time_signal.py
+      hash: md5
+      md5: 45d6c10a80d5dc722536f1ec9bfbf835
+      size: 1492
+    params:
+      params.yaml:
+        end_date: '2026-02-13'
+        fixed_trade_time_hours: 14
+        fixed_trade_time_min: 0
+        start_date: '2018-05-01'
+    outs:
+    - path: data/processed/ridge_fixed_time_signal.csv
+      hash: md5
+      md5: 584ebc3157deaf6323586332e670004a
+      size: 2139247
+  pcr_train_models:
+    cmd: python src/train_russell_experiment_models.py --model-kind pcr 
+      --features-dir data/processed/models/with_us_stocks/features_extended 
+      --output-dir data/processed/models/with_us_stocks/pcr --train-months 14 
+      --val-months 6
+    deps:
+    - path: data/processed/models/with_us_stocks/features_extended
+      hash: md5
+      md5: 403f8859d1b2f5502e3a0d654331616c.dir
+      size: 179221840
+      nfiles: 39
+    - path: src/train_russell_experiment_models.py
+      hash: md5
+      md5: 4e59571616543be9c9d1972477fe7815
+      size: 21571
+    outs:
+    - path: data/processed/models/with_us_stocks/pcr
+      hash: md5
+      md5: 9dd929b3a31ab82dfd95eab968768a57.dir
+      size: 3679325
+      nfiles: 196
+  index_russell_pcr_signal:
+    cmd: python src/index_russell_experiment_signal.py --model-kind pcr 
+      --model-dir data/processed/models/with_us_stocks/pcr --output-dir 
+      data/processed/index_russell_pcr_signal
+    deps:
+    - path: data/processed/futures/converted_minute_bars
+      hash: md5
+      md5: 36f051be595797bf9d461f8363e3c65d.dir
+      size: 694162836
+      nfiles: 7
+    - path: data/processed/futures_only_signal
+      hash: md5
+      md5: 5a70140772da78d9e0031cde3d672120.dir
+      size: 438610761
+      nfiles: 54
+    - path: data/processed/models/with_us_stocks/pcr
+      hash: md5
+      md5: 9dd929b3a31ab82dfd95eab968768a57.dir
+      size: 3679325
+      nfiles: 196
+    - path: data/processed/russell1000/russell_betas
+      hash: md5
+      md5: 60230c3a28cd27c04bb48c664adcf4ad.dir
+      size: 60872730
+      nfiles: 13
+    - path: data/raw/adr_info.csv
+      hash: md5
+      md5: 8a78d717a64d6265640e77b52208a419
+      size: 9897
+    - path: data/raw/futures_symbols.csv
+      hash: md5
+      md5: 5267b344488684cac15e122c556a2037
+      size: 196
+    - path: data/raw/russell1000/ohlcv-1m
+      hash: md5
+      md5: f4c4c3157585ac5224c41fe4b74507d6.dir
+      size: 2864795964
+      nfiles: 996
+    - path: src/index_russell_experiment_signal.py
+      hash: md5
+      md5: 1f9cf6e85097eca20349e7e5c117d589
+      size: 14408
+    params:
+      params.yaml:
+        end_date: '2026-02-13'
+        start_date: '2018-05-01'
+    outs:
+    - path: data/processed/index_russell_pcr_signal
+      hash: md5
+      md5: 59d93f4d44e4e83ef046fcc2fe57b585.dir
+      size: 14936552
+      nfiles: 39
+  evaluate_pcr_notebook:
+    cmd: jupyter nbconvert --to notebook --execute --inplace 
+      notebooks/pcr_signal_ic_comparison.ipynb
+    deps:
+    - path: data/processed/futures_only_signal
+      hash: md5
+      md5: 5a70140772da78d9e0031cde3d672120.dir
+      size: 438610761
+      nfiles: 54
+    - path: data/processed/index_russell_pcr_signal
+      hash: md5
+      md5: 59d93f4d44e4e83ef046fcc2fe57b585.dir
+      size: 14936552
+      nfiles: 39
+    - path: data/processed/market_etf_hedge_ratios.csv
+      hash: md5
+      md5: 6c688e1b450bff266b3e689dc21f400e
+      size: 1905541
+    - path: data/raw/adrs/adr_PX_LAST_adjust_none.csv
+      hash: md5
+      md5: 5a27a76709b1eb40660a2dfdc7c7bc6e
+      size: 630390
+    - path: data/raw/adrs/bbo-1m/nbbo
+      hash: md5
+      md5: 19b77a49dce018f26f42104b6690cec6.dir
+      size: 2816110403
+      nfiles: 54
+    - path: data/raw/etfs/market/bbo-1m/nbbo
+      hash: md5
+      md5: 3f463655594195991d753df6dee635b1.dir
+      size: 187578375
+      nfiles: 4
+    - path: data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
+      hash: md5
+      md5: 7c6fbd5a5909b4373d98b77cd265d580
+      size: 67811
+    - path: notebooks/pcr_signal_ic_comparison.ipynb
+      hash: md5
+      md5: df434e4d8c831b15abcddb7e3ebf02ce
+      size: 190273
+  pls_train_models:
+    cmd: python src/train_russell_experiment_models.py --model-kind pls 
+      --features-dir data/processed/models/with_us_stocks/features_extended 
+      --output-dir data/processed/models/with_us_stocks/pls --train-months 14 
+      --val-months 6
+    deps:
+    - path: data/processed/models/with_us_stocks/features_extended
+      hash: md5
+      md5: 403f8859d1b2f5502e3a0d654331616c.dir
+      size: 179221840
+      nfiles: 39
+    - path: src/train_russell_experiment_models.py
+      hash: md5
+      md5: 4e59571616543be9c9d1972477fe7815
+      size: 21571
+    outs:
+    - path: data/processed/models/with_us_stocks/pls
+      hash: md5
+      md5: 20c3cf085617423434b04c8c478ba144.dir
+      size: 3679327
+      nfiles: 196
+  index_russell_pls_signal:
+    cmd: python src/index_russell_experiment_signal.py --model-kind pls 
+      --model-dir data/processed/models/with_us_stocks/pls --output-dir 
+      data/processed/index_russell_pls_signal
+    deps:
+    - path: data/processed/futures/converted_minute_bars
+      hash: md5
+      md5: 36f051be595797bf9d461f8363e3c65d.dir
+      size: 694162836
+      nfiles: 7
+    - path: data/processed/futures_only_signal
+      hash: md5
+      md5: 5a70140772da78d9e0031cde3d672120.dir
+      size: 438610761
+      nfiles: 54
+    - path: data/processed/models/with_us_stocks/pls
+      hash: md5
+      md5: 20c3cf085617423434b04c8c478ba144.dir
+      size: 3679327
+      nfiles: 196
+    - path: data/processed/russell1000/russell_betas
+      hash: md5
+      md5: 60230c3a28cd27c04bb48c664adcf4ad.dir
+      size: 60872730
+      nfiles: 13
+    - path: data/raw/adr_info.csv
+      hash: md5
+      md5: 8a78d717a64d6265640e77b52208a419
+      size: 9897
+    - path: data/raw/futures_symbols.csv
+      hash: md5
+      md5: 5267b344488684cac15e122c556a2037
+      size: 196
+    - path: data/raw/russell1000/ohlcv-1m
+      hash: md5
+      md5: f4c4c3157585ac5224c41fe4b74507d6.dir
+      size: 2864795964
+      nfiles: 996
+    - path: src/index_russell_experiment_signal.py
+      hash: md5
+      md5: 1f9cf6e85097eca20349e7e5c117d589
+      size: 14408
+    params:
+      params.yaml:
+        end_date: '2026-02-13'
+        start_date: '2018-05-01'
+    outs:
+    - path: data/processed/index_russell_pls_signal
+      hash: md5
+      md5: ae3c46da16b7b671bbbbdeb5e19c6a0a.dir
+      size: 14936352
+      nfiles: 39
+  evaluate_pls_notebook:
+    cmd: jupyter nbconvert --to notebook --execute --inplace 
+      notebooks/pls_signal_ic_comparison.ipynb
+    deps:
+    - path: data/processed/futures_only_signal
+      hash: md5
+      md5: 5a70140772da78d9e0031cde3d672120.dir
+      size: 438610761
+      nfiles: 54
+    - path: data/processed/index_russell_pls_signal
+      hash: md5
+      md5: ae3c46da16b7b671bbbbdeb5e19c6a0a.dir
+      size: 14936352
+      nfiles: 39
+    - path: data/processed/market_etf_hedge_ratios.csv
+      hash: md5
+      md5: 6c688e1b450bff266b3e689dc21f400e
+      size: 1905541
+    - path: data/raw/adrs/adr_PX_LAST_adjust_none.csv
+      hash: md5
+      md5: 5a27a76709b1eb40660a2dfdc7c7bc6e
+      size: 630390
+    - path: data/raw/adrs/bbo-1m/nbbo
+      hash: md5
+      md5: 19b77a49dce018f26f42104b6690cec6.dir
+      size: 2816110403
+      nfiles: 54
+    - path: data/raw/etfs/market/bbo-1m/nbbo
+      hash: md5
+      md5: 3f463655594195991d753df6dee635b1.dir
+      size: 187578375
+      nfiles: 4
+    - path: data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
+      hash: md5
+      md5: 7c6fbd5a5909b4373d98b77cd265d580
+      size: 67811
+    - path: notebooks/pls_signal_ic_comparison.ipynb
+      hash: md5
+      md5: 6e6336567f37b9eda1fe577836f38e39
+      size: 190153
+  russell1000_adjustments:
+    cmd: python src/get_russell1000_adjustments.py
+    deps:
+    - path: data/raw/russell1000_tickers.csv
+      hash: md5
+      md5: 08af4109bb2b9f62e498f949efc8c70b
+      size: 4318
+    - path: src/get_russell1000_adjustments.py
+      hash: md5
+      md5: 5ae167af84a7299446815395493e6e24
+      size: 4502
+    params:
+      params.yaml:
+        end_date: '2026-02-13'
+        frd_start_date: '2024-01-02'
+    outs:
+    - path: data/processed/russell1000/adjustment_factors.csv
+      hash: md5
+      md5: a328a9aa0a34681146867a791328d1d3
+      size: 240274
+  download_scandi_usd_fx_bars:
+    cmd: python src/download_histdata_fx_minute_bars.py --pairs USDNOK USDSEK 
+      USDDKK --start-year 2015 --output-dir data/raw/currencies/minute_bars
+    deps:
+    - path: src/download_histdata_fx_minute_bars.py
+      hash: md5
+      md5: 5ec95b18b3c9408d6644a1c5b0acc372
+      size: 8269
+    outs:
+    - path: data/raw/currencies/minute_bars/USDDKK_full_1min.txt
+      hash: md5
+      md5: d56af42c995c0b2062dafce8d00636b3
+      size: 205764526
+    - path: data/raw/currencies/minute_bars/USDNOK_full_1min.txt
+      hash: md5
+      md5: 0373c344672d4ac831ed9b2ea8a26d4b
+      size: 210302802
+    - path: data/raw/currencies/minute_bars/USDSEK_full_1min.txt
+      hash: md5
+      md5: f4ce473feb2fa540133a370d1cb9cf4c
+      size: 210616166
+  invert_scandi_usd_fx_bars:
+    cmd: python src/invert_fx_minute_bars.py --data-dir 
+      data/raw/currencies/minute_bars --pair USDNOK:NOKUSD --pair USDSEK:SEKUSD 
+      --pair USDDKK:DKKUSD
+    deps:
+    - path: data/raw/currencies/minute_bars/USDDKK_full_1min.txt
+      hash: md5
+      md5: d56af42c995c0b2062dafce8d00636b3
+      size: 205764526
+    - path: data/raw/currencies/minute_bars/USDNOK_full_1min.txt
+      hash: md5
+      md5: 0373c344672d4ac831ed9b2ea8a26d4b
+      size: 210302802
+    - path: data/raw/currencies/minute_bars/USDSEK_full_1min.txt
+      hash: md5
+      md5: f4ce473feb2fa540133a370d1cb9cf4c
+      size: 210616166
+    - path: src/invert_fx_minute_bars.py
+      hash: md5
+      md5: 23e6a861a4eab25420d6c39e00edb2da
+      size: 1540
+    outs:
+    - path: data/raw/currencies/minute_bars/DKKUSD_full_1min.txt
+      hash: md5
+      md5: a8156f3c22125552432995a69f833269
+      size: 396258864
+    - path: data/raw/currencies/minute_bars/NOKUSD_full_1min.txt
+      hash: md5
+      md5: 8d58d2f2d5274e2b645e2131cdf73e9f
+      size: 397690703
+    - path: data/raw/currencies/minute_bars/SEKUSD_full_1min.txt
+      hash: md5
+      md5: 4e853e23601dcaa9d2f3d76d16ac8cfd
+      size: 399589008
