@@ -1,0 +1,5 @@
+outs:
+- md5: 899c50880c6529be44ff9a98e45dd8fe
+  size: 8356774
+  hash: md5
+  path: historical_russell_1000.csv
