@@ -14,11 +14,99 @@ from sklearn.linear_model import HuberRegressor
 from sklearn.linear_model import ElasticNet, LinearRegression, Ridge
 from sklearn.preprocessing import StandardScaler
 
+
 def load_experiment_universe():
     adr_info = pd.read_csv(Path('data/raw/adr_info.csv'))
     adr_info['adr_ticker'] = adr_info['adr'].str.replace(' US Equity', '', regex=False)
     universe = adr_info['adr_ticker'].dropna().unique().tolist()
     return set(universe)
+
+
+def _normalize_bbg_equity_ticker(raw):
+    if pd.isna(raw):
+        return None
+    t = str(raw).strip()
+    if not t:
+        return None
+    return t.split()[0].upper()
+
+
+def load_historical_russell_constituents(path):
+    df = pd.read_csv(path)
+    date_col = 'as_of_date' if 'as_of_date' in df.columns else 'DATE'
+    ticker_col = 'ticker' if 'ticker' in df.columns else 'id'
+    if date_col not in df.columns or ticker_col not in df.columns:
+        raise ValueError(f"historical constituent file missing required columns: {path}")
+
+    out = pd.DataFrame({
+        'as_of_date': pd.to_datetime(df[date_col]).dt.normalize(),
+        'ticker': df[ticker_col].map(_normalize_bbg_equity_ticker),
+    }).dropna()
+    out = out.drop_duplicates(['as_of_date', 'ticker']).sort_values(['as_of_date', 'ticker'])
+
+    snapshot_dates = np.array(sorted(out['as_of_date'].unique()), dtype='datetime64[ns]')
+    constituent_sets = {
+        pd.Timestamp(d): set(out.loc[out['as_of_date'] == d, 'ticker'].tolist())
+        for d in pd.to_datetime(snapshot_dates)
+    }
+    return snapshot_dates, constituent_sets
+
+
+def load_turnover(path):
+    t = pd.read_csv(path, index_col=0, parse_dates=True)
+    t.columns = [_normalize_bbg_equity_ticker(c) for c in t.columns]
+    t = t.loc[:, [c for c in t.columns if c is not None]]
+    t = t[~t.index.duplicated(keep='last')].sort_index()
+    return t
+
+
+def _last_snapshot_on_or_before(snapshot_dates, ts):
+    i = np.searchsorted(snapshot_dates, np.datetime64(pd.Timestamp(ts).normalize()), side='right') - 1
+    if i < 0:
+        return None
+    return pd.Timestamp(snapshot_dates[i])
+
+
+def select_window_feature_columns(
+    feature_cols,
+    window_dates,
+    train_start,
+    val_end,
+    snapshot_dates,
+    constituent_sets,
+    turnover_df,
+    min_turnover,
+):
+    start_snapshot = _last_snapshot_on_or_before(snapshot_dates, train_start)
+    end_snapshot = _last_snapshot_on_or_before(snapshot_dates, val_end)
+    if start_snapshot is None or end_snapshot is None or start_snapshot > end_snapshot:
+        return []
+
+    # Constituents present on every monthly snapshot from train-start snapshot through val-end snapshot.
+    monthly_window = [
+        pd.Timestamp(d)
+        for d in pd.to_datetime(snapshot_dates)
+        if start_snapshot <= pd.Timestamp(d) <= end_snapshot
+    ]
+    if not monthly_window:
+        return []
+
+    always_in_index = set(constituent_sets.get(monthly_window[0], set()))
+    for d in monthly_window[1:]:
+        always_in_index &= constituent_sets.get(d, set())
+
+    # Also include names in end-of-validation snapshot that are liquid every day in train+val.
+    end_snapshot_set = set(constituent_sets.get(end_snapshot, set()))
+    liquid_set = set()
+    if len(window_dates) > 0 and not turnover_df.empty:
+        end_cols = [c for c in end_snapshot_set if c in turnover_df.columns]
+        if end_cols:
+            t_window = turnover_df.reindex(window_dates, columns=end_cols)
+            is_liquid = (t_window >= min_turnover) & t_window.notna()
+            liquid_set = set(is_liquid.columns[is_liquid.all(axis=0)])
+
+    eligible = always_in_index | liquid_set
+    return [c for c in feature_cols if c.replace('russell_', '', 1) in eligible]
 
 
 class LinearModelBundle:
@@ -392,10 +480,23 @@ def fit_rrr_group(X_train, Y_train, X_val, Y_val):
     return {'val_ic': best[0], 'rank': int(best[1]), 'bundles': bundles, 'kind': 'linear'}
 
 
-def train_single_ticker(model_kind, ticker, features_df, output_dir, train_months, val_months):
+def train_single_ticker(
+    model_kind,
+    ticker,
+    features_df,
+    output_dir,
+    train_months,
+    val_months,
+    snapshot_dates,
+    constituent_sets,
+    turnover_df,
+    min_turnover,
+    min_model_date=None,
+):
     y = features_df['ordinary_residual']
-    feature_cols = [c for c in features_df.columns if c.startswith('russell_')]
-    X = features_df[feature_cols]
+    all_feature_cols = [c for c in features_df.columns if c.startswith('russell_')]
+    if not all_feature_cols:
+        return []
 
     windows = get_rolling_windows(features_df.index, train_months=train_months, val_months=val_months)
     if not windows:
@@ -406,6 +507,25 @@ def train_single_ticker(model_kind, ticker, features_df, output_dir, train_month
     md = []
 
     for w in windows:
+        if min_model_date is not None and pd.Timestamp(w['model_date']) < min_model_date:
+            continue
+
+        tv_mask = (features_df.index >= w['train_start']) & (features_df.index <= w['val_end'])
+        tv_dates = features_df.index[tv_mask]
+        feature_cols = select_window_feature_columns(
+            all_feature_cols,
+            tv_dates,
+            w['train_start'],
+            w['val_end'],
+            snapshot_dates,
+            constituent_sets,
+            turnover_df,
+            min_turnover,
+        )
+        if len(feature_cols) < 5:
+            continue
+        X = features_df[feature_cols]
+
         train_mask = (features_df.index >= w['train_start']) & (features_df.index <= w['train_end'])
         val_mask = (features_df.index >= w['val_start']) & (features_df.index <= w['val_end'])
         test_mask = (features_df.index >= w['test_start']) & (features_df.index <= w['test_end'])
@@ -444,17 +564,40 @@ def train_single_ticker(model_kind, ticker, features_df, output_dir, train_month
         else:
             raise ValueError(f'Unsupported single-ticker model kind: {model_kind}')
 
+        # Persist comparable model/baseline diagnostics for downstream signal gating.
+        # Residual baseline prediction is 0, so baseline IC evaluates to 0.0 by definition here.
+        X_fit = np.vstack([X_train, X_val])
+        y_fit = np.concatenate([y_train, y_val])
+        if fit['kind'] == 'linear':
+            y_fit_pred = fit['bundle'].predict_raw(X_fit)
+        else:
+            y_fit_pred = fit['model'].predict(X_fit)
+        train_ic = compute_ic(y_fit_pred, y_fit)
+        baseline_train_ic = 0.0
+        baseline_val_ic = 0.0
+
         test_ic = compute_ic(y_pred, y_test)
+        window_constituent_start = _last_snapshot_on_or_before(snapshot_dates, w['train_start'])
+        window_constituent_end = _last_snapshot_on_or_before(snapshot_dates, w['val_end'])
 
         model_data = {
             'kind': fit['kind'],
             'feature_names': feature_cols,
+            'feature_tickers': [c.replace('russell_', '', 1) for c in feature_cols],
+            'feature_index_map': {c.replace('russell_', '', 1): i for i, c in enumerate(feature_cols)},
+            'window_constituent_start': window_constituent_start,
+            'window_constituent_end': window_constituent_end,
+            'min_turnover': float(min_turnover),
             'train_period': (w['train_start'], w['train_end']),
             'val_period': (w['val_start'], w['val_end']),
             'test_period': (w['test_start'], w['test_end']),
             'model_date': w['model_date'],
+            'train_ic': train_ic,
+            'baseline_train_ic': baseline_train_ic,
             'val_ic': fit['val_ic'],
+            'baseline_val_ic': baseline_val_ic,
             'test_ic': test_ic,
+            'n_features': len(feature_cols),
         }
         if fit['kind'] == 'linear':
             fit['bundle'].feature_names = feature_cols
@@ -474,7 +617,10 @@ def train_single_ticker(model_kind, ticker, features_df, output_dir, train_month
         md.append({
             'ticker': ticker,
             'model_date': w['model_date'],
+            'train_ic': train_ic,
+            'baseline_train_ic': baseline_train_ic,
             'val_ic': fit['val_ic'],
+            'baseline_val_ic': baseline_val_ic,
             'test_ic': test_ic,
             'model_file': str(out),
         })
@@ -482,7 +628,7 @@ def train_single_ticker(model_kind, ticker, features_df, output_dir, train_month
     return md
 
 
-def train_rrr(features_dir, output_dir, train_months, val_months, universe):
+def train_rrr(features_dir, output_dir, train_months, val_months, universe, min_model_date=None):
     # load all features once
     feats = {}
     for fp in sorted(features_dir.glob('*.parquet')):
@@ -531,6 +677,9 @@ def train_rrr(features_dir, output_dir, train_months, val_months, universe):
             continue
 
         for w in windows:
+            if min_model_date is not None and pd.Timestamp(w['model_date']) < min_model_date:
+                continue
+
             train_mask = (X_df.index >= w['train_start']) & (X_df.index <= w['train_end'])
             val_mask = (X_df.index >= w['val_start']) & (X_df.index <= w['val_end'])
             test_mask = (X_df.index >= w['test_start']) & (X_df.index <= w['test_end'])
@@ -595,6 +744,10 @@ def parse_args():
     p.add_argument('--output-dir', required=True)
     p.add_argument('--train-months', type=int, default=48)
     p.add_argument('--val-months', type=int, default=6)
+    p.add_argument('--min-model-date', type=str, default=None)
+    p.add_argument('--historical-constituents-file', default='data/raw/historical_russell_1000.csv')
+    p.add_argument('--turnover-file', default='data/raw/russell1000/russell1000_turnover.csv')
+    p.add_argument('--min-turnover', type=float, default=10_000_000.0)
     return p.parse_args()
 
 
@@ -603,12 +756,17 @@ def main():
     features_dir = Path(args.features_dir)
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
+    min_model_date = pd.Timestamp(args.min_model_date) if args.min_model_date else None
+    snapshot_dates, constituent_sets = load_historical_russell_constituents(Path(args.historical_constituents_file))
+    turnover_df = load_turnover(Path(args.turnover_file))
 
     all_md = []
     experiment_universe = load_experiment_universe()
 
     if args.model_kind == 'rrr':
-        all_md = train_rrr(features_dir, output_dir, args.train_months, args.val_months, experiment_universe)
+        all_md = train_rrr(
+            features_dir, output_dir, args.train_months, args.val_months, experiment_universe, min_model_date=min_model_date
+        )
     else:
         for fp in sorted(features_dir.glob('*.parquet')):
             ticker = fp.stem
@@ -623,6 +781,11 @@ def main():
                     output_dir=output_dir,
                     train_months=args.train_months,
                     val_months=args.val_months,
+                    snapshot_dates=snapshot_dates,
+                    constituent_sets=constituent_sets,
+                    turnover_df=turnover_df,
+                    min_turnover=args.min_turnover,
+                    min_model_date=min_model_date,
                 )
                 all_md.extend(md)
             except Exception as e:

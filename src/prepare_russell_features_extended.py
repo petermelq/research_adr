@@ -8,6 +8,7 @@ Adds an AU/JP-specific path:
 """
 
 from collections import defaultdict
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 import os
 import sys
@@ -43,32 +44,47 @@ def load_experiment_universe():
 
 
 def _daily_us_open_close_returns(russell_ohlcv_dir, tickers, start_date, end_date):
-    data = {}
     start_s = pd.Timestamp(start_date).strftime("%Y-%m-%d")
     end_s = pd.Timestamp(end_date).strftime("%Y-%m-%d")
-    for t in tickers:
-        p = russell_ohlcv_dir / f"ticker={t}" / "data.parquet"
-        if not p.exists():
-            continue
-        try:
-            df = pd.read_parquet(p, columns=["Close", "date"])
-            df = df[(df["date"] >= start_s) & (df["date"] <= end_s)]
-            if df.empty:
-                continue
-            if df.index.tz is None:
-                df.index = df.index.tz_localize("America/New_York")
-            intraday = df.between_time("09:30", "16:00", inclusive="both")
-            if intraday.empty:
-                continue
-            g = intraday.groupby(intraday.index.strftime("%Y-%m-%d"))["Close"].agg(["first", "last"])
-            ret = (g["last"] / g["first"] - 1.0).rename(t)
-            ret.index = pd.to_datetime(ret.index)
-            data[t] = ret
-        except Exception:
-            continue
+    tasks = [(str(russell_ohlcv_dir), t, start_s, end_s) for t in tickers]
+    data = {}
+    max_workers = min(8, max(1, (os.cpu_count() or 1)))
+    with ProcessPoolExecutor(max_workers=max_workers) as ex:
+        for ticker, series in ex.map(_compute_us_open_close_for_ticker, tasks, chunksize=8):
+            if ticker is not None and series is not None and not series.empty:
+                data[ticker] = series
     if not data:
         return pd.DataFrame()
     return pd.DataFrame(data).sort_index()
+
+
+def _compute_us_open_close_for_ticker(task):
+    russell_ohlcv_dir, ticker, start_s, end_s = task
+    p = Path(russell_ohlcv_dir) / f"ticker={ticker}" / "data.parquet"
+    if not p.exists():
+        return None, None
+    try:
+        # Use the Parquet DateTime index as the single source of timestamp truth.
+        df = pd.read_parquet(p, columns=["Close"])
+        if not isinstance(df.index, pd.DatetimeIndex):
+            return None, None
+        if df.index.tz is None:
+            df.index = df.index.tz_localize("America/New_York")
+        else:
+            df.index = df.index.tz_convert("America/New_York")
+        day_str = df.index.strftime("%Y-%m-%d")
+        df = df[(day_str >= start_s) & (day_str <= end_s)]
+        if df.empty:
+            return None, None
+        intraday = df.between_time("09:30", "16:00", inclusive="both")
+        if intraday.empty:
+            return None, None
+        g = intraday.groupby(intraday.index.strftime("%Y-%m-%d"))["Close"].agg(["first", "last"])
+        ret = (g["last"] / g["first"] - 1.0).rename(ticker)
+        ret.index = pd.to_datetime(ret.index)
+        return ticker, ret
+    except Exception:
+        return None, None
 
 
 def _daily_futures_domestic_to_ny_return(futures_dir, symbol, exchange_mic, start_date, end_date, exchange_offsets):
@@ -212,7 +228,16 @@ def main():
                 break
     canonical_tickers = []
     if russell_prices_by_exchange:
-        canonical_tickers = list(next(iter(russell_prices_by_exchange.values())).columns)
+        # Use the full Russell feature universe across exchanges.
+        # Taking only the first file's columns can shrink Asia features
+        # to a small subset (e.g., ~8 tickers) depending on dict iteration.
+        canonical_tickers = sorted(
+            {
+                col
+                for df in russell_prices_by_exchange.values()
+                for col in df.columns
+            }
+        )
     us_open_close_returns = pd.DataFrame()
     if any(ex in exchange_to_tickers for ex in ASIA_EXCHANGES):
         us_open_close_returns = _daily_us_open_close_returns(russell_ohlcv_dir, canonical_tickers, start_date, end_date)

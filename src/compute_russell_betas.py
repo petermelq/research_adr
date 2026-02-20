@@ -56,12 +56,18 @@ def _daily_us_open_close_returns(russell_ohlcv_dir, tickers, start_date, end_dat
         if not p.exists():
             continue
         try:
-            df = pd.read_parquet(p, columns=["Close", "date"])
-            df = df[(df["date"] >= start_s) & (df["date"] <= end_s)]
-            if df.empty:
+            # Use only the Parquet DateTime index for time filtering.
+            df = pd.read_parquet(p, columns=["Close"])
+            if not isinstance(df.index, pd.DatetimeIndex):
                 continue
             if df.index.tz is None:
                 df.index = df.index.tz_localize("America/New_York")
+            else:
+                df.index = df.index.tz_convert("America/New_York")
+            day_str = df.index.strftime("%Y-%m-%d")
+            df = df[(day_str >= start_s) & (day_str <= end_s)]
+            if df.empty:
+                continue
             intraday = df.between_time("09:30", "16:00", inclusive="both")
             if intraday.empty:
                 continue

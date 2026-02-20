@@ -38,60 +38,77 @@ def get_daily_adj(adj_group, start_date, end_date):
         mask = adj_group['adjustment_factor_operator_type'] == 1.0
         adj_group.loc[mask, 'adjustment_factor'] = 1.0 / adj_group.loc[mask, 'adjustment_factor']
 
-    # Group by adjustment_date and multiply adjustment factors (handles multiple events same day)
-    adj_df = adj_group.groupby('adjustment_date')[['adjustment_factor']].prod().sort_index(ascending=False)
+    # Group by adjustment_date and multiply adjustment factors (handles multiple events same day).
+    # This is required so multiple corporate actions on the same ex-date are all applied.
+    by_ex_date = adj_group.groupby('adjustment_date')[['adjustment_factor']].prod()
 
-    # Set adjustment_factor = 1.0 at start_date (no adjustment for earliest date)
-    adj_df.loc[start_date, 'adjustment_factor'] = 1.0
-
-    # Compute cumulative product (creates chain of adjustments from most recent backwards)
-    adj_df['cum_adj'] = adj_df['adjustment_factor'].cumprod()
-
-    # Shift index back one business day (ex-date -> last cum-dividend date)
+    # Shift index back one business day (ex-date -> last cum-dividend date).
     cbday = get_market_business_days('NYSE')
-    adj_df.index = [pd.to_datetime(idx) - cbday for idx in adj_df.index]
+    by_ex_date.index = [pd.to_datetime(idx) - cbday for idx in by_ex_date.index]
 
-    # Set cum_adj = 1.0 at end_date (most recent prices have no adjustment)
-    adj_df.loc[end_date, 'cum_adj'] = 1.0
+    # Distinct ex-dates can map to the same shifted date around holidays/weekends.
+    # Combine those factors on the shifted date before cumprod.
+    by_shifted_date = by_ex_date.groupby(level=0)[['adjustment_factor']].prod()
 
-    # Sort and trim to date range
-    adj_df = adj_df.sort_index().loc[:end_date]
+    # Compute cumulative product from most recent backwards.
+    by_shifted_date = by_shifted_date.sort_index(ascending=False)
+    by_shifted_date['cum_adj'] = by_shifted_date['adjustment_factor'].cumprod()
+    cum_adj = by_shifted_date[['cum_adj']].copy()
 
-    # Forward-fill daily to create continuous series
-    adj_df = adj_df[['cum_adj']].sort_index().resample('1D').bfill()
+    # Most recent prices have no adjustment.
+    end_ts = pd.Timestamp(end_date)
+    cum_adj.loc[end_ts, 'cum_adj'] = 1.0
+    cum_adj = cum_adj[~cum_adj.index.duplicated(keep='last')]
 
-    return adj_df
+    # Create continuous daily series over [start_date, end_date].
+    full_index = pd.date_range(pd.Timestamp(start_date), end_ts, freq='1D')
+    cum_adj = cum_adj.sort_index().reindex(full_index).bfill().ffill()
+    cum_adj.index.name = 'date'
+
+    return cum_adj
 
 
-def apply_adjustments(unadj_prices, adj_factors, start_date, end_date):
+def build_daily_adjustment_table(adj_factors, start_date, end_date):
+    """
+    Build daily cumulative adjustment factors for all tickers.
+
+    Returns:
+        DataFrame with columns: ticker, date, cum_adj
+    """
+    if len(adj_factors) == 0:
+        return pd.DataFrame(columns=['ticker', 'date', 'cum_adj'])
+
+    daily_adj = (
+        adj_factors.groupby('ticker')
+        .apply(get_daily_adj, start_date=start_date, end_date=end_date, include_groups=False)
+        .reset_index()
+        .rename(columns={'level_1': 'date'})
+    )
+    return daily_adj
+
+
+def apply_adjustments(unadj_prices, daily_adj):
     """
     Apply adjustment factors to unadjusted prices.
 
     Args:
         unadj_prices: DataFrame with dates as index, tickers as columns
-        adj_factors: DataFrame with columns: ticker, adjustment_date, adjustment_factor
-        start_date: Start date
-        end_date: End date
+        daily_adj: DataFrame with columns: ticker, date, cum_adj
 
     Returns:
         DataFrame with adjusted prices (same structure as input)
     """
     # If no adjustment factors, return unadjusted prices
-    if len(adj_factors) == 0:
+    if len(daily_adj) == 0:
         print("    No adjustment factors - returning unadjusted prices")
         return unadj_prices.copy()
-
-    # Compute daily cumulative adjustments for each ticker
-    adj_df = (adj_factors.groupby('ticker')
-                .apply(get_daily_adj, start_date=start_date, end_date=end_date, include_groups=False)
-                .reset_index().rename(columns={'level_1': 'date'}))
 
     # Stack prices for merging
     stacked_price = unadj_prices.stack().reset_index(name='price')
     stacked_price.columns = ['date', 'ticker', 'price']
 
     # Merge prices with adjustments
-    merged = stacked_price.merge(adj_df, on=['ticker', 'date'], how='left')
+    merged = stacked_price.merge(daily_adj, on=['ticker', 'date'], how='left')
 
     # Fill missing cum_adj with 1.0 (no adjustment)
     merged['cum_adj'] = merged['cum_adj'].fillna(1.0)
@@ -153,6 +170,11 @@ def main():
 
     print(f"\nProcessing {len(csv_files)} exchange files...")
 
+    # Build daily adjustment table once (shared across exchanges)
+    print("\nBuilding daily adjustment table...")
+    daily_adj = build_daily_adjustment_table(adj_factors, start_date, end_date)
+    print(f"Built daily adjustments: {len(daily_adj):,} rows")
+
     # Process each exchange file
     for csv_file in csv_files:
         exchange_mic = csv_file.stem  # e.g., 'XLON'
@@ -165,7 +187,7 @@ def main():
         print(f"    Unadjusted: {unadj_prices.shape[0]} rows x {unadj_prices.shape[1]} columns")
 
         # Apply adjustments
-        adj_prices = apply_adjustments(unadj_prices, adj_factors, start_date, end_date)
+        adj_prices = apply_adjustments(unadj_prices, daily_adj)
 
         # Ensure index is sorted
         adj_prices = adj_prices.sort_index()
