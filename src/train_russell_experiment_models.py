@@ -11,7 +11,7 @@ from sklearn.decomposition import PCA
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.cross_decomposition import PLSRegression
 from sklearn.linear_model import HuberRegressor
-from sklearn.linear_model import ElasticNet, LinearRegression, Ridge
+from sklearn.linear_model import ElasticNet, Ridge
 from sklearn.preprocessing import StandardScaler
 
 
@@ -218,39 +218,49 @@ def fit_linear_elasticnet(X_train, y_train, X_val, y_val):
     return {'val_ic': best[0], 'bundle': LinearModelBundle(None, w, c), 'alpha': best[1], 'l1_ratio': best[2], 'kind': 'linear'}
 
 
-def fit_linear_pcr(X_train, y_train, X_val, y_val):
+def fit_linear_pcr(X_train, y_train, X_val, y_val, pcr_max_components=None):
     scaler = StandardScaler().fit(X_train)
     Xt = scaler.transform(X_train)
     Xv = scaler.transform(X_val)
 
     max_comp = min(Xt.shape[0], Xt.shape[1])
+    if pcr_max_components is not None:
+        max_comp = min(max_comp, int(pcr_max_components))
     max_comp = max(1, int(max_comp))
     grid = sorted(set([1, 2, 5, 10, 20, 40, 80, 120, 200, max_comp]))
     grid = [g for g in grid if 1 <= g <= max_comp]
 
-    best = (-np.inf, None, None, None)
+    # Fit one decomposition, then sweep k using orthogonal-PC OLS in PC space.
+    pca_all = PCA(n_components=max_comp, svd_solver='randomized', random_state=42)
+    Zt_all = pca_all.fit_transform(Xt)
+    Zv_all = pca_all.transform(Xv)
+    zt_norm2 = np.sum(Zt_all * Zt_all, axis=0)
+    zt_norm2 = np.where(zt_norm2 == 0.0, 1.0, zt_norm2)
+    y_train_arr = np.asarray(y_train, dtype=np.float64)
+
+    best = (-np.inf, None)
     for k in grid:
-        pca = PCA(n_components=k, svd_solver='randomized', random_state=42)
-        Zt = pca.fit_transform(Xt)
-        Zv = pca.transform(Xv)
-        reg = LinearRegression(fit_intercept=False)
-        reg.fit(Zt, y_train)
-        ic = compute_ic(reg.predict(Zv), y_val)
+        beta = (Zt_all[:, :k].T @ y_train_arr) / zt_norm2[:k]
+        pred = Zv_all[:, :k] @ beta
+        ic = compute_ic(pred, y_val)
         if ic > best[0]:
-            best = (ic, k, pca, reg)
+            best = (ic, int(k))
 
     Xfull = np.vstack([X_train, X_val])
     yfull = np.concatenate([y_train, y_val])
     scaler = StandardScaler().fit(Xfull)
     Xf = scaler.transform(Xfull)
     max_comp_full = max(1, min(Xf.shape[0], Xf.shape[1]))
+    if pcr_max_components is not None:
+        max_comp_full = min(max_comp_full, int(pcr_max_components))
     n_comp = min(best[1], max_comp_full)
     pca = PCA(n_components=n_comp, svd_solver='randomized', random_state=42)
     Zf = pca.fit_transform(Xf)
-    reg = LinearRegression(fit_intercept=False)
-    reg.fit(Zf, yfull)
+    zf_norm2 = np.sum(Zf * Zf, axis=0)
+    zf_norm2 = np.where(zf_norm2 == 0.0, 1.0, zf_norm2)
+    beta = (Zf.T @ np.asarray(yfull, dtype=np.float64)) / zf_norm2
 
-    w_scaled = pca.components_.T @ reg.coef_.astype(np.float32)
+    w_scaled = pca.components_.T @ beta.astype(np.float32)
     scale = np.where(scaler.scale_.astype(np.float32) == 0, 1.0, scaler.scale_.astype(np.float32))
     mean = scaler.mean_.astype(np.float32)
     w = w_scaled / scale
@@ -492,6 +502,8 @@ def train_single_ticker(
     turnover_df,
     min_turnover,
     min_model_date=None,
+    pcr_max_components=None,
+    skip_existing=False,
 ):
     y = features_df['ordinary_residual']
     all_feature_cols = [c for c in features_df.columns if c.startswith('russell_')]
@@ -508,6 +520,9 @@ def train_single_ticker(
 
     for w in windows:
         if min_model_date is not None and pd.Timestamp(w['model_date']) < min_model_date:
+            continue
+        out = tdir / f"{w['model_date'].strftime('%Y_%m')}.pkl"
+        if skip_existing and out.exists():
             continue
 
         tv_mask = (features_df.index >= w['train_start']) & (features_df.index <= w['val_end'])
@@ -544,7 +559,13 @@ def train_single_ticker(
             fit = fit_linear_ridge(X_train, y_train, X_val, y_val)
             y_pred = fit['bundle'].predict_raw(X_test)
         elif model_kind == 'pcr':
-            fit = fit_linear_pcr(X_train, y_train, X_val, y_val)
+            fit = fit_linear_pcr(
+                X_train,
+                y_train,
+                X_val,
+                y_val,
+                pcr_max_components=pcr_max_components,
+            )
             y_pred = fit['bundle'].predict_raw(X_test)
         elif model_kind == 'robust_pcr':
             fit = fit_linear_robust_pcr(X_train, y_train, X_val, y_val)
@@ -610,7 +631,6 @@ def train_single_ticker(
             if k in fit:
                 model_data[k] = fit[k]
 
-        out = tdir / f"{w['model_date'].strftime('%Y_%m')}.pkl"
         with open(out, 'wb') as f:
             pickle.dump(model_data, f)
 
@@ -748,6 +768,8 @@ def parse_args():
     p.add_argument('--historical-constituents-file', default='data/raw/historical_russell_1000.csv')
     p.add_argument('--turnover-file', default='data/raw/russell1000/russell1000_turnover.csv')
     p.add_argument('--min-turnover', type=float, default=10_000_000.0)
+    p.add_argument('--pcr-max-components', type=int, default=None)
+    p.add_argument('--skip-existing', action='store_true')
     return p.parse_args()
 
 
@@ -786,6 +808,8 @@ def main():
                     turnover_df=turnover_df,
                     min_turnover=args.min_turnover,
                     min_model_date=min_model_date,
+                    pcr_max_components=args.pcr_max_components,
+                    skip_existing=args.skip_existing,
                 )
                 all_md.extend(md)
             except Exception as e:

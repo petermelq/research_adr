@@ -2747,8 +2747,8 @@ stages:
       nfiles: 1253
     - path: src/index_russell_experiment_signal.py
       hash: md5
-      md5: d7127e35e3c4314ab2beb6d707327ca0
-      size: 20498
+      md5: 5267813c26119fb543d402697fd484a5
+      size: 16268
     params:
       params.yaml:
         end_date: '2026-02-13'
@@ -2756,8 +2756,8 @@ stages:
     outs:
     - path: data/processed/index_russell_pcr_signal
       hash: md5
-      md5: 9bfed917286474ede1e440d52000ddb0.dir
-      size: 23301681
+      md5: ac74c227c9a05ddbcc9d169dd958af79.dir
+      size: 23290969
       nfiles: 54
   evaluate_pcr_notebook:
     cmd: MODEL_KEY=pcr RETURNS_MODE=hedged jupyter nbconvert --to notebook 
@@ -2782,8 +2782,8 @@ stages:
       nfiles: 54
     - path: data/processed/index_russell_pcr_signal
       hash: md5
-      md5: 9bfed917286474ede1e440d52000ddb0.dir
-      size: 23301681
+      md5: ac74c227c9a05ddbcc9d169dd958af79.dir
+      size: 23290969
       nfiles: 54
     - path: data/processed/market_etf_hedge_ratios.csv
       hash: md5
@@ -2818,12 +2818,12 @@ stages:
     outs:
     - path: notebooks/reports/pcr_ic_report_hedged_from_template.ipynb
       hash: md5
-      md5: 3994361bc72d330f72a0ebe5cdf8b3c2
-      size: 329884
+      md5: b8f99a4166a2575854f9b4c31fa4b855
+      size: 338226
     - path: notebooks/reports/pcr_ic_report_unhedged_from_template.ipynb
       hash: md5
-      md5: f74833305cef71005be99e0b9c5e9a63
-      size: 321234
+      md5: 28f9e1355d2ede8b8e0a14ba32614b00
+      size: 337180
   pls_train_models:
     cmd: python src/train_russell_experiment_models.py --model-kind pls 
       --features-dir data/processed/models/with_us_stocks/features_extended 
@@ -3336,8 +3336,8 @@ stages:
       nfiles: 54
     - path: data/processed/index_russell_pcr_signal
       hash: md5
-      md5: 9bfed917286474ede1e440d52000ddb0.dir
-      size: 23301681
+      md5: ac74c227c9a05ddbcc9d169dd958af79.dir
+      size: 23290969
       nfiles: 54
     - path: data/processed/models/with_us_stocks/pcr
       hash: md5
@@ -3351,8 +3351,8 @@ stages:
     outs:
     - path: data/processed/index_russell_pcr_signal_gated
       hash: md5
-      md5: 3bbe687eb1624a294137afd644876203.dir
-      size: 412504562
+      md5: 62f915656c7cf570966b43cbb2d39ed0.dir
+      size: 412494095
       nfiles: 54
   evaluate_pcr_gated_notebook:
     cmd: MODEL_SIGNAL_DIR=data/processed/index_russell_pcr_signal_gated 
@@ -3380,8 +3380,8 @@ stages:
       nfiles: 54
     - path: data/processed/index_russell_pcr_signal_gated
       hash: md5
-      md5: 3bbe687eb1624a294137afd644876203.dir
-      size: 412504562
+      md5: 62f915656c7cf570966b43cbb2d39ed0.dir
+      size: 412494095
       nfiles: 54
     - path: data/processed/market_etf_hedge_ratios.csv
       hash: md5
@@ -3416,9 +3416,300 @@ stages:
     outs:
     - path: notebooks/reports/pcr_gated_ic_report_hedged_from_template.ipynb
       hash: md5
-      md5: 7fde4c02728cbe65942b5850e8676d8e
-      size: 355556
+      md5: 64d1ac194fa3ddd0a064d8eb777b2c2f
+      size: 355578
     - path: notebooks/reports/pcr_gated_ic_report_unhedged_from_template.ipynb
       hash: md5
-      md5: 55fec3eaa712e9b67d09468bf8324857
-      size: 355516
+      md5: a599699599d19dc17750b78246e22683
+      size: 358192
+  index_russell_pcr_old_universe_signal_gated:
+    cmd: python src/gate_russell_experiment_signal.py --model-dir 
+      data/processed/models/with_us_stocks/pcr_old_universe --model-signal-dir 
+      data/processed/index_russell_pcr_signal_old_universe --baseline-signal-dir
+      data/processed/futures_only_signal --output-dir 
+      data/processed/index_russell_pcr_signal_old_universe_gated
+    deps:
+    - path: data/processed/futures_only_signal
+      hash: md5
+      md5: f98fad774983a25950c98ae268e8675b.dir
+      size: 415304038
+      nfiles: 54
+    - path: data/processed/index_russell_pcr_signal_old_universe
+      hash: md5
+      md5: c2c64ee745f70d38233d3b691ba760a6.dir
+      size: 21426227
+      nfiles: 54
+    - path: data/processed/models/with_us_stocks/pcr_old_universe
+      hash: md5
+      md5: 582e20ffdc9e8a86968c3b51cce127ac.dir
+      size: 10072036
+      nfiles: 308
+    - path: src/gate_russell_experiment_signal.py
+      hash: md5
+      md5: 755824e6de23ea997312e6d2bdf457b4
+      size: 5067
+    outs:
+    - path: data/processed/index_russell_pcr_signal_old_universe_gated
+      hash: md5
+      md5: 81e202a98c828d041c5fa5566bc59f7b.dir
+      size: 412714713
+      nfiles: 54
+  evaluate_pcr_old_universe_gated_notebook:
+    cmd: 
+      MODEL_SIGNAL_DIR=data/processed/index_russell_pcr_signal_old_universe_gated
+      MODEL_NAME="PCR Old Universe Gated" 
+      MODEL_TRAIN_DIR=data/processed/models/with_us_stocks/pcr_old_universe 
+      DATE_FILTER_MODE=trained_months RETURNS_MODE=hedged jupyter nbconvert --to
+      notebook --execute notebooks/signal_ic_analysis_template.ipynb 
+      --output-dir notebooks/reports --output 
+      pcr_old_universe_gated_ic_report_hedged_from_template.ipynb && python 
+      src/hardcode_report_notebook_env.py --notebook 
+      notebooks/reports/pcr_old_universe_gated_ic_report_hedged_from_template.ipynb
+      --model-key pcr_old_universe_gated --model-name "PCR Old Universe Gated" 
+      --model-signal-dir 
+      data/processed/index_russell_pcr_signal_old_universe_gated --returns-mode 
+      hedged --model-train-dir 
+      data/processed/models/with_us_stocks/pcr_old_universe --date-filter-mode 
+      trained_months && 
+      MODEL_SIGNAL_DIR=data/processed/index_russell_pcr_signal_old_universe_gated
+      MODEL_NAME="PCR Old Universe Gated" 
+      MODEL_TRAIN_DIR=data/processed/models/with_us_stocks/pcr_old_universe 
+      DATE_FILTER_MODE=trained_months RETURNS_MODE=unhedged jupyter nbconvert 
+      --to notebook --execute notebooks/signal_ic_analysis_template.ipynb 
+      --output-dir notebooks/reports --output 
+      pcr_old_universe_gated_ic_report_unhedged_from_template.ipynb && python 
+      src/hardcode_report_notebook_env.py --notebook 
+      notebooks/reports/pcr_old_universe_gated_ic_report_unhedged_from_template.ipynb
+      --model-key pcr_old_universe_gated --model-name "PCR Old Universe Gated" 
+      --model-signal-dir 
+      data/processed/index_russell_pcr_signal_old_universe_gated --returns-mode 
+      unhedged --model-train-dir 
+      data/processed/models/with_us_stocks/pcr_old_universe --date-filter-mode 
+      trained_months
+    deps:
+    - path: data/processed/futures_only_signal
+      hash: md5
+      md5: f98fad774983a25950c98ae268e8675b.dir
+      size: 415304038
+      nfiles: 54
+    - path: data/processed/index_russell_pcr_signal_old_universe_gated
+      hash: md5
+      md5: 81e202a98c828d041c5fa5566bc59f7b.dir
+      size: 412714713
+      nfiles: 54
+    - path: data/processed/market_etf_hedge_ratios.csv
+      hash: md5
+      md5: 6c688e1b450bff266b3e689dc21f400e
+      size: 1905541
+    - path: data/raw/adrs/adr_PX_LAST_adjust_none.csv
+      hash: md5
+      md5: 5a27a76709b1eb40660a2dfdc7c7bc6e
+      size: 630390
+    - path: data/raw/adrs/bbo-1m/nbbo
+      hash: md5
+      md5: 19b77a49dce018f26f42104b6690cec6.dir
+      size: 2816110403
+      nfiles: 54
+    - path: data/raw/etfs/market/bbo-1m/nbbo
+      hash: md5
+      md5: 3f463655594195991d753df6dee635b1.dir
+      size: 187578375
+      nfiles: 4
+    - path: data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
+      hash: md5
+      md5: 7c6fbd5a5909b4373d98b77cd265d580
+      size: 67811
+    - path: notebooks/signal_ic_analysis_template.ipynb
+      hash: md5
+      md5: 2347e9df17477e239305221ce45000a2
+      size: 70784
+    - path: src/hardcode_report_notebook_env.py
+      hash: md5
+      md5: 577f4f8c84165b2a27c8d963ccb603f4
+      size: 2881
+    outs:
+    - path: 
+        notebooks/reports/pcr_old_universe_gated_ic_report_hedged_from_template.ipynb
+      hash: md5
+      md5: 8cecd5874294e4e49a4bd0e7390d249e
+      size: 341158
+    - path: 
+        notebooks/reports/pcr_old_universe_gated_ic_report_unhedged_from_template.ipynb
+      hash: md5
+      md5: 74a8fe463ba4dccd706ee43284213d0b
+      size: 335857
+  evaluate_pcr_old_universe_gated_model_used_notebook:
+    cmd: 
+      MODEL_SIGNAL_DIR=data/processed/index_russell_pcr_signal_old_universe_gated
+      MODEL_NAME="PCR Old Universe Gated (Model-Used Months)" 
+      MODEL_TRAIN_DIR=data/processed/models/with_us_stocks/pcr_old_universe 
+      DATE_FILTER_MODE=model_used_months RETURNS_MODE=hedged jupyter nbconvert 
+      --to notebook --execute notebooks/signal_ic_analysis_template.ipynb 
+      --output-dir notebooks/reports --output 
+      pcr_old_universe_gated_model_used_ic_report_hedged_from_template.ipynb && 
+      python src/hardcode_report_notebook_env.py --notebook 
+      notebooks/reports/pcr_old_universe_gated_model_used_ic_report_hedged_from_template.ipynb
+      --model-key pcr_old_universe_gated_model_used --model-name "PCR Old 
+      Universe Gated (Model-Used Months)" --model-signal-dir 
+      data/processed/index_russell_pcr_signal_old_universe_gated --returns-mode 
+      hedged --model-train-dir 
+      data/processed/models/with_us_stocks/pcr_old_universe --date-filter-mode 
+      model_used_months && 
+      MODEL_SIGNAL_DIR=data/processed/index_russell_pcr_signal_old_universe_gated
+      MODEL_NAME="PCR Old Universe Gated (Model-Used Months)" 
+      MODEL_TRAIN_DIR=data/processed/models/with_us_stocks/pcr_old_universe 
+      DATE_FILTER_MODE=model_used_months RETURNS_MODE=unhedged jupyter nbconvert
+      --to notebook --execute notebooks/signal_ic_analysis_template.ipynb 
+      --output-dir notebooks/reports --output 
+      pcr_old_universe_gated_model_used_ic_report_unhedged_from_template.ipynb 
+      && python src/hardcode_report_notebook_env.py --notebook 
+      notebooks/reports/pcr_old_universe_gated_model_used_ic_report_unhedged_from_template.ipynb
+      --model-key pcr_old_universe_gated_model_used --model-name "PCR Old 
+      Universe Gated (Model-Used Months)" --model-signal-dir 
+      data/processed/index_russell_pcr_signal_old_universe_gated --returns-mode 
+      unhedged --model-train-dir 
+      data/processed/models/with_us_stocks/pcr_old_universe --date-filter-mode 
+      model_used_months
+    deps:
+    - path: data/processed/futures_only_signal
+      hash: md5
+      md5: f98fad774983a25950c98ae268e8675b.dir
+      size: 415304038
+      nfiles: 54
+    - path: data/processed/index_russell_pcr_signal_old_universe_gated
+      hash: md5
+      md5: 81e202a98c828d041c5fa5566bc59f7b.dir
+      size: 412714713
+      nfiles: 54
+    - path: data/processed/market_etf_hedge_ratios.csv
+      hash: md5
+      md5: 6c688e1b450bff266b3e689dc21f400e
+      size: 1905541
+    - path: data/processed/models/with_us_stocks/pcr_old_universe
+      hash: md5
+      md5: 582e20ffdc9e8a86968c3b51cce127ac.dir
+      size: 10072036
+      nfiles: 308
+    - path: data/raw/adrs/adr_PX_LAST_adjust_none.csv
+      hash: md5
+      md5: 5a27a76709b1eb40660a2dfdc7c7bc6e
+      size: 630390
+    - path: data/raw/adrs/bbo-1m/nbbo
+      hash: md5
+      md5: 19b77a49dce018f26f42104b6690cec6.dir
+      size: 2816110403
+      nfiles: 54
+    - path: data/raw/etfs/market/bbo-1m/nbbo
+      hash: md5
+      md5: 3f463655594195991d753df6dee635b1.dir
+      size: 187578375
+      nfiles: 4
+    - path: data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
+      hash: md5
+      md5: 7c6fbd5a5909b4373d98b77cd265d580
+      size: 67811
+    - path: notebooks/signal_ic_analysis_template.ipynb
+      hash: md5
+      md5: dbc414ddbb38cd0c901316a2429cae0f
+      size: 72481
+    - path: src/hardcode_report_notebook_env.py
+      hash: md5
+      md5: 577f4f8c84165b2a27c8d963ccb603f4
+      size: 2881
+    outs:
+    - path: 
+        notebooks/reports/pcr_old_universe_gated_model_used_ic_report_hedged_from_template.ipynb
+      hash: md5
+      md5: 36cc5f7a935d1962c9e258d559eb3b87
+      size: 356349
+    - path: 
+        notebooks/reports/pcr_old_universe_gated_model_used_ic_report_unhedged_from_template.ipynb
+      hash: md5
+      md5: 6e021a652fbf0d1e9d7264d77af529f9
+      size: 351140
+  evaluate_pcr_gated_model_used_notebook:
+    cmd: MODEL_SIGNAL_DIR=data/processed/index_russell_pcr_signal_gated 
+      MODEL_NAME="PCR Gated (Model-Used Months)" 
+      MODEL_TRAIN_DIR=data/processed/models/with_us_stocks/pcr 
+      DATE_FILTER_MODE=model_used_months RETURNS_MODE=hedged jupyter nbconvert 
+      --to notebook --execute notebooks/signal_ic_analysis_template.ipynb 
+      --output-dir notebooks/reports --output 
+      pcr_gated_model_used_ic_report_hedged_from_template.ipynb && python 
+      src/hardcode_report_notebook_env.py --notebook 
+      notebooks/reports/pcr_gated_model_used_ic_report_hedged_from_template.ipynb
+      --model-key pcr_gated_model_used --model-name "PCR Gated (Model-Used 
+      Months)" --model-signal-dir data/processed/index_russell_pcr_signal_gated 
+      --returns-mode hedged --model-train-dir 
+      data/processed/models/with_us_stocks/pcr --date-filter-mode 
+      model_used_months && 
+      MODEL_SIGNAL_DIR=data/processed/index_russell_pcr_signal_gated 
+      MODEL_NAME="PCR Gated (Model-Used Months)" 
+      MODEL_TRAIN_DIR=data/processed/models/with_us_stocks/pcr 
+      DATE_FILTER_MODE=model_used_months RETURNS_MODE=unhedged jupyter nbconvert
+      --to notebook --execute notebooks/signal_ic_analysis_template.ipynb 
+      --output-dir notebooks/reports --output 
+      pcr_gated_model_used_ic_report_unhedged_from_template.ipynb && python 
+      src/hardcode_report_notebook_env.py --notebook 
+      notebooks/reports/pcr_gated_model_used_ic_report_unhedged_from_template.ipynb
+      --model-key pcr_gated_model_used --model-name "PCR Gated (Model-Used 
+      Months)" --model-signal-dir data/processed/index_russell_pcr_signal_gated 
+      --returns-mode unhedged --model-train-dir 
+      data/processed/models/with_us_stocks/pcr --date-filter-mode 
+      model_used_months
+    deps:
+    - path: data/processed/futures_only_signal
+      hash: md5
+      md5: f98fad774983a25950c98ae268e8675b.dir
+      size: 415304038
+      nfiles: 54
+    - path: data/processed/index_russell_pcr_signal_gated
+      hash: md5
+      md5: 62f915656c7cf570966b43cbb2d39ed0.dir
+      size: 412494095
+      nfiles: 54
+    - path: data/processed/market_etf_hedge_ratios.csv
+      hash: md5
+      md5: 6c688e1b450bff266b3e689dc21f400e
+      size: 1905541
+    - path: data/processed/models/with_us_stocks/pcr
+      hash: md5
+      md5: e0cebc0d199cf6d2a9e263a4fbf3ffc9.dir
+      size: 919304
+      nfiles: 28
+    - path: data/raw/adrs/adr_PX_LAST_adjust_none.csv
+      hash: md5
+      md5: 5a27a76709b1eb40660a2dfdc7c7bc6e
+      size: 630390
+    - path: data/raw/adrs/bbo-1m/nbbo
+      hash: md5
+      md5: 19b77a49dce018f26f42104b6690cec6.dir
+      size: 2816110403
+      nfiles: 54
+    - path: data/raw/etfs/market/bbo-1m/nbbo
+      hash: md5
+      md5: 3f463655594195991d753df6dee635b1.dir
+      size: 187578375
+      nfiles: 4
+    - path: data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
+      hash: md5
+      md5: 7c6fbd5a5909b4373d98b77cd265d580
+      size: 67811
+    - path: notebooks/signal_ic_analysis_template.ipynb
+      hash: md5
+      md5: dbc414ddbb38cd0c901316a2429cae0f
+      size: 72481
+    - path: src/hardcode_report_notebook_env.py
+      hash: md5
+      md5: 577f4f8c84165b2a27c8d963ccb603f4
+      size: 2881
+    outs:
+    - path: 
+        notebooks/reports/pcr_gated_model_used_ic_report_hedged_from_template.ipynb
+      hash: md5
+      md5: f9e5040880304cdc0da23ccf3c3921f0
+      size: 319489
+    - path: 
+        notebooks/reports/pcr_gated_model_used_ic_report_unhedged_from_template.ipynb
+      hash: md5
+      md5: 61480be502485236829ba8cb82497e35
+      size: 331069

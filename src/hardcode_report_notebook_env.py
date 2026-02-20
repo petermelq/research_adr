@@ -6,7 +6,14 @@ from pathlib import Path
 MARKER = "# AUTO-GENERATED: hardcoded env vars for standalone rerun"
 
 
-def build_cell(model_key: str, model_name: str, model_signal_dir: str, returns_mode: str) -> dict:
+def build_cell(
+    model_key: str,
+    model_name: str,
+    model_signal_dir: str,
+    returns_mode: str,
+    model_train_dir: str | None = None,
+    date_filter_mode: str | None = None,
+) -> dict:
     source = [
         f"{MARKER}\n",
         "import os\n",
@@ -15,6 +22,10 @@ def build_cell(model_key: str, model_name: str, model_signal_dir: str, returns_m
         f"os.environ['MODEL_SIGNAL_DIR'] = '{model_signal_dir}'\n",
         f"os.environ['RETURNS_MODE'] = '{returns_mode}'\n",
     ]
+    if model_train_dir:
+        source.append(f"os.environ['MODEL_TRAIN_DIR'] = '{model_train_dir}'\n")
+    if date_filter_mode:
+        source.append(f"os.environ['DATE_FILTER_MODE'] = '{date_filter_mode}'\n")
     return {
         "cell_type": "code",
         "execution_count": None,
@@ -38,13 +49,30 @@ def main() -> None:
         "--returns-mode", required=True, choices=["hedged", "unhedged"],
         help="RETURNS_MODE value."
     )
+    parser.add_argument(
+        "--model-train-dir",
+        default="",
+        help="Optional MODEL_TRAIN_DIR value for eval date filtering.",
+    )
+    parser.add_argument(
+        "--date-filter-mode",
+        default="",
+        help="Optional DATE_FILTER_MODE value for eval date filtering.",
+    )
     args = parser.parse_args()
 
     notebook_path = Path(args.notebook)
     with notebook_path.open("r", encoding="utf-8") as f:
         nb = json.load(f)
 
-    new_cell = build_cell(args.model_key, args.model_name, args.model_signal_dir, args.returns_mode)
+    new_cell = build_cell(
+        args.model_key,
+        args.model_name,
+        args.model_signal_dir,
+        args.returns_mode,
+        model_train_dir=(args.model_train_dir or None),
+        date_filter_mode=(args.date_filter_mode or None),
+    )
     cells = nb.get("cells", [])
 
     if cells:
