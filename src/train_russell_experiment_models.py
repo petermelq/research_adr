@@ -166,7 +166,7 @@ def fit_linear_ridge(X_train, y_train, X_val, y_val):
     Xv = scaler.transform(X_val)
     best = (-np.inf, None, None)
     for a in np.logspace(-4, 1.5, 30):
-        m = Ridge(alpha=float(a), fit_intercept=False, max_iter=10000)
+        m = Ridge(alpha=float(a), fit_intercept=True, max_iter=10000)
         m.fit(Xt, y_train)
         ic = compute_ic(m.predict(Xv), y_val)
         if ic > best[0]:
@@ -176,7 +176,7 @@ def fit_linear_ridge(X_train, y_train, X_val, y_val):
     yfull = np.concatenate([y_train, y_val])
     scaler = StandardScaler().fit(Xfull)
     Xf = scaler.transform(Xfull)
-    m = Ridge(alpha=best[1], fit_intercept=False, max_iter=10000)
+    m = Ridge(alpha=best[1], fit_intercept=True, max_iter=10000)
     m.fit(Xf, yfull)
 
     coef = m.coef_.astype(np.float32)
@@ -197,7 +197,7 @@ def fit_linear_elasticnet(X_train, y_train, X_val, y_val):
     best = (-np.inf, None, None, None)
     for a in alphas:
         for l1 in l1s:
-            m = ElasticNet(alpha=float(a), l1_ratio=float(l1), fit_intercept=False, max_iter=20000)
+            m = ElasticNet(alpha=float(a), l1_ratio=float(l1), fit_intercept=True, max_iter=20000)
             m.fit(Xt, y_train)
             ic = compute_ic(m.predict(Xv), y_val)
             if ic > best[0]:
@@ -207,7 +207,7 @@ def fit_linear_elasticnet(X_train, y_train, X_val, y_val):
     yfull = np.concatenate([y_train, y_val])
     scaler = StandardScaler().fit(Xfull)
     Xf = scaler.transform(Xfull)
-    m = ElasticNet(alpha=best[1], l1_ratio=best[2], fit_intercept=False, max_iter=20000)
+    m = ElasticNet(alpha=best[1], l1_ratio=best[2], fit_intercept=True, max_iter=20000)
     m.fit(Xf, yfull)
 
     coef = m.coef_.astype(np.float32)
@@ -292,7 +292,7 @@ def fit_linear_robust_pcr(X_train, y_train, X_val, y_val):
         Zt = pca.fit_transform(Xt)
         Zv = pca.transform(Xv)
         for alpha in alpha_grid:
-            reg = HuberRegressor(epsilon=1.35, alpha=float(alpha), fit_intercept=False, max_iter=300)
+            reg = HuberRegressor(epsilon=1.35, alpha=float(alpha), fit_intercept=True, max_iter=300)
             with warnings.catch_warnings():
                 warnings.simplefilter('ignore')
                 reg.fit(Zt, y_train)
@@ -308,7 +308,7 @@ def fit_linear_robust_pcr(X_train, y_train, X_val, y_val):
     n_comp = min(best[1], max(1, min(Xf.shape[0], Xf.shape[1])))
     pca = PCA(n_components=n_comp, svd_solver='randomized', random_state=42)
     Zf = pca.fit_transform(Xf)
-    reg = HuberRegressor(epsilon=1.35, alpha=best[2], fit_intercept=False, max_iter=300)
+    reg = HuberRegressor(epsilon=1.35, alpha=best[2], fit_intercept=True, max_iter=300)
     with warnings.catch_warnings():
         warnings.simplefilter('ignore')
         reg.fit(Zf, yfull)
@@ -337,7 +337,7 @@ def fit_linear_huber(X_train, y_train, X_val, y_val):
     best = (-np.inf, None, None)
     for eps in eps_grid:
         for alpha in alpha_grid:
-            m = HuberRegressor(epsilon=eps, alpha=alpha, fit_intercept=False, max_iter=500)
+            m = HuberRegressor(epsilon=eps, alpha=alpha, fit_intercept=True, max_iter=500)
             m.fit(Xt, y_train)
             ic = compute_ic(m.predict(Xv), y_val)
             if ic > best[0]:
@@ -348,7 +348,7 @@ def fit_linear_huber(X_train, y_train, X_val, y_val):
     scaler = StandardScaler().fit(Xfull)
     Xf = scaler.transform(Xfull)
     eps, alpha = best[1]
-    m = HuberRegressor(epsilon=eps, alpha=alpha, fit_intercept=False, max_iter=500)
+    m = HuberRegressor(epsilon=eps, alpha=alpha, fit_intercept=True, max_iter=500)
     m.fit(Xf, yfull)
 
     coef = m.coef_.astype(np.float32)

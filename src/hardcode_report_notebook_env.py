@@ -13,6 +13,8 @@ def build_cell(
     returns_mode: str,
     model_train_dir: str | None = None,
     date_filter_mode: str | None = None,
+    reference_signal_dir: str | None = None,
+    require_reference_overlap: str | None = None,
 ) -> dict:
     source = [
         f"{MARKER}\n",
@@ -26,6 +28,10 @@ def build_cell(
         source.append(f"os.environ['MODEL_TRAIN_DIR'] = '{model_train_dir}'\n")
     if date_filter_mode:
         source.append(f"os.environ['DATE_FILTER_MODE'] = '{date_filter_mode}'\n")
+    if reference_signal_dir:
+        source.append(f"os.environ['REFERENCE_SIGNAL_DIR'] = '{reference_signal_dir}'\n")
+    if require_reference_overlap:
+        source.append(f"os.environ['REQUIRE_REFERENCE_OVERLAP'] = '{require_reference_overlap}'\n")
     return {
         "cell_type": "code",
         "execution_count": None,
@@ -59,6 +65,16 @@ def main() -> None:
         default="",
         help="Optional DATE_FILTER_MODE value for eval date filtering.",
     )
+    parser.add_argument(
+        "--reference-signal-dir",
+        default="",
+        help="Optional REFERENCE_SIGNAL_DIR for overlap-based date filtering.",
+    )
+    parser.add_argument(
+        "--require-reference-overlap",
+        default="",
+        help="Optional REQUIRE_REFERENCE_OVERLAP flag value (e.g. 1).",
+    )
     args = parser.parse_args()
 
     notebook_path = Path(args.notebook)
@@ -72,6 +88,8 @@ def main() -> None:
         args.returns_mode,
         model_train_dir=(args.model_train_dir or None),
         date_filter_mode=(args.date_filter_mode or None),
+        reference_signal_dir=(args.reference_signal_dir or None),
+        require_reference_overlap=(args.require_reference_overlap or None),
     )
     cells = nb.get("cells", [])
 

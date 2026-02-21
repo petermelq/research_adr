@@ -660,6 +660,20 @@ stages:
     outs:
       - data/processed/fixed_time_signal.csv
 
+  pcr_fixed_time_signal:
+    cmd: python src/from_full_futures_fixed_time_signal.py data/processed/index_russell_pcr_signal_old_universe_gated/ data/processed/pcr_fixed_time_signal.csv
+    deps:
+      - src/from_full_futures_fixed_time_signal.py
+      - data/processed/index_russell_pcr_signal_old_universe_gated/
+      - data/raw/adr_info.csv
+    params:
+      - fixed_trade_time_hours
+      - fixed_trade_time_min
+      - start_date
+      - end_date
+    outs:
+      - data/processed/pcr_fixed_time_signal.csv
+
   ridge_fixed_time_signal:
     cmd: python src/from_full_futures_fixed_time_signal.py data/processed/index_russell_ridge_signal/ data/processed/ridge_fixed_time_signal.csv
     deps:
@@ -1001,6 +1015,17 @@ stages:
     outs:
       - data/processed/models/with_us_stocks/pcr
 
+  pcr_old_universe_train_models:
+    cmd: python src/train_russell_experiment_models.py --model-kind pcr --features-dir data/processed/models/with_us_stocks/features_extended_old_universe --output-dir data/processed/models/with_us_stocks/pcr_old_universe --train-months 14 --val-months 6 --min-model-date 2025-09-01 --universe-file data/raw/old_russell1000_tickers.csv
+    deps:
+      - src/train_russell_experiment_models.py
+      - data/processed/models/with_us_stocks/features_extended_old_universe
+      - data/raw/historical_russell_1000.csv
+      - data/raw/russell1000/russell1000_turnover.csv
+      - data/raw/old_russell1000_tickers.csv
+    outs:
+      - data/processed/models/with_us_stocks/pcr_old_universe
+
   index_russell_pcr_signal:
     cmd: python src/index_russell_experiment_signal.py --model-kind pcr --model-dir data/processed/models/with_us_stocks/pcr --output-dir data/processed/index_russell_pcr_signal
     deps:
@@ -1018,6 +1043,57 @@ stages:
     outs:
       - data/processed/index_russell_pcr_signal
 
+  index_russell_pcr_signal_30m:
+    cmd: python src/index_russell_experiment_signal.py --model-kind pcr --model-dir data/processed/models/with_us_stocks/pcr --output-dir data/processed/index_russell_pcr_signal_30m --eval-times-only --exchange-workers 3
+    deps:
+      - src/index_russell_experiment_signal.py
+      - data/processed/models/with_us_stocks/pcr
+      - data/processed/futures/converted_minute_bars
+      - data/raw/adr_info.csv
+      - data/raw/futures_symbols.csv
+      - data/raw/russell1000/ohlcv-1m
+      - data/processed/russell1000/russell_betas
+      - data/processed/futures_only_signal
+    params:
+      - start_date
+      - end_date
+    outs:
+      - data/processed/index_russell_pcr_signal_30m
+
+  index_russell_pcr_old_universe_signal:
+    cmd: python src/index_russell_experiment_signal.py --model-kind pcr --model-dir data/processed/models/with_us_stocks/pcr_old_universe --output-dir data/processed/index_russell_pcr_signal_old_universe
+    deps:
+      - src/index_russell_experiment_signal.py
+      - data/processed/models/with_us_stocks/pcr_old_universe
+      - data/processed/futures/converted_minute_bars
+      - data/raw/adr_info.csv
+      - data/raw/futures_symbols.csv
+      - data/raw/russell1000/ohlcv-1m
+      - data/processed/russell1000/russell_betas
+      - data/processed/futures_only_signal
+    params:
+      - start_date
+      - end_date
+    outs:
+      - data/processed/index_russell_pcr_signal_old_universe
+
+  index_russell_pcr_old_universe_signal_30m:
+    cmd: python src/index_russell_experiment_signal.py --model-kind pcr --model-dir data/processed/models/with_us_stocks/pcr_old_universe --output-dir data/processed/index_russell_pcr_signal_old_universe_30m --eval-times-only --exchange-workers 3
+    deps:
+      - src/index_russell_experiment_signal.py
+      - data/processed/models/with_us_stocks/pcr_old_universe
+      - data/processed/futures/converted_minute_bars
+      - data/raw/adr_info.csv
+      - data/raw/futures_symbols.csv
+      - data/raw/russell1000/ohlcv-1m
+      - data/processed/russell1000/russell_betas
+      - data/processed/futures_only_signal
+    params:
+      - start_date
+      - end_date
+    outs:
+      - data/processed/index_russell_pcr_signal_old_universe_30m
+
   index_russell_pcr_signal_gated:
     cmd: python src/gate_russell_experiment_signal.py --model-dir data/processed/models/with_us_stocks/pcr --model-signal-dir data/processed/index_russell_pcr_signal --baseline-signal-dir data/processed/futures_only_signal --output-dir data/processed/index_russell_pcr_signal_gated
     deps:
@@ -1028,12 +1104,22 @@ stages:
     outs:
       - data/processed/index_russell_pcr_signal_gated
 
+  index_russell_pcr_signal_gated_30m:
+    cmd: python src/gate_russell_experiment_signal.py --model-dir data/processed/models/with_us_stocks/pcr --model-signal-dir data/processed/index_russell_pcr_signal_30m --baseline-signal-dir data/processed/futures_only_signal --output-dir data/processed/index_russell_pcr_signal_gated_30m
+    deps:
+      - src/gate_russell_experiment_signal.py
+      - data/processed/models/with_us_stocks/pcr
+      - data/processed/index_russell_pcr_signal_30m
+      - data/processed/futures_only_signal
+    outs:
+      - data/processed/index_russell_pcr_signal_gated_30m
+
   evaluate_pcr_notebook:
-    cmd: MODEL_KEY=pcr RETURNS_MODE=hedged jupyter nbconvert --to notebook --execute notebooks/signal_ic_analysis_template.ipynb --output-dir notebooks/reports --output pcr_ic_report_hedged_from_template.ipynb && python src/hardcode_report_notebook_env.py --notebook notebooks/reports/pcr_ic_report_hedged_from_template.ipynb --model-key pcr --model-name PCR --model-signal-dir data/processed/index_russell_pcr_signal --returns-mode hedged && MODEL_KEY=pcr RETURNS_MODE=unhedged jupyter nbconvert --to notebook --execute notebooks/signal_ic_analysis_template.ipynb --output-dir notebooks/reports --output pcr_ic_report_unhedged_from_template.ipynb && python src/hardcode_report_notebook_env.py --notebook notebooks/reports/pcr_ic_report_unhedged_from_template.ipynb --model-key pcr --model-name PCR --model-signal-dir data/processed/index_russell_pcr_signal --returns-mode unhedged
+    cmd: MODEL_KEY=pcr MODEL_TRAIN_DIR=data/processed/models/with_us_stocks/pcr DATE_FILTER_MODE=trained_months REFERENCE_SIGNAL_DIR=data/processed/index_russell_pcr_signal_30m REQUIRE_REFERENCE_OVERLAP=1 RETURNS_MODE=hedged jupyter nbconvert --to notebook --execute notebooks/signal_ic_analysis_template.ipynb --output-dir notebooks/reports --output pcr_ic_report_hedged_from_template.ipynb && python src/hardcode_report_notebook_env.py --notebook notebooks/reports/pcr_ic_report_hedged_from_template.ipynb --model-key pcr --model-name PCR --model-signal-dir data/processed/index_russell_pcr_signal_30m --returns-mode hedged --model-train-dir data/processed/models/with_us_stocks/pcr --date-filter-mode trained_months --reference-signal-dir data/processed/index_russell_pcr_signal_30m --require-reference-overlap 1 && MODEL_KEY=pcr MODEL_TRAIN_DIR=data/processed/models/with_us_stocks/pcr DATE_FILTER_MODE=trained_months REFERENCE_SIGNAL_DIR=data/processed/index_russell_pcr_signal_30m REQUIRE_REFERENCE_OVERLAP=1 RETURNS_MODE=unhedged jupyter nbconvert --to notebook --execute notebooks/signal_ic_analysis_template.ipynb --output-dir notebooks/reports --output pcr_ic_report_unhedged_from_template.ipynb && python src/hardcode_report_notebook_env.py --notebook notebooks/reports/pcr_ic_report_unhedged_from_template.ipynb --model-key pcr --model-name PCR --model-signal-dir data/processed/index_russell_pcr_signal_30m --returns-mode unhedged --model-train-dir data/processed/models/with_us_stocks/pcr --date-filter-mode trained_months --reference-signal-dir data/processed/index_russell_pcr_signal_30m --require-reference-overlap 1
     deps:
       - notebooks/signal_ic_analysis_template.ipynb
       - src/hardcode_report_notebook_env.py
-      - data/processed/index_russell_pcr_signal
+      - data/processed/index_russell_pcr_signal_30m
       - data/processed/futures_only_signal
       - data/raw/adrs/bbo-1m/nbbo
       - data/raw/etfs/market/bbo-1m/nbbo
@@ -1045,11 +1131,11 @@ stages:
       - notebooks/reports/pcr_ic_report_unhedged_from_template.ipynb
 
   evaluate_pcr_gated_notebook:
-    cmd: MODEL_SIGNAL_DIR=data/processed/index_russell_pcr_signal_gated MODEL_NAME="PCR Gated" MODEL_TRAIN_DIR=data/processed/models/with_us_stocks/pcr DATE_FILTER_MODE=trained_months RETURNS_MODE=hedged jupyter nbconvert --to notebook --execute notebooks/signal_ic_analysis_template.ipynb --output-dir notebooks/reports --output pcr_gated_ic_report_hedged_from_template.ipynb && python src/hardcode_report_notebook_env.py --notebook notebooks/reports/pcr_gated_ic_report_hedged_from_template.ipynb --model-key pcr_gated --model-name "PCR Gated" --model-signal-dir data/processed/index_russell_pcr_signal_gated --returns-mode hedged --model-train-dir data/processed/models/with_us_stocks/pcr --date-filter-mode trained_months && MODEL_SIGNAL_DIR=data/processed/index_russell_pcr_signal_gated MODEL_NAME="PCR Gated" MODEL_TRAIN_DIR=data/processed/models/with_us_stocks/pcr DATE_FILTER_MODE=trained_months RETURNS_MODE=unhedged jupyter nbconvert --to notebook --execute notebooks/signal_ic_analysis_template.ipynb --output-dir notebooks/reports --output pcr_gated_ic_report_unhedged_from_template.ipynb && python src/hardcode_report_notebook_env.py --notebook notebooks/reports/pcr_gated_ic_report_unhedged_from_template.ipynb --model-key pcr_gated --model-name "PCR Gated" --model-signal-dir data/processed/index_russell_pcr_signal_gated --returns-mode unhedged --model-train-dir data/processed/models/with_us_stocks/pcr --date-filter-mode trained_months
+    cmd: MODEL_SIGNAL_DIR=data/processed/index_russell_pcr_signal_gated_30m MODEL_NAME="PCR Gated" MODEL_TRAIN_DIR=data/processed/models/with_us_stocks/pcr DATE_FILTER_MODE=trained_months REFERENCE_SIGNAL_DIR=data/processed/index_russell_pcr_signal_30m REQUIRE_REFERENCE_OVERLAP=1 RETURNS_MODE=hedged jupyter nbconvert --to notebook --execute notebooks/signal_ic_analysis_template.ipynb --output-dir notebooks/reports --output pcr_gated_ic_report_hedged_from_template.ipynb && python src/hardcode_report_notebook_env.py --notebook notebooks/reports/pcr_gated_ic_report_hedged_from_template.ipynb --model-key pcr_gated --model-name "PCR Gated" --model-signal-dir data/processed/index_russell_pcr_signal_gated_30m --returns-mode hedged --model-train-dir data/processed/models/with_us_stocks/pcr --date-filter-mode trained_months --reference-signal-dir data/processed/index_russell_pcr_signal_30m --require-reference-overlap 1 && MODEL_SIGNAL_DIR=data/processed/index_russell_pcr_signal_gated_30m MODEL_NAME="PCR Gated" MODEL_TRAIN_DIR=data/processed/models/with_us_stocks/pcr DATE_FILTER_MODE=trained_months REFERENCE_SIGNAL_DIR=data/processed/index_russell_pcr_signal_30m REQUIRE_REFERENCE_OVERLAP=1 RETURNS_MODE=unhedged jupyter nbconvert --to notebook --execute notebooks/signal_ic_analysis_template.ipynb --output-dir notebooks/reports --output pcr_gated_ic_report_unhedged_from_template.ipynb && python src/hardcode_report_notebook_env.py --notebook notebooks/reports/pcr_gated_ic_report_unhedged_from_template.ipynb --model-key pcr_gated --model-name "PCR Gated" --model-signal-dir data/processed/index_russell_pcr_signal_gated_30m --returns-mode unhedged --model-train-dir data/processed/models/with_us_stocks/pcr --date-filter-mode trained_months --reference-signal-dir data/processed/index_russell_pcr_signal_30m --require-reference-overlap 1
     deps:
       - notebooks/signal_ic_analysis_template.ipynb
       - src/hardcode_report_notebook_env.py
-      - data/processed/index_russell_pcr_signal_gated
+      - data/processed/index_russell_pcr_signal_gated_30m
       - data/processed/futures_only_signal
       - data/raw/adrs/bbo-1m/nbbo
       - data/raw/etfs/market/bbo-1m/nbbo
@@ -1061,11 +1147,11 @@ stages:
       - notebooks/reports/pcr_gated_ic_report_unhedged_from_template.ipynb
 
   evaluate_pcr_gated_model_used_notebook:
-    cmd: MODEL_SIGNAL_DIR=data/processed/index_russell_pcr_signal_gated MODEL_NAME="PCR Gated (Model-Used Months)" MODEL_TRAIN_DIR=data/processed/models/with_us_stocks/pcr DATE_FILTER_MODE=model_used_months RETURNS_MODE=hedged jupyter nbconvert --to notebook --execute notebooks/signal_ic_analysis_template.ipynb --output-dir notebooks/reports --output pcr_gated_model_used_ic_report_hedged_from_template.ipynb && python src/hardcode_report_notebook_env.py --notebook notebooks/reports/pcr_gated_model_used_ic_report_hedged_from_template.ipynb --model-key pcr_gated_model_used --model-name "PCR Gated (Model-Used Months)" --model-signal-dir data/processed/index_russell_pcr_signal_gated --returns-mode hedged --model-train-dir data/processed/models/with_us_stocks/pcr --date-filter-mode model_used_months && MODEL_SIGNAL_DIR=data/processed/index_russell_pcr_signal_gated MODEL_NAME="PCR Gated (Model-Used Months)" MODEL_TRAIN_DIR=data/processed/models/with_us_stocks/pcr DATE_FILTER_MODE=model_used_months RETURNS_MODE=unhedged jupyter nbconvert --to notebook --execute notebooks/signal_ic_analysis_template.ipynb --output-dir notebooks/reports --output pcr_gated_model_used_ic_report_unhedged_from_template.ipynb && python src/hardcode_report_notebook_env.py --notebook notebooks/reports/pcr_gated_model_used_ic_report_unhedged_from_template.ipynb --model-key pcr_gated_model_used --model-name "PCR Gated (Model-Used Months)" --model-signal-dir data/processed/index_russell_pcr_signal_gated --returns-mode unhedged --model-train-dir data/processed/models/with_us_stocks/pcr --date-filter-mode model_used_months
+    cmd: MODEL_SIGNAL_DIR=data/processed/index_russell_pcr_signal_gated_30m MODEL_NAME="PCR Gated (Model-Used Months)" MODEL_TRAIN_DIR=data/processed/models/with_us_stocks/pcr DATE_FILTER_MODE=model_used_months RETURNS_MODE=hedged jupyter nbconvert --to notebook --execute notebooks/signal_ic_analysis_template.ipynb --output-dir notebooks/reports --output pcr_gated_model_used_ic_report_hedged_from_template.ipynb && python src/hardcode_report_notebook_env.py --notebook notebooks/reports/pcr_gated_model_used_ic_report_hedged_from_template.ipynb --model-key pcr_gated_model_used --model-name "PCR Gated (Model-Used Months)" --model-signal-dir data/processed/index_russell_pcr_signal_gated_30m --returns-mode hedged --model-train-dir data/processed/models/with_us_stocks/pcr --date-filter-mode model_used_months && MODEL_SIGNAL_DIR=data/processed/index_russell_pcr_signal_gated_30m MODEL_NAME="PCR Gated (Model-Used Months)" MODEL_TRAIN_DIR=data/processed/models/with_us_stocks/pcr DATE_FILTER_MODE=model_used_months RETURNS_MODE=unhedged jupyter nbconvert --to notebook --execute notebooks/signal_ic_analysis_template.ipynb --output-dir notebooks/reports --output pcr_gated_model_used_ic_report_unhedged_from_template.ipynb && python src/hardcode_report_notebook_env.py --notebook notebooks/reports/pcr_gated_model_used_ic_report_unhedged_from_template.ipynb --model-key pcr_gated_model_used --model-name "PCR Gated (Model-Used Months)" --model-signal-dir data/processed/index_russell_pcr_signal_gated_30m --returns-mode unhedged --model-train-dir data/processed/models/with_us_stocks/pcr --date-filter-mode model_used_months
     deps:
       - notebooks/signal_ic_analysis_template.ipynb
       - src/hardcode_report_notebook_env.py
-      - data/processed/index_russell_pcr_signal_gated
+      - data/processed/index_russell_pcr_signal_gated_30m
       - data/processed/models/with_us_stocks/pcr
       - data/processed/futures_only_signal
       - data/raw/adrs/bbo-1m/nbbo
@@ -1077,6 +1163,22 @@ stages:
       - notebooks/reports/pcr_gated_model_used_ic_report_hedged_from_template.ipynb
       - notebooks/reports/pcr_gated_model_used_ic_report_unhedged_from_template.ipynb
 
+  evaluate_pcr_old_universe_notebook:
+    cmd: MODEL_SIGNAL_DIR=data/processed/index_russell_pcr_signal_old_universe_30m MODEL_NAME="PCR Old Universe" MODEL_TRAIN_DIR=data/processed/models/with_us_stocks/pcr_old_universe DATE_FILTER_MODE=trained_months REFERENCE_SIGNAL_DIR=data/processed/index_russell_pcr_signal_old_universe_30m REQUIRE_REFERENCE_OVERLAP=1 RETURNS_MODE=hedged jupyter nbconvert --to notebook --execute notebooks/signal_ic_analysis_template.ipynb --output-dir notebooks/reports --output pcr_old_universe_ic_report_hedged_from_template.ipynb && python src/hardcode_report_notebook_env.py --notebook notebooks/reports/pcr_old_universe_ic_report_hedged_from_template.ipynb --model-key pcr_old_universe --model-name "PCR Old Universe" --model-signal-dir data/processed/index_russell_pcr_signal_old_universe_30m --returns-mode hedged --model-train-dir data/processed/models/with_us_stocks/pcr_old_universe --date-filter-mode trained_months --reference-signal-dir data/processed/index_russell_pcr_signal_old_universe_30m --require-reference-overlap 1 && MODEL_SIGNAL_DIR=data/processed/index_russell_pcr_signal_old_universe_30m MODEL_NAME="PCR Old Universe" MODEL_TRAIN_DIR=data/processed/models/with_us_stocks/pcr_old_universe DATE_FILTER_MODE=trained_months REFERENCE_SIGNAL_DIR=data/processed/index_russell_pcr_signal_old_universe_30m REQUIRE_REFERENCE_OVERLAP=1 RETURNS_MODE=unhedged jupyter nbconvert --to notebook --execute notebooks/signal_ic_analysis_template.ipynb --output-dir notebooks/reports --output pcr_old_universe_ic_report_unhedged_from_template.ipynb && python src/hardcode_report_notebook_env.py --notebook notebooks/reports/pcr_old_universe_ic_report_unhedged_from_template.ipynb --model-key pcr_old_universe --model-name "PCR Old Universe" --model-signal-dir data/processed/index_russell_pcr_signal_old_universe_30m --returns-mode unhedged --model-train-dir data/processed/models/with_us_stocks/pcr_old_universe --date-filter-mode trained_months --reference-signal-dir data/processed/index_russell_pcr_signal_old_universe_30m --require-reference-overlap 1
+    deps:
+      - notebooks/signal_ic_analysis_template.ipynb
+      - src/hardcode_report_notebook_env.py
+      - data/processed/index_russell_pcr_signal_old_universe_30m
+      - data/processed/futures_only_signal
+      - data/raw/adrs/bbo-1m/nbbo
+      - data/raw/etfs/market/bbo-1m/nbbo
+      - data/raw/adrs/adr_PX_LAST_adjust_none.csv
+      - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
+      - data/processed/market_etf_hedge_ratios.csv
+    outs:
+      - notebooks/reports/pcr_old_universe_ic_report_hedged_from_template.ipynb
+      - notebooks/reports/pcr_old_universe_ic_report_unhedged_from_template.ipynb
+
   index_russell_pcr_old_universe_signal_gated:
     cmd: python src/gate_russell_experiment_signal.py --model-dir data/processed/models/with_us_stocks/pcr_old_universe --model-signal-dir data/processed/index_russell_pcr_signal_old_universe --baseline-signal-dir data/processed/futures_only_signal --output-dir data/processed/index_russell_pcr_signal_old_universe_gated
     deps:
@@ -1087,12 +1189,22 @@ stages:
     outs:
       - data/processed/index_russell_pcr_signal_old_universe_gated
 
+  index_russell_pcr_old_universe_signal_gated_30m:
+    cmd: python src/gate_russell_experiment_signal.py --model-dir data/processed/models/with_us_stocks/pcr_old_universe --model-signal-dir data/processed/index_russell_pcr_signal_old_universe_30m --baseline-signal-dir data/processed/futures_only_signal --output-dir data/processed/index_russell_pcr_signal_old_universe_gated_30m
+    deps:
+      - src/gate_russell_experiment_signal.py
+      - data/processed/models/with_us_stocks/pcr_old_universe
+      - data/processed/index_russell_pcr_signal_old_universe_30m
+      - data/processed/futures_only_signal
+    outs:
+      - data/processed/index_russell_pcr_signal_old_universe_gated_30m
+
   evaluate_pcr_old_universe_gated_notebook:
-    cmd: MODEL_SIGNAL_DIR=data/processed/index_russell_pcr_signal_old_universe_gated MODEL_NAME="PCR Old Universe Gated" MODEL_TRAIN_DIR=data/processed/models/with_us_stocks/pcr_old_universe DATE_FILTER_MODE=trained_months RETURNS_MODE=hedged jupyter nbconvert --to notebook --execute notebooks/signal_ic_analysis_template.ipynb --output-dir notebooks/reports --output pcr_old_universe_gated_ic_report_hedged_from_template.ipynb && python src/hardcode_report_notebook_env.py --notebook notebooks/reports/pcr_old_universe_gated_ic_report_hedged_from_template.ipynb --model-key pcr_old_universe_gated --model-name "PCR Old Universe Gated" --model-signal-dir data/processed/index_russell_pcr_signal_old_universe_gated --returns-mode hedged --model-train-dir data/processed/models/with_us_stocks/pcr_old_universe --date-filter-mode trained_months && MODEL_SIGNAL_DIR=data/processed/index_russell_pcr_signal_old_universe_gated MODEL_NAME="PCR Old Universe Gated" MODEL_TRAIN_DIR=data/processed/models/with_us_stocks/pcr_old_universe DATE_FILTER_MODE=trained_months RETURNS_MODE=unhedged jupyter nbconvert --to notebook --execute notebooks/signal_ic_analysis_template.ipynb --output-dir notebooks/reports --output pcr_old_universe_gated_ic_report_unhedged_from_template.ipynb && python src/hardcode_report_notebook_env.py --notebook notebooks/reports/pcr_old_universe_gated_ic_report_unhedged_from_template.ipynb --model-key pcr_old_universe_gated --model-name "PCR Old Universe Gated" --model-signal-dir data/processed/index_russell_pcr_signal_old_universe_gated --returns-mode unhedged --model-train-dir data/processed/models/with_us_stocks/pcr_old_universe --date-filter-mode trained_months
+    cmd: MODEL_SIGNAL_DIR=data/processed/index_russell_pcr_signal_old_universe_gated_30m MODEL_NAME="PCR Old Universe Gated" MODEL_TRAIN_DIR=data/processed/models/with_us_stocks/pcr_old_universe DATE_FILTER_MODE=trained_months RETURNS_MODE=hedged jupyter nbconvert --to notebook --execute notebooks/signal_ic_analysis_template.ipynb --output-dir notebooks/reports --output pcr_old_universe_gated_ic_report_hedged_from_template.ipynb && python src/hardcode_report_notebook_env.py --notebook notebooks/reports/pcr_old_universe_gated_ic_report_hedged_from_template.ipynb --model-key pcr_old_universe_gated --model-name "PCR Old Universe Gated" --model-signal-dir data/processed/index_russell_pcr_signal_old_universe_gated_30m --returns-mode hedged --model-train-dir data/processed/models/with_us_stocks/pcr_old_universe --date-filter-mode trained_months && MODEL_SIGNAL_DIR=data/processed/index_russell_pcr_signal_old_universe_gated_30m MODEL_NAME="PCR Old Universe Gated" MODEL_TRAIN_DIR=data/processed/models/with_us_stocks/pcr_old_universe DATE_FILTER_MODE=trained_months RETURNS_MODE=unhedged jupyter nbconvert --to notebook --execute notebooks/signal_ic_analysis_template.ipynb --output-dir notebooks/reports --output pcr_old_universe_gated_ic_report_unhedged_from_template.ipynb && python src/hardcode_report_notebook_env.py --notebook notebooks/reports/pcr_old_universe_gated_ic_report_unhedged_from_template.ipynb --model-key pcr_old_universe_gated --model-name "PCR Old Universe Gated" --model-signal-dir data/processed/index_russell_pcr_signal_old_universe_gated_30m --returns-mode unhedged --model-train-dir data/processed/models/with_us_stocks/pcr_old_universe --date-filter-mode trained_months
     deps:
       - notebooks/signal_ic_analysis_template.ipynb
       - src/hardcode_report_notebook_env.py
-      - data/processed/index_russell_pcr_signal_old_universe_gated
+      - data/processed/index_russell_pcr_signal_old_universe_gated_30m
       - data/processed/futures_only_signal
       - data/raw/adrs/bbo-1m/nbbo
       - data/raw/etfs/market/bbo-1m/nbbo
@@ -1104,11 +1216,11 @@ stages:
       - notebooks/reports/pcr_old_universe_gated_ic_report_unhedged_from_template.ipynb
 
   evaluate_pcr_old_universe_gated_model_used_notebook:
-    cmd: MODEL_SIGNAL_DIR=data/processed/index_russell_pcr_signal_old_universe_gated MODEL_NAME="PCR Old Universe Gated (Model-Used Months)" MODEL_TRAIN_DIR=data/processed/models/with_us_stocks/pcr_old_universe DATE_FILTER_MODE=model_used_months RETURNS_MODE=hedged jupyter nbconvert --to notebook --execute notebooks/signal_ic_analysis_template.ipynb --output-dir notebooks/reports --output pcr_old_universe_gated_model_used_ic_report_hedged_from_template.ipynb && python src/hardcode_report_notebook_env.py --notebook notebooks/reports/pcr_old_universe_gated_model_used_ic_report_hedged_from_template.ipynb --model-key pcr_old_universe_gated_model_used --model-name "PCR Old Universe Gated (Model-Used Months)" --model-signal-dir data/processed/index_russell_pcr_signal_old_universe_gated --returns-mode hedged --model-train-dir data/processed/models/with_us_stocks/pcr_old_universe --date-filter-mode model_used_months && MODEL_SIGNAL_DIR=data/processed/index_russell_pcr_signal_old_universe_gated MODEL_NAME="PCR Old Universe Gated (Model-Used Months)" MODEL_TRAIN_DIR=data/processed/models/with_us_stocks/pcr_old_universe DATE_FILTER_MODE=model_used_months RETURNS_MODE=unhedged jupyter nbconvert --to notebook --execute notebooks/signal_ic_analysis_template.ipynb --output-dir notebooks/reports --output pcr_old_universe_gated_model_used_ic_report_unhedged_from_template.ipynb && python src/hardcode_report_notebook_env.py --notebook notebooks/reports/pcr_old_universe_gated_model_used_ic_report_unhedged_from_template.ipynb --model-key pcr_old_universe_gated_model_used --model-name "PCR Old Universe Gated (Model-Used Months)" --model-signal-dir data/processed/index_russell_pcr_signal_old_universe_gated --returns-mode unhedged --model-train-dir data/processed/models/with_us_stocks/pcr_old_universe --date-filter-mode model_used_months
+    cmd: MODEL_SIGNAL_DIR=data/processed/index_russell_pcr_signal_old_universe_gated_30m MODEL_NAME="PCR Old Universe Gated (Model-Used Months)" MODEL_TRAIN_DIR=data/processed/models/with_us_stocks/pcr_old_universe DATE_FILTER_MODE=model_used_months RETURNS_MODE=hedged jupyter nbconvert --to notebook --execute notebooks/signal_ic_analysis_template.ipynb --output-dir notebooks/reports --output pcr_old_universe_gated_model_used_ic_report_hedged_from_template.ipynb && python src/hardcode_report_notebook_env.py --notebook notebooks/reports/pcr_old_universe_gated_model_used_ic_report_hedged_from_template.ipynb --model-key pcr_old_universe_gated_model_used --model-name "PCR Old Universe Gated (Model-Used Months)" --model-signal-dir data/processed/index_russell_pcr_signal_old_universe_gated_30m --returns-mode hedged --model-train-dir data/processed/models/with_us_stocks/pcr_old_universe --date-filter-mode model_used_months && MODEL_SIGNAL_DIR=data/processed/index_russell_pcr_signal_old_universe_gated_30m MODEL_NAME="PCR Old Universe Gated (Model-Used Months)" MODEL_TRAIN_DIR=data/processed/models/with_us_stocks/pcr_old_universe DATE_FILTER_MODE=model_used_months RETURNS_MODE=unhedged jupyter nbconvert --to notebook --execute notebooks/signal_ic_analysis_template.ipynb --output-dir notebooks/reports --output pcr_old_universe_gated_model_used_ic_report_unhedged_from_template.ipynb && python src/hardcode_report_notebook_env.py --notebook notebooks/reports/pcr_old_universe_gated_model_used_ic_report_unhedged_from_template.ipynb --model-key pcr_old_universe_gated_model_used --model-name "PCR Old Universe Gated (Model-Used Months)" --model-signal-dir data/processed/index_russell_pcr_signal_old_universe_gated_30m --returns-mode unhedged --model-train-dir data/processed/models/with_us_stocks/pcr_old_universe --date-filter-mode model_used_months
     deps:
       - notebooks/signal_ic_analysis_template.ipynb
       - src/hardcode_report_notebook_env.py
-      - data/processed/index_russell_pcr_signal_old_universe_gated
+      - data/processed/index_russell_pcr_signal_old_universe_gated_30m
       - data/processed/models/with_us_stocks/pcr_old_universe
       - data/processed/futures_only_signal
       - data/raw/adrs/bbo-1m/nbbo

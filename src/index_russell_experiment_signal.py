@@ -253,6 +253,21 @@ def main():
             lambda x: x[x.index <= x['domestic_close_time'] + offset].iloc[-1]['close']
             if (x.index <= x['domestic_close_time'] + offset).any() else np.nan
         ).to_frame(name='fut_domestic_close')
+        us_open_by_date = pd.DataFrame(
+            {
+                'us_open_time': (
+                    pd.to_datetime(close_df.index)
+                    .tz_localize('America/New_York')
+                    + pd.Timedelta(hours=9, minutes=35)
+                )
+            },
+            index=close_df.index,
+        )
+        merged_fut_open = futures_df_raw.merge(us_open_by_date, left_on='date', right_index=True)
+        fut_us_open = merged_fut_open.groupby('date')[['us_open_time', 'close']].apply(
+            lambda x: x[x.index >= x['us_open_time']].iloc[0]['close']
+            if (x.index >= x['us_open_time']).any() else np.nan
+        ).to_frame(name='fut_us_open')
         futures_close_series = futures_df_raw['close'].astype(np.float32)
 
         baseline_by_date = {}
@@ -282,13 +297,17 @@ def main():
             for date_str in tqdm(batch_dates, desc=f'{ex} {args.model_kind} {b+1}/{n_batches}'):
                 date_ts = pd.Timestamp(date_str)
                 close_time = close_df.loc[date_str] + offset
-                us_open_time = pd.Timestamp(f"{date_str} 09:30:00", tz="America/New_York")
+                us_open_time = pd.Timestamp(f"{date_str} 09:35:00", tz="America/New_York")
 
                 active = []
                 for ticker in tickers:
                     day_df = baseline_by_date.get(ticker, {}).get(date_str)
                     if day_df is None or day_df.empty:
                         continue
+                    if ex in ASIA_EXCHANGES:
+                        day_df = day_df[day_df.index >= us_open_time]
+                        if day_df.empty:
+                            continue
                     model_entry = get_model_for_date(models_by_ticker.get(ticker, []), date_ts)
                     if model_entry is None:
                         continue
@@ -313,11 +332,16 @@ def main():
                 if not valid_mask.any():
                     continue
 
-                if date_str not in fut_domestic_close.index:
-                    continue
+                if ex in ASIA_EXCHANGES:
+                    if date_str not in fut_us_open.index:
+                        continue
+                    fut_base_price = float(fut_us_open.loc[date_str, 'fut_us_open'])
+                else:
+                    if date_str not in fut_domestic_close.index:
+                        continue
+                    fut_base_price = float(fut_domestic_close.loc[date_str, 'fut_domestic_close'])
 
-                fut_close_price = float(fut_domestic_close.loc[date_str, 'fut_domestic_close'])
-                if np.isnan(fut_close_price) or fut_close_price == 0:
+                if np.isnan(fut_base_price) or fut_base_price == 0:
                     continue
 
                 beta_dates = russell_betas.index[russell_betas.index <= date_ts]
@@ -339,7 +363,7 @@ def main():
                 returns_arr = (price_arr - base_arr) / base_arr
 
                 fut_arr = futures_close_series.reindex(pred_index, method='ffill').to_numpy(dtype=np.float32)
-                fut_ret = (fut_arr - fut_close_price) / fut_close_price
+                fut_ret = (fut_arr - fut_base_price) / fut_base_price
 
                 residual_arr = returns_arr - fut_ret[:, None] * beta_vec[valid_cols][None, :]
                 residual_arr = np.nan_to_num(residual_arr, nan=0.0, posinf=0.0, neginf=0.0)
@@ -389,7 +413,7 @@ def main():
             if parts:
                 overall_augmented.add(ticker)
 
-        del futures_df_raw, merged_fut, fut_domestic_close, futures_close_series, russell_betas
+        del futures_df_raw, merged_fut, merged_fut_open, fut_domestic_close, fut_us_open, futures_close_series, russell_betas
         gc.collect()
 
     print(f'Completed {args.model_kind} signal in {(time.perf_counter()-t0)/60:.2f} min; augmented={len(overall_augmented)}')

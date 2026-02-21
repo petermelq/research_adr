@@ -580,7 +580,7 @@ stages:
   market_etf_daily_fixed_time_mid:
     cmd: python -m src.daily_fixed_time_mid 
       --nbbo_dir=data/raw/etfs/market/bbo-1m/nbbo --time_to_save_hrs=14 
-      --time_to_save_min=30 --tickers=data/raw/adr_info.csv 
+      --time_to_save_min=0 --tickers=data/raw/adr_info.csv 
       --tickers_columns=market_etf_hedge 
       --output_filename=data/processed/etfs/market/market_etf_daily_fixed_time_mid.csv
     deps:
@@ -600,12 +600,12 @@ stages:
     params:
       params.yaml:
         fixed_trade_time_hours: 14
-        fixed_trade_time_min: 30
+        fixed_trade_time_min: 0
     outs:
     - path: data/processed/etfs/market/market_etf_daily_fixed_time_mid.csv
       hash: md5
-      md5: 398f52be555ac152cd95bcdd9e173361
-      size: 102491
+      md5: 53df350444e89a98b8a249af645d2a0c
+      size: 102480
   index_only_model:
     cmd: python src/get_betas_no_sector.py
     deps:
@@ -952,8 +952,8 @@ stages:
       size: 1905541
   adr_daily_mid:
     cmd: python -m src.daily_fixed_time_mid --nbbo_dir=data/raw/adrs/bbo-1m/nbbo
-      --time_to_save_hrs=14 --time_to_save_min=30 
-      --tickers=data/raw/adr_info.csv --tickers_columns=adr 
+      --time_to_save_hrs=14 --time_to_save_min=0 --tickers=data/raw/adr_info.csv
+      --tickers_columns=adr 
       --output_filename=data/processed/adrs/adr_daily_fixed_time_mid.csv
     deps:
     - path: data/raw/adr_info.csv
@@ -972,35 +972,35 @@ stages:
     params:
       params.yaml:
         fixed_trade_time_hours: 14
-        fixed_trade_time_min: 30
+        fixed_trade_time_min: 0
     outs:
     - path: data/processed/adrs/adr_daily_fixed_time_mid.csv
       hash: md5
-      md5: a58849322be000ab56348dea748c56be
-      size: 993522
+      md5: 04a0904226b70bc287f40353606eb94c
+      size: 991469
   hedged_backtest_fixed_time:
     cmd: backtester_run backtest_conifgs/hedged_single_time.yaml
     deps:
     - path: backtest_conifgs/hedged_single_time.yaml
       hash: md5
-      md5: 52189c5bf64d8f4e6c8a4ebc2e87b507
-      size: 3009
+      md5: 641a321d181f47984580794d987f8738
+      size: 3033
     - path: data/processed/adrs/adr_daily_fixed_time_mid.csv
       hash: md5
-      md5: a58849322be000ab56348dea748c56be
-      size: 993522
+      md5: 04a0904226b70bc287f40353606eb94c
+      size: 991469
     - path: data/processed/etfs/market/market_etf_daily_fixed_time_mid.csv
       hash: md5
-      md5: 398f52be555ac152cd95bcdd9e173361
-      size: 102491
+      md5: 53df350444e89a98b8a249af645d2a0c
+      size: 102480
     - path: data/processed/market_etf_hedge_ratios.csv
       hash: md5
       md5: 6c688e1b450bff266b3e689dc21f400e
       size: 1905541
-    - path: data/processed/ridge_fixed_time_signal.csv
+    - path: data/processed/pcr_fixed_time_signal.csv
       hash: md5
-      md5: 584ebc3157deaf6323586332e670004a
-      size: 2139247
+      md5: 2351411363441c5ea24056dd0c6dde65
+      size: 1991346
     - path: data/raw/adrs/adr_PX_LAST_adjust_none.csv
       hash: md5
       md5: 5a27a76709b1eb40660a2dfdc7c7bc6e
@@ -1019,8 +1019,8 @@ stages:
       size: 67811
     - path: src/backtest_strategies/hedged_single_time_ADR.py
       hash: md5
-      md5: 8eb09d8aef1d823fdbf609392e8981b1
-      size: 12564
+      md5: 9aadc6747845d748d6c11c35e6fa5312
+      size: 12705
   minute_vwap_hedged_ADR_backtest:
     cmd: backtester_run backtest_conifgs/minute_vwap_hedged_ADR.yaml
     deps:
@@ -2724,8 +2724,8 @@ stages:
       nfiles: 54
     - path: data/processed/models/with_us_stocks/pcr
       hash: md5
-      md5: b9c5a3c8d36813ec008bef46b1a214e0.dir
-      size: 10118322
+      md5: ad6f19859e14363c3b03bbdcc1e00b9b.dir
+      size: 10120375
       nfiles: 308
     - path: data/processed/russell1000/russell_betas
       hash: md5
@@ -2747,8 +2747,8 @@ stages:
       nfiles: 1253
     - path: src/index_russell_experiment_signal.py
       hash: md5
-      md5: 5267813c26119fb543d402697fd484a5
-      size: 16268
+      md5: d28edda68a87640b44dd865d089d2b54
+      size: 17422
     params:
       params.yaml:
         end_date: '2026-02-13'
@@ -2756,24 +2756,38 @@ stages:
     outs:
     - path: data/processed/index_russell_pcr_signal
       hash: md5
-      md5: ac74c227c9a05ddbcc9d169dd958af79.dir
-      size: 23290969
+      md5: 97eb14a8ce3954462c16818a7282f509.dir
+      size: 21409797
       nfiles: 54
   evaluate_pcr_notebook:
-    cmd: MODEL_KEY=pcr RETURNS_MODE=hedged jupyter nbconvert --to notebook 
-      --execute notebooks/signal_ic_analysis_template.ipynb --output-dir 
-      notebooks/reports --output pcr_ic_report_hedged_from_template.ipynb && 
-      python src/hardcode_report_notebook_env.py --notebook 
+    cmd: MODEL_KEY=pcr MODEL_TRAIN_DIR=data/processed/models/with_us_stocks/pcr 
+      DATE_FILTER_MODE=trained_months 
+      REFERENCE_SIGNAL_DIR=data/processed/index_russell_pcr_signal 
+      REQUIRE_REFERENCE_OVERLAP=1 RETURNS_MODE=hedged jupyter nbconvert --to 
+      notebook --execute notebooks/signal_ic_analysis_template.ipynb 
+      --output-dir notebooks/reports --output 
+      pcr_ic_report_hedged_from_template.ipynb && python 
+      src/hardcode_report_notebook_env.py --notebook 
       notebooks/reports/pcr_ic_report_hedged_from_template.ipynb --model-key pcr
       --model-name PCR --model-signal-dir 
-      data/processed/index_russell_pcr_signal --returns-mode hedged && 
-      MODEL_KEY=pcr RETURNS_MODE=unhedged jupyter nbconvert --to notebook 
-      --execute notebooks/signal_ic_analysis_template.ipynb --output-dir 
-      notebooks/reports --output pcr_ic_report_unhedged_from_template.ipynb && 
-      python src/hardcode_report_notebook_env.py --notebook 
+      data/processed/index_russell_pcr_signal --returns-mode hedged 
+      --model-train-dir data/processed/models/with_us_stocks/pcr 
+      --date-filter-mode trained_months --reference-signal-dir 
+      data/processed/index_russell_pcr_signal --require-reference-overlap 1 && 
+      MODEL_KEY=pcr MODEL_TRAIN_DIR=data/processed/models/with_us_stocks/pcr 
+      DATE_FILTER_MODE=trained_months 
+      REFERENCE_SIGNAL_DIR=data/processed/index_russell_pcr_signal 
+      REQUIRE_REFERENCE_OVERLAP=1 RETURNS_MODE=unhedged jupyter nbconvert --to 
+      notebook --execute notebooks/signal_ic_analysis_template.ipynb 
+      --output-dir notebooks/reports --output 
+      pcr_ic_report_unhedged_from_template.ipynb && python 
+      src/hardcode_report_notebook_env.py --notebook 
       notebooks/reports/pcr_ic_report_unhedged_from_template.ipynb --model-key 
       pcr --model-name PCR --model-signal-dir 
-      data/processed/index_russell_pcr_signal --returns-mode unhedged
+      data/processed/index_russell_pcr_signal --returns-mode unhedged 
+      --model-train-dir data/processed/models/with_us_stocks/pcr 
+      --date-filter-mode trained_months --reference-signal-dir 
+      data/processed/index_russell_pcr_signal --require-reference-overlap 1
     deps:
     - path: data/processed/futures_only_signal
       hash: md5
@@ -2782,8 +2796,8 @@ stages:
       nfiles: 54
     - path: data/processed/index_russell_pcr_signal
       hash: md5
-      md5: ac74c227c9a05ddbcc9d169dd958af79.dir
-      size: 23290969
+      md5: 97eb14a8ce3954462c16818a7282f509.dir
+      size: 21409797
       nfiles: 54
     - path: data/processed/market_etf_hedge_ratios.csv
       hash: md5
@@ -2809,21 +2823,21 @@ stages:
       size: 67811
     - path: notebooks/signal_ic_analysis_template.ipynb
       hash: md5
-      md5: 301877c6a60a7bfb929b3ab76cd3783e
-      size: 67455
+      md5: f10aad54ef304961628091ebd83ac16b
+      size: 73889
     - path: src/hardcode_report_notebook_env.py
       hash: md5
-      md5: 25dd058680dabc4b57bc1916090c1f5b
-      size: 2111
+      md5: 4b9d7a9ab6d28ebbe647fa4b8018d323
+      size: 3698
     outs:
     - path: notebooks/reports/pcr_ic_report_hedged_from_template.ipynb
       hash: md5
-      md5: b8f99a4166a2575854f9b4c31fa4b855
-      size: 338226
+      md5: 5e150da2ffe5a0b8c7d6031e8ed59f3a
+      size: 330001
     - path: notebooks/reports/pcr_ic_report_unhedged_from_template.ipynb
       hash: md5
-      md5: 28f9e1355d2ede8b8e0a14ba32614b00
-      size: 337180
+      md5: 4570381637bc8759eeb5a05ea0a62873
+      size: 330308
   pls_train_models:
     cmd: python src/train_russell_experiment_models.py --model-kind pls 
       --features-dir data/processed/models/with_us_stocks/features_extended 
@@ -3336,13 +3350,13 @@ stages:
       nfiles: 54
     - path: data/processed/index_russell_pcr_signal
       hash: md5
-      md5: ac74c227c9a05ddbcc9d169dd958af79.dir
-      size: 23290969
+      md5: 97eb14a8ce3954462c16818a7282f509.dir
+      size: 21409797
       nfiles: 54
     - path: data/processed/models/with_us_stocks/pcr
       hash: md5
-      md5: b9c5a3c8d36813ec008bef46b1a214e0.dir
-      size: 10118322
+      md5: ad6f19859e14363c3b03bbdcc1e00b9b.dir
+      size: 10120375
       nfiles: 308
     - path: src/gate_russell_experiment_signal.py
       hash: md5
@@ -3351,27 +3365,42 @@ stages:
     outs:
     - path: data/processed/index_russell_pcr_signal_gated
       hash: md5
-      md5: 62f915656c7cf570966b43cbb2d39ed0.dir
-      size: 412494095
+      md5: 31bba7e46c9755d3b752e34bf4be0214.dir
+      size: 412706489
       nfiles: 54
   evaluate_pcr_gated_notebook:
     cmd: MODEL_SIGNAL_DIR=data/processed/index_russell_pcr_signal_gated 
-      MODEL_NAME="PCR Gated" RETURNS_MODE=hedged jupyter nbconvert --to notebook
-      --execute notebooks/signal_ic_analysis_template.ipynb --output-dir 
-      notebooks/reports --output pcr_gated_ic_report_hedged_from_template.ipynb 
-      && python src/hardcode_report_notebook_env.py --notebook 
+      MODEL_NAME="PCR Gated" 
+      MODEL_TRAIN_DIR=data/processed/models/with_us_stocks/pcr 
+      DATE_FILTER_MODE=trained_months 
+      REFERENCE_SIGNAL_DIR=data/processed/index_russell_pcr_signal 
+      REQUIRE_REFERENCE_OVERLAP=1 RETURNS_MODE=hedged jupyter nbconvert --to 
+      notebook --execute notebooks/signal_ic_analysis_template.ipynb 
+      --output-dir notebooks/reports --output 
+      pcr_gated_ic_report_hedged_from_template.ipynb && python 
+      src/hardcode_report_notebook_env.py --notebook 
       notebooks/reports/pcr_gated_ic_report_hedged_from_template.ipynb 
       --model-key pcr_gated --model-name "PCR Gated" --model-signal-dir 
-      data/processed/index_russell_pcr_signal_gated --returns-mode hedged && 
+      data/processed/index_russell_pcr_signal_gated --returns-mode hedged 
+      --model-train-dir data/processed/models/with_us_stocks/pcr 
+      --date-filter-mode trained_months --reference-signal-dir 
+      data/processed/index_russell_pcr_signal --require-reference-overlap 1 && 
       MODEL_SIGNAL_DIR=data/processed/index_russell_pcr_signal_gated 
-      MODEL_NAME="PCR Gated" RETURNS_MODE=unhedged jupyter nbconvert --to 
+      MODEL_NAME="PCR Gated" 
+      MODEL_TRAIN_DIR=data/processed/models/with_us_stocks/pcr 
+      DATE_FILTER_MODE=trained_months 
+      REFERENCE_SIGNAL_DIR=data/processed/index_russell_pcr_signal 
+      REQUIRE_REFERENCE_OVERLAP=1 RETURNS_MODE=unhedged jupyter nbconvert --to 
       notebook --execute notebooks/signal_ic_analysis_template.ipynb 
       --output-dir notebooks/reports --output 
       pcr_gated_ic_report_unhedged_from_template.ipynb && python 
       src/hardcode_report_notebook_env.py --notebook 
       notebooks/reports/pcr_gated_ic_report_unhedged_from_template.ipynb 
       --model-key pcr_gated --model-name "PCR Gated" --model-signal-dir 
-      data/processed/index_russell_pcr_signal_gated --returns-mode unhedged
+      data/processed/index_russell_pcr_signal_gated --returns-mode unhedged 
+      --model-train-dir data/processed/models/with_us_stocks/pcr 
+      --date-filter-mode trained_months --reference-signal-dir 
+      data/processed/index_russell_pcr_signal --require-reference-overlap 1
     deps:
     - path: data/processed/futures_only_signal
       hash: md5
@@ -3380,8 +3409,8 @@ stages:
       nfiles: 54
     - path: data/processed/index_russell_pcr_signal_gated
       hash: md5
-      md5: 62f915656c7cf570966b43cbb2d39ed0.dir
-      size: 412494095
+      md5: 31bba7e46c9755d3b752e34bf4be0214.dir
+      size: 412706489
       nfiles: 54
     - path: data/processed/market_etf_hedge_ratios.csv
       hash: md5
@@ -3407,21 +3436,21 @@ stages:
       size: 67811
     - path: notebooks/signal_ic_analysis_template.ipynb
       hash: md5
-      md5: 301877c6a60a7bfb929b3ab76cd3783e
-      size: 67455
+      md5: f10aad54ef304961628091ebd83ac16b
+      size: 73889
     - path: src/hardcode_report_notebook_env.py
       hash: md5
-      md5: 25dd058680dabc4b57bc1916090c1f5b
-      size: 2111
+      md5: 4b9d7a9ab6d28ebbe647fa4b8018d323
+      size: 3698
     outs:
     - path: notebooks/reports/pcr_gated_ic_report_hedged_from_template.ipynb
       hash: md5
-      md5: 64d1ac194fa3ddd0a064d8eb777b2c2f
-      size: 355578
+      md5: c56245346b985d9b46f60fb372405617
+      size: 333310
     - path: notebooks/reports/pcr_gated_ic_report_unhedged_from_template.ipynb
       hash: md5
-      md5: a599699599d19dc17750b78246e22683
-      size: 358192
+      md5: a8f62d40d996ce5b160fcdb2a9cf9512
+      size: 335253
   index_russell_pcr_old_universe_signal_gated:
     cmd: python src/gate_russell_experiment_signal.py --model-dir 
       data/processed/models/with_us_stocks/pcr_old_universe --model-signal-dir 
@@ -3436,13 +3465,13 @@ stages:
       nfiles: 54
     - path: data/processed/index_russell_pcr_signal_old_universe
       hash: md5
-      md5: c2c64ee745f70d38233d3b691ba760a6.dir
-      size: 21426227
+      md5: a579dd0af24137e16c69fa222416e0c2.dir
+      size: 21409922
       nfiles: 54
     - path: data/processed/models/with_us_stocks/pcr_old_universe
       hash: md5
-      md5: 582e20ffdc9e8a86968c3b51cce127ac.dir
-      size: 10072036
+      md5: 266925b0ab07edb2f9cbad76f5b1b8f4.dir
+      size: 10069945
       nfiles: 308
     - path: src/gate_russell_experiment_signal.py
       hash: md5
@@ -3451,8 +3480,8 @@ stages:
     outs:
     - path: data/processed/index_russell_pcr_signal_old_universe_gated
       hash: md5
-      md5: 81e202a98c828d041c5fa5566bc59f7b.dir
-      size: 412714713
+      md5: e07fddc4d31ee0dca05930aa323060c9.dir
+      size: 412709879
       nfiles: 54
   evaluate_pcr_old_universe_gated_notebook:
     cmd: 
@@ -3494,8 +3523,8 @@ stages:
       nfiles: 54
     - path: data/processed/index_russell_pcr_signal_old_universe_gated
       hash: md5
-      md5: 81e202a98c828d041c5fa5566bc59f7b.dir
-      size: 412714713
+      md5: e07fddc4d31ee0dca05930aa323060c9.dir
+      size: 412709879
       nfiles: 54
     - path: data/processed/market_etf_hedge_ratios.csv
       hash: md5
@@ -3521,23 +3550,23 @@ stages:
       size: 67811
     - path: notebooks/signal_ic_analysis_template.ipynb
       hash: md5
-      md5: 2347e9df17477e239305221ce45000a2
-      size: 70784
+      md5: f10aad54ef304961628091ebd83ac16b
+      size: 73889
     - path: src/hardcode_report_notebook_env.py
       hash: md5
-      md5: 577f4f8c84165b2a27c8d963ccb603f4
-      size: 2881
+      md5: 4b9d7a9ab6d28ebbe647fa4b8018d323
+      size: 3698
     outs:
     - path: 
         notebooks/reports/pcr_old_universe_gated_ic_report_hedged_from_template.ipynb
       hash: md5
-      md5: 8cecd5874294e4e49a4bd0e7390d249e
-      size: 341158
+      md5: 68fb4e34df5d3dd807665b80d9235f9e
+      size: 346727
     - path: 
         notebooks/reports/pcr_old_universe_gated_ic_report_unhedged_from_template.ipynb
       hash: md5
-      md5: 74a8fe463ba4dccd706ee43284213d0b
-      size: 335857
+      md5: 2bb51e99a3242e7a7ac0a1aaabab8846
+      size: 342795
   evaluate_pcr_old_universe_gated_model_used_notebook:
     cmd: 
       MODEL_SIGNAL_DIR=data/processed/index_russell_pcr_signal_old_universe_gated
@@ -3578,8 +3607,8 @@ stages:
       nfiles: 54
     - path: data/processed/index_russell_pcr_signal_old_universe_gated
       hash: md5
-      md5: 81e202a98c828d041c5fa5566bc59f7b.dir
-      size: 412714713
+      md5: e07fddc4d31ee0dca05930aa323060c9.dir
+      size: 412709879
       nfiles: 54
     - path: data/processed/market_etf_hedge_ratios.csv
       hash: md5
@@ -3587,8 +3616,8 @@ stages:
       size: 1905541
     - path: data/processed/models/with_us_stocks/pcr_old_universe
       hash: md5
-      md5: 582e20ffdc9e8a86968c3b51cce127ac.dir
-      size: 10072036
+      md5: 266925b0ab07edb2f9cbad76f5b1b8f4.dir
+      size: 10069945
       nfiles: 308
     - path: data/raw/adrs/adr_PX_LAST_adjust_none.csv
       hash: md5
@@ -3610,23 +3639,23 @@ stages:
       size: 67811
     - path: notebooks/signal_ic_analysis_template.ipynb
       hash: md5
-      md5: dbc414ddbb38cd0c901316a2429cae0f
-      size: 72481
+      md5: f10aad54ef304961628091ebd83ac16b
+      size: 73889
     - path: src/hardcode_report_notebook_env.py
       hash: md5
-      md5: 577f4f8c84165b2a27c8d963ccb603f4
-      size: 2881
+      md5: 4b9d7a9ab6d28ebbe647fa4b8018d323
+      size: 3698
     outs:
     - path: 
         notebooks/reports/pcr_old_universe_gated_model_used_ic_report_hedged_from_template.ipynb
       hash: md5
-      md5: 36cc5f7a935d1962c9e258d559eb3b87
-      size: 356349
+      md5: 360efc7bc65e0b1c22064d09e3784c39
+      size: 360192
     - path: 
         notebooks/reports/pcr_old_universe_gated_model_used_ic_report_unhedged_from_template.ipynb
       hash: md5
-      md5: 6e021a652fbf0d1e9d7264d77af529f9
-      size: 351140
+      md5: 2e28aba999c8fcbf1ad0d4d9d2cd0257
+      size: 355652
   evaluate_pcr_gated_model_used_notebook:
     cmd: MODEL_SIGNAL_DIR=data/processed/index_russell_pcr_signal_gated 
       MODEL_NAME="PCR Gated (Model-Used Months)" 
@@ -3664,8 +3693,8 @@ stages:
       nfiles: 54
     - path: data/processed/index_russell_pcr_signal_gated
       hash: md5
-      md5: 62f915656c7cf570966b43cbb2d39ed0.dir
-      size: 412494095
+      md5: 31bba7e46c9755d3b752e34bf4be0214.dir
+      size: 412706489
       nfiles: 54
     - path: data/processed/market_etf_hedge_ratios.csv
       hash: md5
@@ -3673,9 +3702,9 @@ stages:
       size: 1905541
     - path: data/processed/models/with_us_stocks/pcr
       hash: md5
-      md5: e0cebc0d199cf6d2a9e263a4fbf3ffc9.dir
-      size: 919304
-      nfiles: 28
+      md5: ad6f19859e14363c3b03bbdcc1e00b9b.dir
+      size: 10120375
+      nfiles: 308
     - path: data/raw/adrs/adr_PX_LAST_adjust_none.csv
       hash: md5
       md5: 5a27a76709b1eb40660a2dfdc7c7bc6e
@@ -3706,10 +3735,271 @@ stages:
     - path: 
         notebooks/reports/pcr_gated_model_used_ic_report_hedged_from_template.ipynb
       hash: md5
-      md5: f9e5040880304cdc0da23ccf3c3921f0
-      size: 319489
+      md5: 15e78e70ebea8ce636a4d00a90d31d17
+      size: 349448
     - path: 
         notebooks/reports/pcr_gated_model_used_ic_report_unhedged_from_template.ipynb
       hash: md5
-      md5: 61480be502485236829ba8cb82497e35
-      size: 331069
+      md5: 21f2fe869e214dfbc3864b42c358b963
+      size: 346024
+  pcr_old_universe_train_models:
+    cmd: python src/train_russell_experiment_models.py --model-kind pcr 
+      --features-dir 
+      data/processed/models/with_us_stocks/features_extended_old_universe 
+      --output-dir data/processed/models/with_us_stocks/pcr_old_universe 
+      --train-months 14 --val-months 6 --min-model-date 2025-09-01 
+      --universe-file data/raw/old_russell1000_tickers.csv
+    deps:
+    - path: data/processed/models/with_us_stocks/features_extended_old_universe
+      hash: md5
+      md5: 524de72b8a14e3246d99d234eb832a18.dir
+      size: 611143328
+      nfiles: 54
+    - path: data/raw/historical_russell_1000.csv
+      hash: md5
+      md5: 899c50880c6529be44ff9a98e45dd8fe
+      size: 8356774
+    - path: data/raw/old_russell1000_tickers.csv
+      hash: md5
+      md5: 08af4109bb2b9f62e498f949efc8c70b
+      size: 4318
+    - path: data/raw/russell1000/russell1000_turnover.csv
+      hash: md5
+      md5: b54974bf7c6a408356de79ce36785d83
+      size: 42098471
+    - path: src/train_russell_experiment_models.py
+      hash: md5
+      md5: 5894ea730d38ab8c8200e6f95d50f107
+      size: 32462
+    outs:
+    - path: data/processed/models/with_us_stocks/pcr_old_universe
+      hash: md5
+      md5: 266925b0ab07edb2f9cbad76f5b1b8f4.dir
+      size: 10069945
+      nfiles: 308
+  index_russell_pcr_old_universe_signal:
+    cmd: python src/index_russell_experiment_signal.py --model-kind pcr 
+      --model-dir data/processed/models/with_us_stocks/pcr_old_universe 
+      --output-dir data/processed/index_russell_pcr_signal_old_universe
+    deps:
+    - path: data/processed/futures/converted_minute_bars
+      hash: md5
+      md5: 36f051be595797bf9d461f8363e3c65d.dir
+      size: 694162836
+      nfiles: 7
+    - path: data/processed/futures_only_signal
+      hash: md5
+      md5: f98fad774983a25950c98ae268e8675b.dir
+      size: 415304038
+      nfiles: 54
+    - path: data/processed/models/with_us_stocks/pcr_old_universe
+      hash: md5
+      md5: 266925b0ab07edb2f9cbad76f5b1b8f4.dir
+      size: 10069945
+      nfiles: 308
+    - path: data/processed/russell1000/russell_betas
+      hash: md5
+      md5: 5672fcd9bfc3d76eb8bccb134110ac5f.dir
+      size: 288620856
+      nfiles: 15
+    - path: data/raw/adr_info.csv
+      hash: md5
+      md5: 8a78d717a64d6265640e77b52208a419
+      size: 9897
+    - path: data/raw/futures_symbols.csv
+      hash: md5
+      md5: 5267b344488684cac15e122c556a2037
+      size: 196
+    - path: data/raw/russell1000/ohlcv-1m
+      hash: md5
+      md5: 6a4305a399356f4b9a089276fbecd7f4.dir
+      size: 22370761525
+      nfiles: 1253
+    - path: src/index_russell_experiment_signal.py
+      hash: md5
+      md5: d28edda68a87640b44dd865d089d2b54
+      size: 17422
+    params:
+      params.yaml:
+        end_date: '2026-02-13'
+        start_date: '2018-05-01'
+    outs:
+    - path: data/processed/index_russell_pcr_signal_old_universe
+      hash: md5
+      md5: a579dd0af24137e16c69fa222416e0c2.dir
+      size: 21409922
+      nfiles: 54
+  evaluate_pcr_old_universe_notebook:
+    cmd: 
+      MODEL_SIGNAL_DIR=data/processed/index_russell_pcr_signal_old_universe_30m 
+      MODEL_NAME="PCR Old Universe" 
+      MODEL_TRAIN_DIR=data/processed/models/with_us_stocks/pcr_old_universe 
+      DATE_FILTER_MODE=trained_months 
+      REFERENCE_SIGNAL_DIR=data/processed/index_russell_pcr_signal_old_universe_30m
+      REQUIRE_REFERENCE_OVERLAP=1 RETURNS_MODE=hedged jupyter nbconvert --to 
+      notebook --execute notebooks/signal_ic_analysis_template.ipynb 
+      --output-dir notebooks/reports --output 
+      pcr_old_universe_ic_report_hedged_from_template.ipynb && python 
+      src/hardcode_report_notebook_env.py --notebook 
+      notebooks/reports/pcr_old_universe_ic_report_hedged_from_template.ipynb 
+      --model-key pcr_old_universe --model-name "PCR Old Universe" 
+      --model-signal-dir 
+      data/processed/index_russell_pcr_signal_old_universe_30m --returns-mode 
+      hedged --model-train-dir 
+      data/processed/models/with_us_stocks/pcr_old_universe --date-filter-mode 
+      trained_months --reference-signal-dir 
+      data/processed/index_russell_pcr_signal_old_universe_30m 
+      --require-reference-overlap 1 && 
+      MODEL_SIGNAL_DIR=data/processed/index_russell_pcr_signal_old_universe_30m 
+      MODEL_NAME="PCR Old Universe" 
+      MODEL_TRAIN_DIR=data/processed/models/with_us_stocks/pcr_old_universe 
+      DATE_FILTER_MODE=trained_months 
+      REFERENCE_SIGNAL_DIR=data/processed/index_russell_pcr_signal_old_universe_30m
+      REQUIRE_REFERENCE_OVERLAP=1 RETURNS_MODE=unhedged jupyter nbconvert --to 
+      notebook --execute notebooks/signal_ic_analysis_template.ipynb 
+      --output-dir notebooks/reports --output 
+      pcr_old_universe_ic_report_unhedged_from_template.ipynb && python 
+      src/hardcode_report_notebook_env.py --notebook 
+      notebooks/reports/pcr_old_universe_ic_report_unhedged_from_template.ipynb 
+      --model-key pcr_old_universe --model-name "PCR Old Universe" 
+      --model-signal-dir 
+      data/processed/index_russell_pcr_signal_old_universe_30m --returns-mode 
+      unhedged --model-train-dir 
+      data/processed/models/with_us_stocks/pcr_old_universe --date-filter-mode 
+      trained_months --reference-signal-dir 
+      data/processed/index_russell_pcr_signal_old_universe_30m 
+      --require-reference-overlap 1
+    deps:
+    - path: data/processed/futures_only_signal
+      hash: md5
+      md5: f98fad774983a25950c98ae268e8675b.dir
+      size: 415304038
+      nfiles: 54
+    - path: data/processed/index_russell_pcr_signal_old_universe_30m
+      hash: md5
+      md5: 0a773ef8ea946ab0549a3224c720aee1.dir
+      size: 620638
+      nfiles: 54
+    - path: data/processed/market_etf_hedge_ratios.csv
+      hash: md5
+      md5: 6c688e1b450bff266b3e689dc21f400e
+      size: 1905541
+    - path: data/raw/adrs/adr_PX_LAST_adjust_none.csv
+      hash: md5
+      md5: 5a27a76709b1eb40660a2dfdc7c7bc6e
+      size: 630390
+    - path: data/raw/adrs/bbo-1m/nbbo
+      hash: md5
+      md5: 19b77a49dce018f26f42104b6690cec6.dir
+      size: 2816110403
+      nfiles: 54
+    - path: data/raw/etfs/market/bbo-1m/nbbo
+      hash: md5
+      md5: 3f463655594195991d753df6dee635b1.dir
+      size: 187578375
+      nfiles: 4
+    - path: data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
+      hash: md5
+      md5: 7c6fbd5a5909b4373d98b77cd265d580
+      size: 67811
+    - path: notebooks/signal_ic_analysis_template.ipynb
+      hash: md5
+      md5: f10aad54ef304961628091ebd83ac16b
+      size: 73889
+    - path: src/hardcode_report_notebook_env.py
+      hash: md5
+      md5: 4b9d7a9ab6d28ebbe647fa4b8018d323
+      size: 3698
+    outs:
+    - path: 
+        notebooks/reports/pcr_old_universe_ic_report_hedged_from_template.ipynb
+      hash: md5
+      md5: 55c29cc23fa0fd42917683690e92d9f3
+      size: 343680
+    - path: 
+        notebooks/reports/pcr_old_universe_ic_report_unhedged_from_template.ipynb
+      hash: md5
+      md5: 6447951f53eaba75b359e93812dd8296
+      size: 340200
+  pcr_fixed_time_signal:
+    cmd: python src/from_full_futures_fixed_time_signal.py 
+      data/processed/index_russell_pcr_signal_old_universe_gated/ 
+      data/processed/pcr_fixed_time_signal.csv
+    deps:
+    - path: data/processed/index_russell_pcr_signal_old_universe_gated/
+      hash: md5
+      md5: e07fddc4d31ee0dca05930aa323060c9.dir
+      size: 412709879
+      nfiles: 54
+    - path: data/raw/adr_info.csv
+      hash: md5
+      md5: 8a78d717a64d6265640e77b52208a419
+      size: 9897
+    - path: src/from_full_futures_fixed_time_signal.py
+      hash: md5
+      md5: 45d6c10a80d5dc722536f1ec9bfbf835
+      size: 1492
+    params:
+      params.yaml:
+        end_date: '2026-02-13'
+        fixed_trade_time_hours: 14
+        fixed_trade_time_min: 0
+        start_date: '2018-05-01'
+    outs:
+    - path: data/processed/pcr_fixed_time_signal.csv
+      hash: md5
+      md5: 2351411363441c5ea24056dd0c6dde65
+      size: 1991346
+  index_russell_pcr_old_universe_signal_30m:
+    cmd: python src/index_russell_experiment_signal.py --model-kind pcr 
+      --model-dir data/processed/models/with_us_stocks/pcr_old_universe 
+      --output-dir data/processed/index_russell_pcr_signal_old_universe_30m 
+      --eval-times-only --exchange-workers 3
+    deps:
+    - path: data/processed/futures/converted_minute_bars
+      hash: md5
+      md5: 36f051be595797bf9d461f8363e3c65d.dir
+      size: 694162836
+      nfiles: 7
+    - path: data/processed/futures_only_signal
+      hash: md5
+      md5: f98fad774983a25950c98ae268e8675b.dir
+      size: 415304038
+      nfiles: 54
+    - path: data/processed/models/with_us_stocks/pcr_old_universe
+      hash: md5
+      md5: 266925b0ab07edb2f9cbad76f5b1b8f4.dir
+      size: 10069945
+      nfiles: 308
+    - path: data/processed/russell1000/russell_betas
+      hash: md5
+      md5: 5672fcd9bfc3d76eb8bccb134110ac5f.dir
+      size: 288620856
+      nfiles: 15
+    - path: data/raw/adr_info.csv
+      hash: md5
+      md5: 8a78d717a64d6265640e77b52208a419
+      size: 9897
+    - path: data/raw/futures_symbols.csv
+      hash: md5
+      md5: 5267b344488684cac15e122c556a2037
+      size: 196
+    - path: data/raw/russell1000/ohlcv-1m
+      hash: md5
+      md5: 6a4305a399356f4b9a089276fbecd7f4.dir
+      size: 22370761525
+      nfiles: 1253
+    - path: src/index_russell_experiment_signal.py
+      hash: md5
+      md5: 4c477845f129eabddae478ebc4c1da60
+      size: 22966
+    params:
+      params.yaml:
+        end_date: '2026-02-13'
+        start_date: '2018-05-01'
+    outs:
+    - path: data/processed/index_russell_pcr_signal_old_universe_30m
+      hash: md5
+      md5: 0a773ef8ea946ab0549a3224c720aee1.dir
+      size: 620638
+      nfiles: 54
