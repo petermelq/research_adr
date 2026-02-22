@@ -1,5 +1,5 @@
 outs:
-- md5: 5267b344488684cac15e122c556a2037
-  size: 196
+- md5: 41d6e0f547e09addc11dfd64599698d8
+  size: 241
   hash: md5
   path: futures_symbols.csv
