@@ -1,0 +1,5 @@
+outs:
+- md5: 9a44fe44c1ac54c1de6936093bd142e8
+  size: 162168703
+  hash: md5
+  path: MME_full_1min_continuous_ratio_adjusted.txt
