@@ -1,0 +1,5 @@
+outs:
+- md5: 37ec63b7f704f048eee3eb408ad35df6
+  size: 210937354
+  hash: md5
+  path: USDHKD_full_1min.txt
