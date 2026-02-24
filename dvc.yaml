@@ -88,7 +88,8 @@ stages:
           persist: true
 
   download_market_etf_bbo-1m:
-    cmd: python -m data_tools.cli.batch_download_to_parquet_with_append --schema=bbo-1m --datasets XNYS.PILLAR XNAS.ITCH ARCX.PILLAR --tickers=data/raw/adr_info.csv --tickers_columns=market_etf_hedge --output_dir=data/raw/etfs/market/bbo-1m/by_exchange --start_date=${start_date} --end_date=${end_date} --partition_period=none
+    #cmd: python -m data_tools.cli.batch_download_to_parquet_with_append --schema=bbo-1m --datasets XNYS.PILLAR XNAS.ITCH ARCX.PILLAR --tickers=data/raw/adr_info.csv --tickers_columns=market_etf_hedge --output_dir=data/raw/etfs/market/bbo-1m/by_exchange --start_date=${start_date} --end_date=${end_date} --partition_period=none
+    cmd: python -m data_tools.cli.batch_download_to_parquet_with_append --schema=bbo-1m --datasets XNAS.ITCH ARCX.PILLAR --tickers=data/raw/adr_info.csv --tickers_columns=market_etf_hedge --output_dir=data/raw/etfs/market/bbo-1m/by_exchange --start_date=${start_date} --end_date=${end_date} --partition_period=none
     deps:
       - data/raw/adr_info.csv
     params:
@@ -185,184 +186,196 @@ stages:
 
   # daily closing price data download
   download_adr_close:
-    cmd: python src/download_bbg_daily.py data/raw/adr_info.csv data/raw/adrs/adr_PX_LAST_adjust_none.csv --tickers_columns=adr --field=PX_LAST
+    cmd: python -m data_tools.cli.download_bbg_daily data/raw/adr_info.csv data/raw/adrs/adr_PX_LAST_adjust_none.csv --tickers_columns=adr --field=PX_LAST --start_date=${start_date} --end_date=${end_date}
     deps:
-      - src/download_bbg_daily.py
       - data/raw/adr_info.csv
     params:
       - start_date
       - end_date
     outs:
-      - data/raw/adrs/adr_PX_LAST_adjust_none.csv
+      - data/raw/adrs/adr_PX_LAST_adjust_none.csv:
+          persist: true
 
   download_adr_open:
-    cmd: python src/download_bbg_daily.py data/raw/adr_info.csv data/raw/adrs/adr_PX_OPEN_adjust_none.csv --tickers_columns=adr --field=PX_OPEN
+    cmd: python -m data_tools.cli.download_bbg_daily data/raw/adr_info.csv data/raw/adrs/adr_PX_OPEN_adjust_none.csv --tickers_columns=adr --field=PX_OPEN --start_date=${start_date} --end_date=${end_date}
     deps:
-      - src/download_bbg_daily.py
       - data/raw/adr_info.csv
     params:
       - start_date
       - end_date
     outs:
-      - data/raw/adrs/adr_PX_OPEN_adjust_none.csv
+      - data/raw/adrs/adr_PX_OPEN_adjust_none.csv:
+          persist: true
 
   adj_download_adr_open:
-    cmd: python src/download_bbg_daily.py data/raw/adr_info.csv data/raw/adrs/adr_PX_OPEN_adjust_all.csv --tickers_columns=adr --field=PX_OPEN --adjust=all
+    cmd: python -m data_tools.cli.download_bbg_daily data/raw/adr_info.csv data/raw/adrs/adr_PX_OPEN_adjust_all.csv --tickers_columns=adr --field=PX_OPEN --adjust=all --start_date=${start_date} --end_date=${end_date}
     deps:
-      - src/download_bbg_daily.py
       - data/raw/adr_info.csv
     params:
       - start_date
       - end_date
     outs:
-      - data/raw/adrs/adr_PX_OPEN_adjust_all.csv
+      - data/raw/adrs/adr_PX_OPEN_adjust_all.csv:
+          persist: true
 
   download_ord_open:
-    cmd: python src/download_bbg_daily.py data/raw/adr_info.csv data/raw/ordinary/ord_PX_OPEN_adjust_none.csv --tickers_columns=id --field=PX_OPEN --include_suffix
+    cmd: python -m data_tools.cli.download_bbg_daily data/raw/adr_info.csv data/raw/ordinary/ord_PX_OPEN_adjust_none.csv --tickers_columns=id --field=PX_OPEN --include_suffix --start_date=${start_date} --end_date=${end_date}
     deps:
-      - src/download_bbg_daily.py
       - data/raw/adr_info.csv
     params:
       - start_date
       - end_date
     outs:
-      - data/raw/ordinary/ord_PX_OPEN_adjust_none.csv
+      - data/raw/ordinary/ord_PX_OPEN_adjust_none.csv:
+          persist: true
 
   adj_download_ord_open:
-    cmd: python src/download_bbg_daily.py data/raw/adr_info.csv data/raw/ordinary/ord_PX_OPEN_adjust_all.csv --tickers_columns=id --adjust=all --field=PX_OPEN --include_suffix
+    cmd: python -m data_tools.cli.download_bbg_daily data/raw/adr_info.csv data/raw/ordinary/ord_PX_OPEN_adjust_all.csv --tickers_columns=id --adjust=all --field=PX_OPEN --include_suffix --start_date=${start_date} --end_date=${end_date}
     deps:
-      - src/download_bbg_daily.py
       - data/raw/adr_info.csv
     params:
       - start_date
       - end_date
     outs:
-      - data/raw/ordinary/ord_PX_OPEN_adjust_all.csv
+      - data/raw/ordinary/ord_PX_OPEN_adjust_all.csv:
+          persist: true
 
   download_market_etf_open:
-    cmd: python src/download_bbg_daily.py data/raw/adr_info.csv data/raw/etfs/market/market_etf_PX_OPEN_adjust_none.csv --tickers_columns=market_etf_hedge --field=PX_OPEN --symbol_suffix=" US Equity"
+    cmd: python -m data_tools.cli.download_bbg_daily data/raw/adr_info.csv data/raw/etfs/market/market_etf_PX_OPEN_adjust_none.csv --tickers_columns=market_etf_hedge --field=PX_OPEN --symbol_suffix=" US Equity" --start_date=${start_date} --end_date=${end_date}
     deps:
-      - src/download_bbg_daily.py
       - data/raw/adr_info.csv
     params:
       - start_date
       - end_date
     outs:
-      - data/raw/etfs/market/market_etf_PX_OPEN_adjust_none.csv
+      - data/raw/etfs/market/market_etf_PX_OPEN_adjust_none.csv:
+          persist: true
 
   download_market_etf_close:
-    cmd: python src/download_bbg_daily.py data/raw/adr_info.csv data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv --tickers_columns=market_etf_hedge --symbol_suffix=" US Equity" --field=PX_LAST
+    cmd: python -m data_tools.cli.download_bbg_daily data/raw/adr_info.csv data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv --tickers_columns=market_etf_hedge --symbol_suffix=" US Equity" --field=PX_LAST --start_date=${start_date} --end_date=${end_date}
     deps:
-      - src/download_bbg_daily.py
       - data/raw/adr_info.csv
     params:
       - start_date
       - end_date
     outs:
-      - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
+      - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv:
+          persist: true
 
   adj_adr_close:
-    cmd: python src/download_bbg_daily.py data/raw/adr_info.csv data/raw/adrs/adr_PX_LAST_adjust_all.csv --tickers_columns=adr --adjust=all --pad_lookback=${pred.lookback_days} --field=PX_LAST
+    cmd: python -m data_tools.cli.download_bbg_daily data/raw/adr_info.csv data/raw/adrs/adr_PX_LAST_adjust_all.csv --tickers_columns=adr --adjust=all --pad_lookback=${pred.lookback_days} --field=PX_LAST --start_date=${start_date} --end_date=${end_date}
     deps:
-      - src/download_bbg_daily.py
       - data/raw/adr_info.csv
     params:
       - start_date
       - end_date
     outs:
-      - data/raw/adrs/adr_PX_LAST_adjust_all.csv
+      - data/raw/adrs/adr_PX_LAST_adjust_all.csv:
+          persist: true
 
   adj_market_etf_close:
-    cmd: python src/download_bbg_daily.py data/raw/adr_info.csv data/raw/etfs/market/market_etf_PX_LAST_adjust_all.csv --tickers_columns=market_etf_hedge --symbol_suffix=" US Equity" --adjust=all --pad_lookback=${pred.lookback_days} --field=PX_LAST
+    cmd: python -m data_tools.cli.download_bbg_daily data/raw/adr_info.csv data/raw/etfs/market/market_etf_PX_LAST_adjust_all.csv --tickers_columns=market_etf_hedge --symbol_suffix=" US Equity" --adjust=all --pad_lookback=${pred.lookback_days} --field=PX_LAST --start_date=${start_date} --end_date=${end_date}
     deps:
-      - src/download_bbg_daily.py
       - data/raw/adr_info.csv
     params:
       - start_date
       - end_date
     outs:
-      - data/raw/etfs/market/market_etf_PX_LAST_adjust_all.csv
+      - data/raw/etfs/market/market_etf_PX_LAST_adjust_all.csv:
+          persist: true
 
   # downloading adr turnover
   download_adr_turnover:
-    cmd: python src/download_bbg_daily.py data/raw/adr_info.csv data/raw/adrs/adr_turnover.csv --tickers_columns=adr --field=TURNOVER
+    cmd: python -m data_tools.cli.download_bbg_daily data/raw/adr_info.csv data/raw/adrs/adr_turnover.csv --tickers_columns=adr --field=TURNOVER --start_date=${start_date} --end_date=${end_date}
     deps:
-      - src/download_bbg_daily.py
       - data/raw/adr_info.csv
     params:
       - start_date
       - end_date
     outs:
-      - data/raw/adrs/adr_turnover.csv
+      - data/raw/adrs/adr_turnover.csv:
+          persist: true
 
   # downloading Russell 1000 constituent turnover
   download_russell1000_turnover:
-    cmd: python src/download_bbg_daily.py data/raw/russell1000_tickers.csv data/raw/russell1000/russell1000_turnover.csv --tickers_columns=ticker --symbol_suffix=" US Equity" --field=TURNOVER --start_date=${frd_start_date} --end_date=${end_date}
+    cmd: python -m data_tools.cli.download_bbg_daily data/raw/russell1000_tickers.csv data/raw/russell1000/russell1000_turnover.csv --tickers_columns=ticker --symbol_suffix=" US Equity" --field=TURNOVER --start_date=${frd_start_date} --end_date=${end_date}
     deps:
-      - src/download_bbg_daily.py
       - data/raw/russell1000_tickers.csv
     params:
       - frd_start_date
       - end_date
     outs:
-      - data/raw/russell1000/russell1000_turnover.csv
+      - data/raw/russell1000/russell1000_turnover.csv:
+          persist: true
+
+  # downloading Russell 1000 constituent market cap
+  download_russell1000_market_cap:
+    cmd: python -m data_tools.cli.download_bbg_daily data/raw/russell1000_tickers.csv data/raw/russell1000/russell1000_CUR_MKT_CAP.csv --tickers_columns=ticker --symbol_suffix=" US Equity" --field=CUR_MKT_CAP --start_date=${frd_start_date} --end_date=${end_date}
+    deps:
+      - data/raw/russell1000_tickers.csv
+    params:
+      - frd_start_date
+      - end_date
+    outs:
+      - data/raw/russell1000/russell1000_CUR_MKT_CAP.csv:
+          persist: true
 
   # download sector etf close prices
   download_sector_etf_close:
-    cmd: python src/download_bbg_daily.py data/raw/sector_etfs.csv data/raw/etfs/sector_etf_PX_LAST_adjust_none.csv --tickers_columns=hedge --symbol_suffix=" US Equity" --field=PX_LAST
+    cmd: python -m data_tools.cli.download_bbg_daily data/raw/sector_etfs.csv data/raw/etfs/sector_etf_PX_LAST_adjust_none.csv --tickers_columns=hedge --symbol_suffix=" US Equity" --field=PX_LAST --start_date=${start_date} --end_date=${end_date}
     deps:
-      - src/download_bbg_daily.py
       - data/raw/sector_etfs.csv
     params:
       - start_date
       - end_date
     outs:
-      - data/raw/etfs/sector_etf_PX_LAST_adjust_none.csv
+      - data/raw/etfs/sector_etf_PX_LAST_adjust_none.csv:
+          persist: true
 
   download_ord_close:
-    cmd: python src/download_bbg_daily.py data/raw/adr_info.csv data/raw/ordinary/ord_PX_LAST_adjust_none.csv --tickers_columns=id --include_suffix --field=PX_LAST
+    cmd: python -m data_tools.cli.download_bbg_daily data/raw/adr_info.csv data/raw/ordinary/ord_PX_LAST_adjust_none.csv --tickers_columns=id --include_suffix --field=PX_LAST --start_date=${start_date} --end_date=${end_date}
     deps:
-      - src/download_bbg_daily.py
       - data/raw/adr_info.csv
     params:
       - start_date
       - end_date
     outs:
-      - data/raw/ordinary/ord_PX_LAST_adjust_none.csv
+      - data/raw/ordinary/ord_PX_LAST_adjust_none.csv:
+          persist: true
 
   adj_download_ord_close:
-    cmd: python src/download_bbg_daily.py data/raw/adr_info.csv data/raw/ordinary/ord_PX_LAST_adjust_all.csv --tickers_columns=id --include_suffix --adjust=all --field=PX_LAST
+    cmd: python -m data_tools.cli.download_bbg_daily data/raw/adr_info.csv data/raw/ordinary/ord_PX_LAST_adjust_all.csv --tickers_columns=id --include_suffix --adjust=all --field=PX_LAST --start_date=${start_date} --end_date=${end_date}
     deps:
-      - src/download_bbg_daily.py
       - data/raw/adr_info.csv
     params:
       - start_date
       - end_date
     outs:
-      - data/raw/ordinary/ord_PX_LAST_adjust_all.csv
+      - data/raw/ordinary/ord_PX_LAST_adjust_all.csv:
+          persist: true
 
   split_adj_download_ord_close:
-    cmd: python src/download_bbg_daily.py data/raw/adr_info.csv data/raw/ordinary/ord_PX_LAST_adjust_split.csv --tickers_columns=id --include_suffix --adjust=split --pad_lookback=${pred.lookback_days} --field=PX_LAST
+    cmd: python -m data_tools.cli.download_bbg_daily data/raw/adr_info.csv data/raw/ordinary/ord_PX_LAST_adjust_split.csv --tickers_columns=id --include_suffix --adjust=split --pad_lookback=${pred.lookback_days} --field=PX_LAST --start_date=${start_date} --end_date=${end_date}
     deps:
-      - src/download_bbg_daily.py
       - data/raw/adr_info.csv
     params:
       - start_date
       - end_date
     outs:
-      - data/raw/ordinary/ord_PX_LAST_adjust_split.csv
+      - data/raw/ordinary/ord_PX_LAST_adjust_split.csv:
+          persist: true
 
   download_index_close:
-    cmd: python src/download_bbg_daily.py data/raw/futures_symbols.csv data/raw/indices/indices_PX_LAST.csv --tickers_columns=index --symbol_suffix=" Index" --pad_lookback=${pred.lookback_days} --field=PX_LAST
+    cmd: python -m data_tools.cli.download_bbg_daily data/raw/futures_symbols.csv data/raw/indices/indices_PX_LAST.csv --tickers_columns=index --symbol_suffix=" Index" --pad_lookback=${pred.lookback_days} --field=PX_LAST --start_date=${start_date} --end_date=${end_date}
     deps:
-      - src/download_bbg_daily.py
       - data/raw/adr_info.csv
     params:
       - start_date
       - end_date
       - pred.lookback_days
     outs:
-      - data/raw/indices/indices_PX_LAST.csv
+      - data/raw/indices/indices_PX_LAST.csv:
+          persist: true
 
   download_close_times:
     cmd: python src/download_close_times.py
@@ -393,6 +406,7 @@ stages:
       - data/raw/currencies/minute_bars/JPYUSD_full_1min.txt
       - data/raw/currencies/minute_bars/AUDUSD_full_1min.txt
       - data/raw/currencies/minute_bars/CHFUSD_full_1min.txt
+      - data/raw/currencies/minute_bars/HKDUSD_full_1min.txt
       - data/raw/currencies/minute_bars/NOKUSD_full_1min.txt
       - data/raw/currencies/minute_bars/SEKUSD_full_1min.txt
       - data/raw/currencies/minute_bars/DKKUSD_full_1min.txt
@@ -415,6 +429,7 @@ stages:
       - data/raw/currencies/minute_bars/JPYUSD_full_1min.txt
       - data/raw/currencies/minute_bars/AUDUSD_full_1min.txt
       - data/raw/currencies/minute_bars/CHFUSD_full_1min.txt
+      - data/raw/currencies/minute_bars/HKDUSD_full_1min.txt
       - data/raw/currencies/minute_bars/NOKUSD_full_1min.txt
       - data/raw/currencies/minute_bars/SEKUSD_full_1min.txt
       - data/raw/currencies/minute_bars/DKKUSD_full_1min.txt
@@ -477,6 +492,14 @@ stages:
     outs:
       - data/raw/currencies/minute_bars/CHFUSD_full_1min.txt
 
+  usdhkd_to_hkdusd:
+    cmd: python src/invert_fx_minute_bars.py --data-dir data/raw/currencies/minute_bars --pair USDHKD:HKDUSD
+    deps:
+      - src/invert_fx_minute_bars.py
+      - data/raw/currencies/minute_bars/USDHKD_full_1min.txt
+    outs:
+      - data/raw/currencies/minute_bars/HKDUSD_full_1min.txt
+
   download_scandi_usd_fx_bars:
     cmd: python src/download_histdata_fx_minute_bars.py --pairs USDNOK USDSEK USDDKK --start-year 2015 --output-dir data/raw/currencies/minute_bars
     deps:
@@ -530,8 +553,8 @@ stages:
       - data/raw/futures/minute_bars/FXXP_full_1min_continuous_ratio_adjusted.txt
       - data/raw/futures/minute_bars/FTI_full_1min_continuous_ratio_adjusted.txt
       - data/raw/futures/minute_bars/FCE_full_1min_continuous_ratio_adjusted.txt
-      - data/raw/futures/minute_bars/NIY_full_1min_continuous_ratio_adjusted.txt
-      - data/raw/currencies/minute_bars/GBPUSD_full_1min.txt
+      - data/raw/futures/minute_bars/MME_full_1min_continuous_ratio_adjusted.txt
+      - data/raw/currencies/minute_bars/GBPUSD_full_1min.txt # All the futures are in these three currency pairs
       - data/raw/currencies/minute_bars/EURUSD_full_1min.txt
       - data/raw/currencies/minute_bars/JPYUSD_full_1min.txt
     outs:
@@ -542,6 +565,7 @@ stages:
       - data/processed/futures/converted_minute_bars/symbol=FTI/FTI_close_to_usd_1min.parquet
       - data/processed/futures/converted_minute_bars/symbol=FCE/FCE_close_to_usd_1min.parquet
       - data/processed/futures/converted_minute_bars/symbol=NIY/NIY_close_to_usd_1min.parquet
+      - data/processed/futures/converted_minute_bars/symbol=MME/MME_close_to_usd_1min.parquet
 
   bbo_usd_index_futures:
     cmd: python src/bbo_usd_index_futures.py
@@ -778,6 +802,9 @@ stages:
       - data/raw/futures/minute_bars/FESX_full_1min_continuous_ratio_adjusted.txt
       - data/raw/futures/minute_bars/FTUK_full_1min_continuous_ratio_adjusted.txt
       - data/raw/futures/minute_bars/NIY_full_1min_continuous_ratio_adjusted.txt
+      - data/raw/futures/minute_bars/FDAX_full_1min_continuous_ratio_adjusted.txt
+      - data/raw/futures/minute_bars/FXXP_full_1min_continuous_ratio_adjusted.txt
+      - data/raw/futures/minute_bars/MME_full_1min_continuous_ratio_adjusted.txt
     outs:
       - data/processed/aligned_index_prices.csv
 
@@ -785,6 +812,8 @@ stages:
     cmd: python src/get_betas_no_sector.py
     deps:
       - src/get_betas_no_sector.py
+      - src/utils_lasso_residuals.py
+      - src/utils.py
       - data/raw/adr_info.csv
       - data/raw/ordinary/ord_PX_LAST_adjust_split.csv
       - data/processed/aligned_index_prices.csv
@@ -794,6 +823,7 @@ stages:
       - data/raw/currencies/minute_bars/JPYUSD_full_1min.txt
       - data/raw/currencies/minute_bars/AUDUSD_full_1min.txt
       - data/raw/currencies/minute_bars/CHFUSD_full_1min.txt
+      - data/raw/currencies/minute_bars/HKDUSD_full_1min.txt
       - data/raw/currencies/minute_bars/NOKUSD_full_1min.txt
       - data/raw/currencies/minute_bars/SEKUSD_full_1min.txt
       - data/raw/currencies/minute_bars/DKKUSD_full_1min.txt
@@ -854,7 +884,7 @@ stages:
     deps:
       - src/backtest_strategies/hedged_single_time_ADR.py
       - backtest_conifgs/hedged_single_time.yaml
-      - data/processed/pcr_fixed_time_signal.csv
+      - data/processed/fixed_time_signal.csv
       - data/processed/adrs/adr_daily_fixed_time_mid.csv
       - data/raw/adrs/adr_PX_LAST_adjust_none.csv
       - data/raw/adrs/adr_turnover.csv
@@ -922,6 +952,7 @@ stages:
       - data/raw/currencies/minute_bars/JPYUSD_full_1min.txt
       - data/raw/currencies/minute_bars/AUDUSD_full_1min.txt
       - data/raw/currencies/minute_bars/CHFUSD_full_1min.txt
+      - data/raw/currencies/minute_bars/HKDUSD_full_1min.txt
       - data/raw/currencies/minute_bars/NOKUSD_full_1min.txt
       - data/raw/currencies/minute_bars/SEKUSD_full_1min.txt
       - data/raw/currencies/minute_bars/DKKUSD_full_1min.txt
@@ -929,6 +960,7 @@ stages:
     params:
       - frd_start_date
       - end_date
+      - russell_betas.lookback_days
     outs:
       - data/processed/russell1000/russell_betas
 
@@ -995,6 +1027,7 @@ stages:
       - data/raw/currencies/minute_bars/JPYUSD_full_1min.txt
       - data/raw/currencies/minute_bars/AUDUSD_full_1min.txt
       - data/raw/currencies/minute_bars/CHFUSD_full_1min.txt
+      - data/raw/currencies/minute_bars/HKDUSD_full_1min.txt
       - data/raw/currencies/minute_bars/NOKUSD_full_1min.txt
       - data/raw/currencies/minute_bars/SEKUSD_full_1min.txt
       - data/raw/currencies/minute_bars/DKKUSD_full_1min.txt
@@ -1006,28 +1039,40 @@ stages:
       - data/processed/models/with_us_stocks/features_extended
 
   pcr_train_models:
-    cmd: python src/train_russell_experiment_models.py --model-kind pcr --features-dir data/processed/models/with_us_stocks/features_extended --output-dir data/processed/models/with_us_stocks/pcr --train-months 14 --val-months 6 --min-model-date 2025-09-01
+    cmd: python src/train_russell_experiment_models.py --model-kind pcr_mcap --features-dir data/processed/models/with_us_stocks/features_extended --output-dir data/processed/models/with_us_stocks/pcr --train-months ${russell_model_train_months} --val-months ${russell_model_val_months} --min-train-months ${russell_model_min_train_months} --min-model-date ${min_model_date} --market-cap-file data/raw/russell1000/russell1000_CUR_MKT_CAP.csv --pcr-max-components 10
     deps:
       - src/train_russell_experiment_models.py
       - data/processed/models/with_us_stocks/features_extended
       - data/raw/historical_russell_1000.csv
       - data/raw/russell1000/russell1000_turnover.csv
+      - data/raw/russell1000/russell1000_CUR_MKT_CAP.csv
+    params:
+      - min_model_date
+      - russell_model_train_months
+      - russell_model_val_months
+      - russell_model_min_train_months
     outs:
       - data/processed/models/with_us_stocks/pcr
 
   pcr_old_universe_train_models:
-    cmd: python src/train_russell_experiment_models.py --model-kind pcr --features-dir data/processed/models/with_us_stocks/features_extended_old_universe --output-dir data/processed/models/with_us_stocks/pcr_old_universe --train-months 14 --val-months 6 --min-model-date 2025-09-01 --universe-file data/raw/old_russell1000_tickers.csv
+    cmd: python src/train_russell_experiment_models.py --model-kind pcr_mcap --features-dir data/processed/models/with_us_stocks/features_extended_old_universe --output-dir data/processed/models/with_us_stocks/pcr_old_universe --train-months ${russell_model_train_months} --val-months ${russell_model_val_months} --min-train-months ${russell_model_min_train_months} --min-model-date ${min_model_date} --universe-file data/raw/old_russell1000_tickers.csv --market-cap-file data/raw/russell1000/russell1000_CUR_MKT_CAP.csv --pcr-max-components 10
     deps:
       - src/train_russell_experiment_models.py
       - data/processed/models/with_us_stocks/features_extended_old_universe
       - data/raw/historical_russell_1000.csv
       - data/raw/russell1000/russell1000_turnover.csv
+      - data/raw/russell1000/russell1000_CUR_MKT_CAP.csv
       - data/raw/old_russell1000_tickers.csv
+    params:
+      - min_model_date
+      - russell_model_train_months
+      - russell_model_val_months
+      - russell_model_min_train_months
     outs:
       - data/processed/models/with_us_stocks/pcr_old_universe
 
   index_russell_pcr_signal:
-    cmd: python src/index_russell_experiment_signal.py --model-kind pcr --model-dir data/processed/models/with_us_stocks/pcr --output-dir data/processed/index_russell_pcr_signal
+    cmd: python src/index_russell_experiment_signal.py --model-kind pcr --model-dir data/processed/models/with_us_stocks/pcr --output-dir data/processed/index_russell_pcr_signal --exchange-workers 3
     deps:
       - src/index_russell_experiment_signal.py
       - data/processed/models/with_us_stocks/pcr

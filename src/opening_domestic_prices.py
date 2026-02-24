@@ -28,7 +28,7 @@ if __name__ == "__main__":
         currency_map = {'GBp': 'GBP'}
         needed_currencies = sorted(
             set(adr_info['currency'].dropna().unique().tolist())
-            .intersection({'GBp', 'GBP', 'EUR', 'JPY', 'AUD', 'NOK', 'SEK', 'DKK', 'CHF'})
+            .intersection({'GBp', 'GBP', 'EUR', 'JPY', 'AUD', 'NOK', 'SEK', 'DKK', 'CHF', 'HKD'})
         )
 
         all_fx_data = []

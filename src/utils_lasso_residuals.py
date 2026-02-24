@@ -17,20 +17,48 @@ import os
 __script_dir__ = Path(__file__).parent.absolute()
 
 
-# Mapping from index futures (bloomberg_symbol in adr_info.csv) to underlying
-# cash index symbols (from futures_symbols.csv 'index' column)
-INDEX_FUTURE_TO_SYMBOL = {
-    'NH': 'NKY',    # Nikkei 225 (Japan)
-    'Z': 'UKX',     # FTSE 100 (UK)
-    'VG': 'SX5E',   # Euro Stoxx 50 (Europe)
-}
+def load_index_reference_mappings():
+    """
+    Load index future -> cash index and cash index -> currency mappings.
 
-# Mapping from cash index to FX currency for USD conversion.
-INDEX_TO_FX_CURRENCY = {
-    'SX5E': 'EUR',  # EURUSD
-    'UKX': 'GBP',   # GBPUSD
-    'NKY': 'JPY',   # JPYUSD
-}
+    Source of truth:
+    - data/raw/futures_symbols.csv
+    """
+    futures_path = __script_dir__ / '..' / 'data' / 'raw' / 'futures_symbols.csv'
+    fut = pd.read_csv(futures_path)
+    fut['bloomberg_symbol'] = fut['bloomberg_symbol'].astype(str).str.strip()
+    fut['index'] = fut['index'].astype(str).str.strip()
+    fut['currency'] = fut['currency'].apply(normalize_currency).fillna('USD')
+    fut = fut[(fut['bloomberg_symbol'] != '') & (fut['index'] != '')]
+
+    future_to_index = (
+        fut[['bloomberg_symbol', 'index']]
+        .drop_duplicates(subset=['bloomberg_symbol'], keep='first')
+        .set_index('bloomberg_symbol')['index']
+        .to_dict()
+    )
+    index_to_currency = (
+        fut[['index', 'currency']]
+        .drop_duplicates(subset=['index'], keep='first')
+        .set_index('index')['currency']
+        .to_dict()
+    )
+    return future_to_index, index_to_currency
+
+
+def normalize_currency(currency):
+    if not isinstance(currency, str):
+        return None
+    c = currency.strip()
+    if c == '' or c.lower() in {'nan', 'none', 'null'}:
+        return None
+    if c == 'GBp':
+        return 'GBP'
+    return c.upper()
+
+
+def is_usd_currency(currency):
+    return normalize_currency(currency) == 'USD'
 
 def load_ordinary_exchange_mapping(include_asia=False):
     """
@@ -44,7 +72,7 @@ def load_ordinary_exchange_mapping(include_asia=False):
     adr_info = pd.read_csv(adr_info_path)
 
     if not include_asia:
-        excluded_exchanges = ['XTKS', 'XASX']
+        excluded_exchanges = ['XTKS', 'XASX', 'XHKG', 'XSES', 'XSHG', 'XSHE']
         adr_info = adr_info[~adr_info['exchange'].isin(excluded_exchanges)]
 
     # Create mappings
@@ -69,20 +97,30 @@ def load_index_mapping(include_asia=False):
     adr_info = pd.read_csv(adr_info_path)
 
     if not include_asia:
-        excluded_exchanges = ['XTKS', 'XASX']
+        excluded_exchanges = ['XTKS', 'XASX', 'XHKG', 'XSES', 'XSHG', 'XSHE']
         adr_info = adr_info[~adr_info['exchange'].isin(excluded_exchanges)]
 
-    # Strip whitespace from index_future_bbg before mapping
-    adr_info['index_future_bbg'] = adr_info['index_future_bbg'].str.strip()
-
-    # Map index future to index symbol
-    adr_info['index_symbol'] = adr_info['index_future_bbg'].map(INDEX_FUTURE_TO_SYMBOL)
+    # Build mapping from source files (no hardcoded future/index table).
+    future_to_index, _ = load_index_reference_mappings()
+    adr_info['index_future_bbg'] = adr_info['index_future_bbg'].astype(str).str.strip()
+    adr_info['index_symbol'] = adr_info['index_future_bbg'].map(future_to_index)
 
     # Create mappings
     ordinary_to_index = dict(zip(adr_info['id'], adr_info['index_symbol']))
     exchange_to_index = dict(zip(adr_info['exchange'], adr_info['index_symbol']))
 
     return ordinary_to_index, exchange_to_index
+
+
+def load_index_currency_mapping():
+    """
+    Load mapping from cash index symbol to currency.
+
+    Source of truth:
+    - data/raw/futures_symbols.csv
+    """
+    _, index_to_currency = load_index_reference_mappings()
+    return index_to_currency
 
 
 def load_fx_minute(currency):
@@ -122,17 +160,17 @@ def compute_exchange_close_times(exchange_mic, offset_str, start_date, end_date)
     """
     cal = mcal.get_calendar(exchange_mic)
     sched = cal.schedule(start_date=start_date, end_date=end_date)
-    close_times_et = sched['market_close'].dt.tz_convert('America/New_York')
 
-    # Filter to normal close days only
-    close_times_only = close_times_et.dt.time
-    most_common_close = close_times_only.mode()[0]
-    is_normal_close = close_times_only == most_common_close
-    close_times_et = close_times_et[is_normal_close]
+    # Detect normal closes in the exchange's local wall-clock timezone.
+    # Using ET times here is incorrect for non-US venues because ET DST shifts
+    # make regular closes appear as different clock-times across the year.
+    close_times_local = sched['market_close'].dt.tz_convert(str(cal.tz))
+    close_times_only_local = close_times_local.dt.time
+    most_common_local_close = close_times_only_local.mode()[0]
+    is_normal_close = close_times_only_local == most_common_local_close
 
-    # Add offset
+    close_times_et = close_times_local[is_normal_close].dt.tz_convert('America/New_York')
     close_times_et = close_times_et + pd.Timedelta(offset_str)
-
     return close_times_et
 
 

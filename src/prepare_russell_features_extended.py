@@ -1,7 +1,7 @@
 """
 Prepare extended-history Russell residual features for model experiments.
 
-Adds an AU/JP-specific path:
+Adds an Asia-specific path:
 - target is ADR return from ordinary-theoretical close (USD) to ADR close (USD),
   residualized by existing index-only betas and futures returns
 - Russell features use same-day US regular-session open->close returns
@@ -22,11 +22,13 @@ from utils import load_params
 from utils_lasso_residuals import (
     load_ordinary_exchange_mapping,
     load_index_mapping,
+    load_index_currency_mapping,
+    is_usd_currency,
+    normalize_currency,
     compute_aligned_returns,
     residualize_returns,
     get_existing_beta_residuals,
     fill_missing_values,
-    INDEX_TO_FX_CURRENCY,
     load_fx_minute,
     compute_exchange_close_times,
     compute_fx_daily_at_close,
@@ -34,7 +36,7 @@ from utils_lasso_residuals import (
 )
 
 __script_dir__ = Path(__file__).parent.absolute()
-ASIA_EXCHANGES = {"XTKS", "XASX"}
+ASIA_EXCHANGES = {"XTKS", "XASX", "XHKG", "XSES", "XSHG", "XSHE"}
 
 
 def load_experiment_universe():
@@ -140,8 +142,9 @@ def main():
 
     ordinary_to_exchange, ordinary_to_adr = load_ordinary_exchange_mapping(include_asia=True)
     ordinary_to_index, exchange_to_index = load_index_mapping(include_asia=True)
+    index_to_currency = load_index_currency_mapping()
     adr_info = pd.read_csv(__script_dir__ / ".." / "data" / "raw" / "adr_info.csv")
-    adr_info["currency"] = adr_info["currency"].replace({"GBp": "GBP"})
+    adr_info["currency"] = adr_info["currency"].map(normalize_currency)
     adr_info["adr_ticker"] = adr_info["adr"].str.replace(" US Equity", "", regex=False)
     ordinary_to_currency = dict(zip(adr_info["id"], adr_info["currency"]))
     ordinary_to_adr = dict(zip(adr_info["id"], adr_info["adr_ticker"]))
@@ -180,11 +183,13 @@ def main():
     fx_daily_by_exchange_currency = {}
     needed_pairs = set()
     for exchange_mic, index_symbol in exchange_to_index.items():
-        index_currency = INDEX_TO_FX_CURRENCY.get(index_symbol)
+        index_currency = index_to_currency.get(index_symbol)
         stock_currency = exchange_to_stock_currency.get(exchange_mic)
         if stock_currency and index_currency and stock_currency != index_currency:
-            needed_pairs.add((exchange_mic, stock_currency))
-            needed_pairs.add((exchange_mic, index_currency))
+            if not is_usd_currency(stock_currency):
+                needed_pairs.add((exchange_mic, stock_currency))
+            if not is_usd_currency(index_currency):
+                needed_pairs.add((exchange_mic, index_currency))
     for exchange_mic, currency in sorted(needed_pairs):
         if currency not in fx_minute_cache:
             fx_minute_cache[currency] = load_fx_minute(currency)
@@ -297,13 +302,13 @@ def main():
         index_returns = compute_aligned_returns(index_px, dates=russell_returns.index)[rep_ticker]
 
         stock_currency = exchange_to_stock_currency.get(exchange_mic)
-        index_currency = INDEX_TO_FX_CURRENCY.get(exchange_to_index.get(exchange_mic))
+        index_currency = index_to_currency.get(exchange_to_index.get(exchange_mic))
         if stock_currency and index_currency and stock_currency != index_currency:
             stock_fx = fx_daily_by_exchange_currency.get((exchange_mic, stock_currency))
             index_fx = fx_daily_by_exchange_currency.get((exchange_mic, index_currency))
-            if stock_fx is not None:
+            if not is_usd_currency(stock_currency) and stock_fx is not None:
                 russell_returns = convert_returns_to_usd(russell_returns, stock_fx)
-            if index_fx is not None:
+            if not is_usd_currency(index_currency) and index_fx is not None:
                 index_returns = convert_returns_to_usd(index_returns, index_fx)
 
         russell_residuals_cache[exchange_mic] = residualize_returns(russell_returns, index_returns, window=60)
@@ -352,13 +357,13 @@ def main():
                     index_returns = compute_aligned_returns(idx_px, dates=ordinary_returns.index)[ordinary_ticker]
 
                     stock_currency = ordinary_to_currency.get(ordinary_ticker)
-                    index_currency = INDEX_TO_FX_CURRENCY.get(ordinary_to_index.get(ordinary_ticker))
+                    index_currency = index_to_currency.get(ordinary_to_index.get(ordinary_ticker))
                     if stock_currency and index_currency and stock_currency != index_currency:
                         stock_fx = fx_daily_by_exchange_currency.get((exchange_mic, stock_currency))
                         index_fx = fx_daily_by_exchange_currency.get((exchange_mic, index_currency))
-                        if stock_fx is not None:
+                        if not is_usd_currency(stock_currency) and stock_fx is not None:
                             ordinary_returns = convert_returns_to_usd(ordinary_returns, stock_fx)
-                        if index_fx is not None:
+                        if not is_usd_currency(index_currency) and index_fx is not None:
                             index_returns = convert_returns_to_usd(index_returns, index_fx)
 
                     ordinary_residuals = get_existing_beta_residuals(

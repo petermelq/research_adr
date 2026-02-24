@@ -1,6 +1,7 @@
 """Build gated signal by selecting model or baseline signal per model test window."""
 
 import argparse
+import io
 import pickle
 import shutil
 from pathlib import Path
@@ -15,16 +16,39 @@ def parse_args():
     p.add_argument("--model-signal-dir", required=True, help="Directory with model-augmented signal parquet files")
     p.add_argument("--baseline-signal-dir", required=True, help="Directory with futures-only baseline signal parquet files")
     p.add_argument("--output-dir", required=True, help="Directory for gated signal parquet files")
+    p.add_argument(
+        "--min-val-improvement",
+        type=float,
+        default=0.0,
+        help="Require model_val_ic - baseline_val_ic to exceed this margin before using model signal.",
+    )
     return p.parse_args()
 
 
 def _load_pickle(path):
     with open(path, "rb") as f:
-        return pickle.load(f)
+        blob = f.read()
+    try:
+        return pickle.loads(blob)
+    except Exception:
+        class _Placeholder:
+            pass
+
+        class _SafeUnpickler(pickle.Unpickler):
+            def find_class(self, module, name):
+                try:
+                    return super().find_class(module, name)
+                except Exception:
+                    # Fallback for model payload classes not needed for gating metadata.
+                    return _Placeholder
+
+        return _SafeUnpickler(io.BytesIO(blob)).load()
 
 
-def load_ticker_windows(model_dir: Path):
+def load_ticker_windows(model_dir: Path, min_val_improvement: float = 0.0):
     windows_by_ticker = {}
+    total_windows = 0
+    model_windows = 0
     for tdir in sorted(model_dir.iterdir()):
         if not tdir.is_dir():
             continue
@@ -41,16 +65,19 @@ def load_ticker_windows(model_dir: Path):
                 baseline_val_ic = md.get("baseline_train_ic", 0.0)
             model_val_ic = float(model_val_ic)
             baseline_val_ic = float(baseline_val_ic)
+            use_model = bool((model_val_ic - baseline_val_ic) > float(min_val_improvement))
+            total_windows += 1
+            model_windows += int(use_model)
             windows.append(
                 {
                     "start": ts.normalize(),
                     "end": te.normalize(),
-                    "use_model": bool(model_val_ic > baseline_val_ic),
+                    "use_model": use_model,
                 }
             )
         if windows:
             windows_by_ticker[ticker] = windows
-    return windows_by_ticker
+    return windows_by_ticker, total_windows, model_windows
 
 
 def _read_signal_df(path: Path):
@@ -113,7 +140,9 @@ def main():
     for p in output_dir.glob("ticker=*"):
         shutil.rmtree(p, ignore_errors=True)
 
-    windows_by_ticker = load_ticker_windows(model_dir)
+    windows_by_ticker, total_windows, model_windows = load_ticker_windows(
+        model_dir, min_val_improvement=args.min_val_improvement
+    )
     tickers = sorted(
         set(windows_by_ticker.keys())
         | {p.name.replace("ticker=", "", 1) for p in model_signal_dir.glob("ticker=*")}
@@ -136,7 +165,10 @@ def main():
         if not out_df.empty:
             non_empty += 1
 
-    print(f"Built gated signal for {len(tickers)} tickers; non_empty={non_empty}")
+    print(
+        f"Built gated signal for {len(tickers)} tickers; non_empty={non_empty}; "
+        f"model_windows={model_windows}/{total_windows}; min_val_improvement={args.min_val_improvement:.6f}"
+    )
 
 
 if __name__ == "__main__":

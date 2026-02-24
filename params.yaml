@@ -9,12 +9,19 @@ start_date: "2018-05-01"
 end_date: "2026-02-13"
 
 frd_start_date: "2015-01-01"
+min_model_date: "2019-09-01"
+russell_model_train_months: 30
+russell_model_val_months: 6
+russell_model_min_train_months: 12
 
 data_offset:
   milliseconds: 100
 
 pred:
   lookback_days: 280
+
+russell_betas:
+  lookback_days: 250
 
 avg_dollar_volume_lookback_days: 60
 avg_premium_lookback_days: 250

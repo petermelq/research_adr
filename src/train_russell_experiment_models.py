@@ -22,6 +22,20 @@ def load_experiment_universe():
     return set(universe)
 
 
+def load_ticker_universe(universe_file):
+    u = pd.read_csv(Path(universe_file))
+    if 'ticker' in u.columns:
+        vals = u['ticker']
+    elif 'id' in u.columns:
+        vals = u['id']
+    elif u.shape[1] >= 1:
+        vals = u.iloc[:, 0]
+    else:
+        vals = pd.Series(dtype=object)
+    tickers = pd.Series(vals).map(_normalize_bbg_equity_ticker).dropna().unique().tolist()
+    return set(tickers)
+
+
 def _normalize_bbg_equity_ticker(raw):
     if pd.isna(raw):
         return None
@@ -60,6 +74,14 @@ def load_turnover(path):
     return t
 
 
+def load_market_cap(path):
+    m = pd.read_csv(path, index_col=0, parse_dates=True)
+    m.columns = [_normalize_bbg_equity_ticker(c) for c in m.columns]
+    m = m.loc[:, [c for c in m.columns if c is not None]]
+    m = m[~m.index.duplicated(keep='last')].sort_index()
+    return m
+
+
 def _last_snapshot_on_or_before(snapshot_dates, ts):
     i = np.searchsorted(snapshot_dates, np.datetime64(pd.Timestamp(ts).normalize()), side='right') - 1
     if i < 0:
@@ -74,8 +96,7 @@ def select_window_feature_columns(
     val_end,
     snapshot_dates,
     constituent_sets,
-    turnover_df,
-    min_turnover,
+    feature_universe=None,
 ):
     start_snapshot = _last_snapshot_on_or_before(snapshot_dates, train_start)
     end_snapshot = _last_snapshot_on_or_before(snapshot_dates, val_end)
@@ -95,17 +116,9 @@ def select_window_feature_columns(
     for d in monthly_window[1:]:
         always_in_index &= constituent_sets.get(d, set())
 
-    # Also include names in end-of-validation snapshot that are liquid every day in train+val.
-    end_snapshot_set = set(constituent_sets.get(end_snapshot, set()))
-    liquid_set = set()
-    if len(window_dates) > 0 and not turnover_df.empty:
-        end_cols = [c for c in end_snapshot_set if c in turnover_df.columns]
-        if end_cols:
-            t_window = turnover_df.reindex(window_dates, columns=end_cols)
-            is_liquid = (t_window >= min_turnover) & t_window.notna()
-            liquid_set = set(is_liquid.columns[is_liquid.all(axis=0)])
-
-    eligible = always_in_index | liquid_set
+    eligible = always_in_index
+    if feature_universe is not None:
+        eligible &= feature_universe
     return [c for c in feature_cols if c.replace('russell_', '', 1) in eligible]
 
 
@@ -160,12 +173,69 @@ def get_rolling_windows(dates, train_months=48, val_months=6):
     return windows
 
 
+def get_rolling_windows_with_fallback(dates, train_months=48, val_months=6, min_train_months=12):
+    """
+    Build rolling windows with an optional short-history fallback.
+
+    Preferred behavior uses `train_months`. If a ticker has insufficient history,
+    reduce train months down to `min_train_months` (keeping val_months fixed) so
+    newer listings can still produce models.
+    """
+    dates = pd.DatetimeIndex(dates).sort_values()
+    months = dates.to_period('M').unique().sort_values()
+    total_months = len(months)
+    if total_months < (val_months + 2):
+        return [], None
+
+    eff_train = int(train_months)
+    needed = eff_train + val_months + 1
+    if total_months < needed:
+        eff_train = max(int(min_train_months), total_months - val_months - 1)
+    eff_train = min(eff_train, int(train_months))
+    if eff_train < int(min_train_months):
+        return [], None
+
+    return get_rolling_windows(dates, train_months=eff_train, val_months=val_months), eff_train
+
+
+def get_feature_mcap_weights(feature_cols, market_cap_df, asof_date):
+    if market_cap_df is None or len(feature_cols) == 0:
+        return np.ones(len(feature_cols), dtype=np.float32)
+
+    idx = market_cap_df.index[market_cap_df.index <= pd.Timestamp(asof_date)]
+    if len(idx) == 0:
+        return np.ones(len(feature_cols), dtype=np.float32)
+
+    row = market_cap_df.loc[idx.max()]
+    vals = []
+    for c in feature_cols:
+        t = c.replace('russell_', '', 1)
+        v = row.get(t, np.nan)
+        vals.append(float(v) if pd.notna(v) else np.nan)
+    arr = np.asarray(vals, dtype=np.float64)
+    if not np.isfinite(arr).any():
+        return np.ones(len(feature_cols), dtype=np.float32)
+
+    med = float(np.nanmedian(arr[np.isfinite(arr)]))
+    if not np.isfinite(med) or med <= 0:
+        med = 1.0
+    arr = np.where(np.isfinite(arr) & (arr > 0), arr, med)
+    sw = np.sqrt(arr)
+    med_sw = float(np.median(sw[np.isfinite(sw)]))
+    if not np.isfinite(med_sw) or med_sw <= 0:
+        med_sw = 1.0
+    sw = sw / med_sw
+    sw = np.clip(sw, 0.1, 10.0)
+    return sw.astype(np.float32)
+
+
 def fit_linear_ridge(X_train, y_train, X_val, y_val):
     scaler = StandardScaler().fit(X_train)
     Xt = scaler.transform(X_train)
     Xv = scaler.transform(X_val)
     best = (-np.inf, None, None)
-    for a in np.logspace(-4, 1.5, 30):
+    # Wider alpha grid to avoid capping at an overly small maximum regularization.
+    for a in np.logspace(-2, 4, 40):
         m = Ridge(alpha=float(a), fit_intercept=True, max_iter=10000)
         m.fit(Xt, y_train)
         ic = compute_ic(m.predict(Xv), y_val)
@@ -219,15 +289,33 @@ def fit_linear_elasticnet(X_train, y_train, X_val, y_val):
 
 
 def fit_linear_pcr(X_train, y_train, X_val, y_val, pcr_max_components=None):
+    # Guardrails tuned to avoid numerically degenerate high-k PCR fits.
+    hard_cap = 100
+    variance_floor = 1e-4
+    weight_pathology_threshold = 1e3
+
+    def _fit_ridge_with_alpha(X_fit, y_fit, alpha):
+        scaler_fit = StandardScaler().fit(X_fit)
+        Xs_fit = scaler_fit.transform(X_fit)
+        m = Ridge(alpha=float(alpha), fit_intercept=True, max_iter=10000)
+        m.fit(Xs_fit, y_fit)
+        coef = m.coef_.astype(np.float32)
+        scale = np.where(scaler_fit.scale_.astype(np.float32) == 0, 1.0, scaler_fit.scale_.astype(np.float32))
+        mean = scaler_fit.mean_.astype(np.float32)
+        w_local = coef / scale
+        c_local = -float(np.dot(mean / scale, coef))
+        return LinearModelBundle(None, w_local, c_local)
+
     scaler = StandardScaler().fit(X_train)
     Xt = scaler.transform(X_train)
     Xv = scaler.transform(X_val)
 
     max_comp = min(Xt.shape[0], Xt.shape[1])
+    max_comp = min(max_comp, hard_cap)
     if pcr_max_components is not None:
         max_comp = min(max_comp, int(pcr_max_components))
     max_comp = max(1, int(max_comp))
-    grid = sorted(set([1, 2, 5, 10, 20, 40, 80, 120, 200, max_comp]))
+    grid = sorted(set([1, 2, 5, 10, 20, 40, 80, 100, max_comp]))
     grid = [g for g in grid if 1 <= g <= max_comp]
 
     # Fit one decomposition, then sweep k using orthogonal-PC OLS in PC space.
@@ -235,7 +323,12 @@ def fit_linear_pcr(X_train, y_train, X_val, y_val, pcr_max_components=None):
     Zt_all = pca_all.fit_transform(Xt)
     Zv_all = pca_all.transform(Xv)
     zt_norm2 = np.sum(Zt_all * Zt_all, axis=0)
-    zt_norm2 = np.where(zt_norm2 == 0.0, 1.0, zt_norm2)
+    usable_components = int(np.sum(zt_norm2 > variance_floor))
+    usable_components = max(1, usable_components)
+    zt_norm2 = np.maximum(zt_norm2, variance_floor)
+    grid = [g for g in grid if g <= usable_components]
+    if not grid:
+        grid = [1]
     y_train_arr = np.asarray(y_train, dtype=np.float64)
 
     best = (-np.inf, None)
@@ -243,7 +336,8 @@ def fit_linear_pcr(X_train, y_train, X_val, y_val, pcr_max_components=None):
         beta = (Zt_all[:, :k].T @ y_train_arr) / zt_norm2[:k]
         pred = Zv_all[:, :k] @ beta
         ic = compute_ic(pred, y_val)
-        if ic > best[0]:
+        # Tie-break toward lower-k to reduce instability when IC is effectively equal.
+        if (ic > best[0]) or (np.isfinite(ic) and np.isfinite(best[0]) and np.isclose(ic, best[0], atol=1e-12) and (best[1] is None or k < best[1])):
             best = (ic, int(k))
 
     Xfull = np.vstack([X_train, X_val])
@@ -251,13 +345,14 @@ def fit_linear_pcr(X_train, y_train, X_val, y_val, pcr_max_components=None):
     scaler = StandardScaler().fit(Xfull)
     Xf = scaler.transform(Xfull)
     max_comp_full = max(1, min(Xf.shape[0], Xf.shape[1]))
+    max_comp_full = min(max_comp_full, hard_cap)
     if pcr_max_components is not None:
         max_comp_full = min(max_comp_full, int(pcr_max_components))
-    n_comp = min(best[1], max_comp_full)
+    n_comp = min(best[1], max_comp_full, usable_components)
     pca = PCA(n_components=n_comp, svd_solver='randomized', random_state=42)
     Zf = pca.fit_transform(Xf)
     zf_norm2 = np.sum(Zf * Zf, axis=0)
-    zf_norm2 = np.where(zf_norm2 == 0.0, 1.0, zf_norm2)
+    zf_norm2 = np.maximum(zf_norm2, variance_floor)
     beta = (Zf.T @ np.asarray(yfull, dtype=np.float64)) / zf_norm2
 
     w_scaled = pca.components_.T @ beta.astype(np.float32)
@@ -265,7 +360,104 @@ def fit_linear_pcr(X_train, y_train, X_val, y_val, pcr_max_components=None):
     mean = scaler.mean_.astype(np.float32)
     w = w_scaled / scale
     c = -float(np.dot(mean / scale, w_scaled))
-    return {'val_ic': best[0], 'bundle': LinearModelBundle(None, w, c), 'n_components': int(n_comp), 'kind': 'linear'}
+    bundle = LinearModelBundle(None, w, c)
+
+    max_abs_w = float(np.max(np.abs(bundle.w_raw))) if bundle.w_raw.size else 0.0
+    if np.isfinite(max_abs_w) and max_abs_w > weight_pathology_threshold:
+        # Always produce a model: switch to ridge and escalate penalty until weights are stable.
+        ridge_alphas = [1.0, 3.0, 10.0, 30.0, 100.0, 300.0, 1_000.0, 3_000.0, 10_000.0, 30_000.0, 100_000.0]
+        ridge_bundle = None
+        ridge_alpha = None
+        for alpha in ridge_alphas:
+            candidate = _fit_ridge_with_alpha(Xfull, yfull, alpha)
+            cand_max_abs_w = float(np.max(np.abs(candidate.w_raw))) if candidate.w_raw.size else 0.0
+            ridge_bundle = candidate
+            ridge_alpha = alpha
+            if np.isfinite(cand_max_abs_w) and cand_max_abs_w <= weight_pathology_threshold:
+                break
+        val_pred = ridge_bundle.predict_raw(X_val)
+        return {
+            'val_ic': compute_ic(val_pred, y_val),
+            'bundle': ridge_bundle,
+            'alpha': float(ridge_alpha),
+            'fallback_from': 'pcr',
+            'n_components': int(n_comp),
+            'kind': 'linear',
+        }
+
+    return {'val_ic': best[0], 'bundle': bundle, 'n_components': int(n_comp), 'kind': 'linear'}
+
+
+def fit_linear_pcr_mcap(X_train, y_train, X_val, y_val, feature_weights, pcr_max_components=None):
+    hard_cap = 100
+    variance_floor = 1e-4
+    scaler = StandardScaler().fit(X_train)
+    Xt = scaler.transform(X_train)
+    Xv = scaler.transform(X_val)
+
+    fw = np.asarray(feature_weights, dtype=np.float32).reshape(1, -1)
+    Xt_w = Xt * fw
+    Xv_w = Xv * fw
+
+    max_comp = min(Xt_w.shape[0], Xt_w.shape[1])
+    max_comp = min(max_comp, hard_cap)
+    if pcr_max_components is not None:
+        max_comp = min(max_comp, int(pcr_max_components))
+    max_comp = max(1, int(max_comp))
+    grid = sorted(set([1, 2, 5, 10, 20, 40, 80, 100, max_comp]))
+    grid = [g for g in grid if 1 <= g <= max_comp]
+
+    pca_all = PCA(n_components=max_comp, svd_solver='randomized', random_state=42)
+    Zt_all = pca_all.fit_transform(Xt_w)
+    Zv_all = pca_all.transform(Xv_w)
+    zt_norm2 = np.sum(Zt_all * Zt_all, axis=0)
+    usable_components = int(np.sum(zt_norm2 > variance_floor))
+    usable_components = max(1, usable_components)
+    zt_norm2 = np.maximum(zt_norm2, variance_floor)
+    grid = [g for g in grid if g <= usable_components]
+    if not grid:
+        grid = [1]
+    y_train_arr = np.asarray(y_train, dtype=np.float64)
+
+    best = (-np.inf, None)
+    for k in grid:
+        beta = (Zt_all[:, :k].T @ y_train_arr) / zt_norm2[:k]
+        pred = Zv_all[:, :k] @ beta
+        ic = compute_ic(pred, y_val)
+        if (ic > best[0]) or (np.isfinite(ic) and np.isfinite(best[0]) and np.isclose(ic, best[0], atol=1e-12) and (best[1] is None or k < best[1])):
+            best = (ic, int(k))
+
+    Xfull = np.vstack([X_train, X_val])
+    yfull = np.concatenate([y_train, y_val])
+    scaler = StandardScaler().fit(Xfull)
+    Xf = scaler.transform(Xfull)
+    Xf_w = Xf * fw
+    max_comp_full = max(1, min(Xf_w.shape[0], Xf_w.shape[1]))
+    max_comp_full = min(max_comp_full, hard_cap)
+    if pcr_max_components is not None:
+        max_comp_full = min(max_comp_full, int(pcr_max_components))
+    n_comp = min(best[1], max_comp_full, usable_components)
+    pca = PCA(n_components=n_comp, svd_solver='randomized', random_state=42)
+    Zf = pca.fit_transform(Xf_w)
+    zf_norm2 = np.sum(Zf * Zf, axis=0)
+    zf_norm2 = np.maximum(zf_norm2, variance_floor)
+    beta = (Zf.T @ np.asarray(yfull, dtype=np.float64)) / zf_norm2
+
+    w_scaled_weighted = pca.components_.T @ beta.astype(np.float32)
+    w_scaled = w_scaled_weighted * fw.reshape(-1)
+    scale = np.where(scaler.scale_.astype(np.float32) == 0, 1.0, scaler.scale_.astype(np.float32))
+    mean = scaler.mean_.astype(np.float32)
+    w = w_scaled / scale
+    c = -float(np.dot(mean / scale, w_scaled))
+    bundle = LinearModelBundle(None, w, c)
+
+    return {
+        'val_ic': best[0],
+        'bundle': bundle,
+        'n_components': int(n_comp),
+        'feature_weights': fw.reshape(-1).astype(np.float32),
+        'kind': 'linear',
+    }
 
 
 def _winsorize_with_train_bounds(X_train, X_other, lower_q=0.005, upper_q=0.995):
@@ -499,18 +691,24 @@ def train_single_ticker(
     val_months,
     snapshot_dates,
     constituent_sets,
-    turnover_df,
-    min_turnover,
     min_model_date=None,
     pcr_max_components=None,
     skip_existing=False,
+    feature_universe=None,
+    min_train_months=12,
+    market_cap_df=None,
 ):
     y = features_df['ordinary_residual']
     all_feature_cols = [c for c in features_df.columns if c.startswith('russell_')]
     if not all_feature_cols:
         return []
 
-    windows = get_rolling_windows(features_df.index, train_months=train_months, val_months=val_months)
+    windows, effective_train_months = get_rolling_windows_with_fallback(
+        features_df.index,
+        train_months=train_months,
+        val_months=val_months,
+        min_train_months=min_train_months,
+    )
     if not windows:
         return []
 
@@ -534,8 +732,7 @@ def train_single_ticker(
             w['val_end'],
             snapshot_dates,
             constituent_sets,
-            turnover_df,
-            min_turnover,
+            feature_universe=feature_universe,
         )
         if len(feature_cols) < 5:
             continue
@@ -564,6 +761,21 @@ def train_single_ticker(
                 y_train,
                 X_val,
                 y_val,
+                pcr_max_components=pcr_max_components,
+            )
+            y_pred = fit['bundle'].predict_raw(X_test)
+        elif model_kind == 'pcr_mcap':
+            feature_weights = get_feature_mcap_weights(
+                feature_cols=feature_cols,
+                market_cap_df=market_cap_df,
+                asof_date=w['val_end'],
+            )
+            fit = fit_linear_pcr_mcap(
+                X_train,
+                y_train,
+                X_val,
+                y_val,
+                feature_weights=feature_weights,
                 pcr_max_components=pcr_max_components,
             )
             y_pred = fit['bundle'].predict_raw(X_test)
@@ -608,7 +820,10 @@ def train_single_ticker(
             'feature_index_map': {c.replace('russell_', '', 1): i for i, c in enumerate(feature_cols)},
             'window_constituent_start': window_constituent_start,
             'window_constituent_end': window_constituent_end,
-            'min_turnover': float(min_turnover),
+            'feature_selection_rule': 'always_in_index_train_val',
+            'requested_train_months': int(train_months),
+            'effective_train_months': int(effective_train_months),
+            'val_months': int(val_months),
             'train_period': (w['train_start'], w['train_end']),
             'val_period': (w['val_start'], w['val_end']),
             'test_period': (w['test_start'], w['test_end']),
@@ -620,6 +835,9 @@ def train_single_ticker(
             'test_ic': test_ic,
             'n_features': len(feature_cols),
         }
+        if model_kind == 'pcr_mcap':
+            model_data['feature_weighting'] = 'sqrt_mcap_at_val_end_after_standardization'
+            model_data['feature_weights'] = fit.get('feature_weights')
         if fit['kind'] == 'linear':
             fit['bundle'].feature_names = feature_cols
             model_data['w_raw'] = fit['bundle'].w_raw
@@ -759,16 +977,19 @@ def train_rrr(features_dir, output_dir, train_months, val_months, universe, min_
 
 def parse_args():
     p = argparse.ArgumentParser()
-    p.add_argument('--model-kind', choices=['ridge', 'pcr', 'robust_pcr', 'elasticnet', 'pls', 'rf', 'rrr', 'huber'], required=True)
+    p.add_argument('--model-kind', choices=['ridge', 'pcr', 'pcr_mcap', 'robust_pcr', 'elasticnet', 'pls', 'rf', 'rrr', 'huber'], required=True)
     p.add_argument('--features-dir', default='data/processed/models/with_us_stocks/features_extended')
     p.add_argument('--output-dir', required=True)
     p.add_argument('--train-months', type=int, default=48)
     p.add_argument('--val-months', type=int, default=6)
+    p.add_argument('--min-train-months', type=int, default=12)
     p.add_argument('--min-model-date', type=str, default=None)
     p.add_argument('--historical-constituents-file', default='data/raw/historical_russell_1000.csv')
     p.add_argument('--turnover-file', default='data/raw/russell1000/russell1000_turnover.csv')
+    p.add_argument('--market-cap-file', default='data/raw/russell1000/russell1000_CUR_MKT_CAP.csv')
     p.add_argument('--min-turnover', type=float, default=10_000_000.0)
     p.add_argument('--pcr-max-components', type=int, default=None)
+    p.add_argument('--universe-file', default=None)
     p.add_argument('--skip-existing', action='store_true')
     return p.parse_args()
 
@@ -780,10 +1001,11 @@ def main():
     output_dir.mkdir(parents=True, exist_ok=True)
     min_model_date = pd.Timestamp(args.min_model_date) if args.min_model_date else None
     snapshot_dates, constituent_sets = load_historical_russell_constituents(Path(args.historical_constituents_file))
-    turnover_df = load_turnover(Path(args.turnover_file))
 
     all_md = []
     experiment_universe = load_experiment_universe()
+    feature_universe = load_ticker_universe(args.universe_file) if args.universe_file else None
+    market_cap_df = load_market_cap(Path(args.market_cap_file)) if args.model_kind == 'pcr_mcap' else None
 
     if args.model_kind == 'rrr':
         all_md = train_rrr(
@@ -805,11 +1027,12 @@ def main():
                     val_months=args.val_months,
                     snapshot_dates=snapshot_dates,
                     constituent_sets=constituent_sets,
-                    turnover_df=turnover_df,
-                    min_turnover=args.min_turnover,
                     min_model_date=min_model_date,
                     pcr_max_components=args.pcr_max_components,
                     skip_existing=args.skip_existing,
+                    feature_universe=feature_universe,
+                    min_train_months=args.min_train_months,
+                    market_cap_df=market_cap_df,
                 )
                 all_md.extend(md)
             except Exception as e:

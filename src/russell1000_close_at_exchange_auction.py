@@ -1,7 +1,7 @@
 """
 Extract Russell 1000 Close prices at foreign exchange closing auction times.
 
-For each foreign exchange (13 total, excluding XTKS and XASX which close before US extended hours),
+For each foreign exchange (excluding Asia exchanges that close before US extended hours),
 extract the Close price from Russell 1000 minute bar data at the exchange's closing auction time.
 
 Outputs one CSV per exchange with dates as row index, tickers as columns.
@@ -23,10 +23,10 @@ def load_params():
 
 
 def load_close_time_offsets():
-    """Load close time offsets from CSV, excluding XTKS and XASX."""
+    """Load close time offsets from CSV, excluding Asia exchanges used in the special branch."""
     offsets_df = pd.read_csv('data/raw/close_time_offsets.csv')
     # Exclude exchanges that close before US extended hours (4 AM ET)
-    exclude = ['XTKS', 'XASX']
+    exclude = ['XTKS', 'XASX', 'XHKG', 'XSES', 'XSHG', 'XSHE']
     offsets_df = offsets_df[~offsets_df['exchange_mic'].isin(exclude)]
     return dict(zip(offsets_df['exchange_mic'], offsets_df['offset']))
 
@@ -153,7 +153,7 @@ def main():
 
     print("\nLoading close time offsets...")
     offsets = load_close_time_offsets()
-    print(f"Loaded {len(offsets)} exchanges (excluding XTKS and XASX)")
+    print(f"Loaded {len(offsets)} exchanges (excluding Asia branch exchanges)")
 
     print("\nGetting US market schedule...")
     us_cal = mcal.get_calendar('NYSE')

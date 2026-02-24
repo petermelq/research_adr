@@ -8,8 +8,11 @@ import sys
 sys.path.append('../src/')
 import utils
 from utils_lasso_residuals import (
-    INDEX_TO_FX_CURRENCY,
+    load_index_reference_mappings,
+    load_index_currency_mapping,
     load_fx_minute,
+    is_usd_currency,
+    normalize_currency,
     compute_exchange_close_times,
     compute_fx_daily_at_close,
     convert_returns_to_usd,
@@ -26,11 +29,12 @@ if __name__ == "__main__":
     adr_info = pd.read_csv(os.path.join(SCRIPT_DIR, '../data/raw/adr_info.csv'))
     adr_info = adr_info.dropna(subset=['adr'])
     adr_info = adr_info[~adr_info['id'].str.contains(' US Equity')]
-    adr_info['currency'] = adr_info['currency'].replace({'GBp': 'GBP'})
+    adr_info['currency'] = adr_info['currency'].map(normalize_currency)
     adr_info['index_future_bbg'] = adr_info['index_future_bbg'].str.strip()
-    index_future_to_symbol = {'Z': 'UKX', 'VG': 'SX5E', 'NH': 'NKY'}
+    index_future_to_symbol, _ = load_index_reference_mappings()
+    index_to_currency = load_index_currency_mapping()
     adr_info['index_symbol'] = adr_info['index_future_bbg'].map(index_future_to_symbol)
-    adr_info['index_currency'] = adr_info['index_symbol'].map(INDEX_TO_FX_CURRENCY)
+    adr_info['index_currency'] = adr_info['index_symbol'].map(index_to_currency)
     tickers = adr_info['id'].tolist()
     adr_dict = adr_info[['id','adr']].set_index('id')['adr'].str.replace(' US Equity', '').to_dict()
 
@@ -44,7 +48,17 @@ if __name__ == "__main__":
     # etf_filename = os.path.join(SCRIPT_DIR, '../data/processed/etfs/etf_mid_at_underlying_auction_adjust_all.csv')
     # etf_data = pd.read_csv(etf_filename, idx_symbol=0, parse_dates=True)
     ord_data = pd.read_csv(ord_filename, index_col=0, parse_dates=True)
-    ord_data = ord_data[tickers]
+    available_tickers = [t for t in tickers if t in ord_data.columns]
+    missing_tickers = sorted(set(tickers) - set(available_tickers))
+    if missing_tickers:
+        print(
+            f"Warning: {len(missing_tickers)} tickers missing from {os.path.basename(ord_filename)}; "
+            "excluding from index-only beta fit."
+        )
+        print(", ".join(missing_tickers))
+    if not available_tickers:
+        raise RuntimeError(f"No requested tickers available in {ord_filename}")
+    ord_data = ord_data[available_tickers]
 
     offsets_df = pd.read_csv(os.path.join(SCRIPT_DIR, '..', 'data', 'raw', 'close_time_offsets.csv'))
     exchange_offsets = dict(zip(offsets_df['exchange_mic'], offsets_df['offset']))
@@ -55,6 +69,8 @@ if __name__ == "__main__":
     fx_daily_cache = {}
 
     def get_fx_daily(exchange_mic, currency):
+        if is_usd_currency(currency):
+            return None
         key = (exchange_mic, currency)
         if key in fx_daily_cache:
             return fx_daily_cache[key]
@@ -143,8 +159,14 @@ if __name__ == "__main__":
             stock_fx = get_fx_daily(exchange_mic, stock_currency)
             index_fx = get_fx_daily(exchange_mic, index_currency)
             converted = pd.DataFrame(index=valid_data.index)
-            converted[col] = convert_returns_to_usd(valid_data[col], stock_fx)
-            converted[idx_col] = convert_returns_to_usd(valid_data[idx_col], index_fx)
+            converted[col] = (
+                convert_returns_to_usd(valid_data[col], stock_fx)
+                if stock_fx is not None else valid_data[col]
+            )
+            converted[idx_col] = (
+                convert_returns_to_usd(valid_data[idx_col], index_fx)
+                if index_fx is not None else valid_data[idx_col]
+            )
             valid_data = converted.dropna()
 
         start_ts = pd.to_datetime(start_date)
