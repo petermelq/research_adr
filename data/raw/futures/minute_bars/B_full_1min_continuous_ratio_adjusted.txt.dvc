@@ -1,0 +1,5 @@
+outs:
+- md5: 33e2b0227f3773591164f65f48471ed2
+  size: 245136232
+  hash: md5
+  path: B_full_1min_continuous_ratio_adjusted.txt

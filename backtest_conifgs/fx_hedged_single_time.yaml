@@ -1,10 +1,10 @@
 output:
   formats: ["csv", "json"]
-  path: "./adr_results/full_to_2026/"
+  path: "./adr_results/fx_neutral_full_to_2026/"
 
 strategy:
   module: src/backtest_strategies/hedged_single_time_ADR.py
-  class: "hedged_single_time_ADR" # Will map to MinimalStrategy class
+  class: "fx_hedged_single_time_ADR" # Will map to MinimalStrategy class
   parameters:
     var_penalty: 0.0001
     adr_info_filename: data/raw/adr_info.csv

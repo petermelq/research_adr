@@ -130,7 +130,7 @@ class hedged_single_time_ADR(BaseStrategy):
         ) -> List[Trade]:
         
         trading_tickers = self.normal_close_tickers(trading_day)
-        
+
         if (not self.ny_normal_close(trading_day) or
             trading_day not in adr_signal.index or
             len(trading_tickers) < adr_trade_price.shape[1]

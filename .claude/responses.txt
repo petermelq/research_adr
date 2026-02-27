@@ -1,0 +1,143 @@
+  Things that confused me or required clarification:
+
+  1. Two signal paths — when to use which? I see both only_futures_full_signal and
+  db_only_futures_full_signal (and corresponding fixed_time_signal vs db_fixed_time_signal).
+  The "db" prefix seems to mean "Databento BBO-based" vs minute-bar futures. Is that the
+  correct distinction? Are you migrating from one to the other, or do they serve different
+  purposes permanently?
+
+    "fixed_time_signal" uses futures data that I downloaded from First Rate Data. 
+    "db_fixed_time_signal" uses futures data from databento. The First Rate Data 
+    dataset goes back many years, and is a single continuous time series made from stitching
+    together active contracts. There is also a price adjustment when switching contracts
+    as described here:https://firstratedata.com/about/price_adjustment#futures". This is 
+    the main path I want to develop since the data has the longest history.
+
+    However, there are some issues with the data. I noticed that the contract that is selected
+    as the active contract isn't always the most liquid contract. So for European futures after
+    the Europe close, the liquidity can be very thin and so the price series probably doesn't 
+    have as much information as the more active contract.
+
+    This is why I created the db_ signal path. This takes futures data from Databento. 
+    The Databento dataset contains raw price data for each contract, so I can selected
+    the contract I want to use based on liquidity. The issue is that  this dataset only goes back to 
+    March 2025 for Eurex. I also don't have a way of adjusting the price series when switching 
+    contracts, but since I am mainly using intraday returns of the futures, the lack of adjustment 
+    shouldn't matter.
+
+  2. The hard-coded date exclusions. For example, BP/SHEL excluded on 2025-06-25, and the
+  rolling covariance excluding 2025-04-01 to 2025-04-30. Are these data quality issues (bad
+  ticks, corporate actions)? Is there a systematic way you'd like these handled, or is ad-hoc
+   exclusion the intended approach?
+
+    These are ad-hoc exclusions. You can leave them as is for now.
+
+  3. backtest_conifgs/ typo — the folder is misspelled ("conifgs" instead of "configs"). Is
+  this intentional/historical, or would you want it corrected? DVC stages reference this
+  path, so renaming would require updating dvc.yaml too.
+
+    yes, this is a typo, you can fix it.
+
+  4. Multiple strategy variants in src/backtest_strategies/ — I see ~10 strategy files
+  (single_time, hedged_single_time, minute_vwap_hedged, brit variants, etc.). Are some of
+  these deprecated/experimental, or are they all actively used? Which is the "current best"
+  strategy you're iterating on?
+    
+    hedged_single_time.yaml and db_hedged_single_time.yaml are the ones I am most actively using.
+    You can see which parameters have been used for recent backtests by looking at the recent
+    backtests in adr_results/. Each backtest directory has a copy of the .yaml that was used as 
+    the configuration for the backtest.  
+
+  Patterns I noticed that aren't documented:
+
+  5. Implicit coupling between data loader keys and strategy parameter names. The backtester
+  validates that generate_trades() parameter names match data loader keys in the YAML config.
+   This is a powerful convention but isn't documented in CLAUDE.md. Is this something you'd
+  want called out?
+
+    yes you can document it in CLAUDE.md when I ask you to start editing CLAUDE.md.
+
+  6. Two date ranges coexist. params.yaml has start_date/end_date for pipeline data
+  processing, but backtest configs have their own start_date/end_date (typically much
+  narrower, like 2023-2025). The pipeline processes 2018-2026 to have enough history for
+  lookback windows, while backtests only use a recent subset. Is that understanding correct?
+  7. share_reclass.csv was recently committed. This appears to handle share reclassification
+  events (like ADR ratio changes). How common are these? Is this a one-off fix or something
+  that will grow over time?
+
+    They appear to be fairly uncommon. Updating this file requires some manual data entry.
+
+  8. Bloomberg dependency is fragile. The linux_xbbg bridge uses f-string interpolation of
+  parameters directly into generated scripts (potential injection risk in theory), temp file
+  cleanup is commented out for bds(), and errors are mostly swallowed. Is Bloomberg data
+  still actively used for new data, or are you migrating toward Databento/FRD?
+    
+    Yes. I am still using the bloomberg dependency via linux_xbbg. It is especially critical for daily closing
+    data for foreign ordinary shares, as well as corporate actions. I will work on improving linux_xbbg at some
+    point, but don't worry about it now. 
+
+  What I'd want to know before making changes:
+
+  9. What's the typical development workflow? Do you run dvc repro end-to-end, or selectively
+   run specific stages? How long does a full pipeline run take? Is there a "fast iteration"
+  path for testing strategy changes without re-running data processing?
+    
+    DVC repro should be able to detect which stages need to be rerun. I am currently working on improving the signal,
+    so the only part of the pipeline that should require is any additional data required by the new signal, the signal
+    generation, and the backtest.
+
+  10. Testing expectations. I don't see any unit tests. If I were to make changes to signal
+  generation or strategy logic, how would you want me to validate correctness — by running
+  backtests and comparing results, by adding tests, or something else?
+
+    Yes, I want you to use unit tests. We can get more detailed as we get into specific changes. When you make changes,
+    first write a detailed plan, come up with suggestions for tests, then ask for my feedback on the plan and the tests.
+
+  11. Which parts of the pipeline are most actively changing? Signal generation? Strategy
+  parameters? Data sources? This helps me understand where to be most careful vs. where code
+  is stable.
+
+    Currently, signal generation and backtest strategy/evaluation is changing the most .
+
+  12. The relink_output directory appeared as untracked in git status. What is it?
+    
+    That is probably related to some changes I was making to the dvc cache, changing to a hardlink cache. Now I should have a hardlink cache
+    and a dvc remote on s3. you can ignore relink_output for now.
+
+  13. Have you quantified the impact of the FRD active contract issue on signal quality? For
+  instance, do you see noticeably worse backtest performance for European ADRs vs others, or
+  higher noise in the futures-based signal after the Europe close? I'm asking because if this
+   is a significant issue, there might be value in building a hybrid approach (FRD for long
+  history + Databento for recent, or using FRD but filtering out low-liquidity periods).
+
+    I am not sure yet. I want to maintain a pipeline to use either First Rate Data or Databento.
+    Another advantage of DataBento is that it has sector futures and sovereign debt futures 
+    that first rate data does not have.
+
+  On evaluation:
+
+  14. Which metrics do you focus on most when comparing backtest runs? Sharpe ratio? Return
+  on GMV (median vs max)? Max drawdown? Or something else? This helps me understand what
+  "better" means when iterating on signal generation.
+
+    I generally need sharpe ratio above 3 and return on GMV of 5% or greater (the annualized average of 
+    daily return on the max GMV for that day. So in other words the pnl divided by the max gmv for the day,
+    averaged across days. And annualized. notebooks/bt_with_fees2.ipynb is the most updated evaluation I am using).
+
+  On the convex optimization:
+
+  15. The var_penalty parameter appears in several configs with different values (0.0001,
+  0.0005, 0.001). Is this something you're actively tuning, or have you settled on a value?
+  Similarly, the p_volume constraint (position size as fraction of ADV) — is that stable?
+    
+    I am tuning both.
+
+  On scope:
+
+  16. When you say signal generation is changing the most, what direction are you heading?
+  For example: incorporating additional signals beyond futures (e.g., ETF movements,
+  cross-ADR correlations), improving the beta model, better handling of the timing/liquidity
+  issues, or something else entirely?
+
+    I am working on encorporating US stocks as predictors in addition to the international futures.
+    I may also try to incorporate trading volume, order flow imbalance, and international ETF premia/discounts (particularly the hedging etfs).
