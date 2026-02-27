@@ -1,7 +1,9 @@
 [core]
     autostage = true
     remote = s3_remote
+    site_cache_dir = /var/tmp/dvc
 [cache]
     type = hardlink
+    dir = /home/pmalonis/.cache/dvc
 ['remote "s3_remote"']
     url = s3://peterm-data/dvc_caches/research_adr

@@ -1,7 +1,7 @@
 """
 Extract Russell 1000 Close prices at foreign exchange closing auction times.
 
-For each foreign exchange (13 total, excluding XTKS and XASX which close before US extended hours),
+For each foreign exchange (excluding Asia exchanges that close before US extended hours),
 extract the Close price from Russell 1000 minute bar data at the exchange's closing auction time.
 
 Outputs one CSV per exchange with dates as row index, tickers as columns.
@@ -23,10 +23,10 @@ def load_params():
 
 
 def load_close_time_offsets():
-    """Load close time offsets from CSV, excluding XTKS and XASX."""
+    """Load close time offsets from CSV, excluding Asia exchanges used in the special branch."""
     offsets_df = pd.read_csv('data/raw/close_time_offsets.csv')
     # Exclude exchanges that close before US extended hours (4 AM ET)
-    exclude = ['XTKS', 'XASX']
+    exclude = ['XTKS', 'XASX', 'XHKG', 'XSES', 'XSHG', 'XSHE']
     offsets_df = offsets_df[~offsets_df['exchange_mic'].isin(exclude)]
     return dict(zip(offsets_df['exchange_mic'], offsets_df['offset']))
 
@@ -47,15 +47,15 @@ def compute_exchange_auction_times(exchange_mic, offset_str, start_date, end_dat
     cal = mcal.get_calendar(exchange_mic)
     sched = cal.schedule(start_date=start_date, end_date=end_date)
 
-    # Convert market close to ET for comparison
-    close_times_et = sched['market_close'].dt.tz_convert('America/New_York')
-
-    # Determine the most common close time (this is the "normal" close time)
-    close_times_only = close_times_et.dt.time
-    most_common_close = close_times_only.mode()[0]
+    # Determine normal close in the exchange's local timezone.
+    # Using ET wall-clock times here is wrong for non-US venues because
+    # US and local DST transitions happen on different dates.
+    close_times_local = sched['market_close'].dt.tz_convert(str(cal.tz))
+    close_times_only_local = close_times_local.dt.time
+    most_common_close = close_times_only_local.mode()[0]
 
     # Filter to only normal close days (exclude early close days)
-    is_normal_close = close_times_only == most_common_close
+    is_normal_close = close_times_only_local == most_common_close
     sched_normal = sched[is_normal_close]
 
     # Convert market close to ET, add offset, then strip timezone
@@ -153,7 +153,7 @@ def main():
 
     print("\nLoading close time offsets...")
     offsets = load_close_time_offsets()
-    print(f"Loaded {len(offsets)} exchanges (excluding XTKS and XASX)")
+    print(f"Loaded {len(offsets)} exchanges (excluding Asia branch exchanges)")
 
     print("\nGetting US market schedule...")
     us_cal = mcal.get_calendar('NYSE')

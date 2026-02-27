@@ -1,4 +1,4 @@
-fixed_trade_time_min: 30
+fixed_trade_time_min: 0
 fixed_trade_time_hours: 14
 
 daily_time_for_cov_min: 0
@@ -8,13 +8,23 @@ daily_time_for_cov_hours: 13
 start_date: "2018-05-01"
 end_date: "2026-02-13"
 
-frd_start_date: "2015-01-02"
+frd_start_date: "2015-01-01"
+min_model_date: "2025-02-01"
+russell_model_train_months: 20
+russell_model_val_months: 6
+russell_model_min_train_months: 12
+intraday_gate_entry_time: "14:00"
+intraday_gate_lookback_months: 6
+intraday_gate_min_obs: 30
 
 data_offset:
   milliseconds: 100
 
 pred:
   lookback_days: 280
+
+russell_betas:
+  lookback_days: 250
 
 avg_dollar_volume_lookback_days: 60
 avg_premium_lookback_days: 250

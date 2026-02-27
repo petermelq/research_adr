@@ -59,17 +59,21 @@ if __name__ == "__main__":
         close_time = pd.DataFrame({ex: mcal.get_calendar(ex).schedule(start_date=start_date, end_date=end_date)['market_close'].dt.tz_convert('America/New_York') for ex in exchanges})
         close_time = close_time.stack().reset_index(name='close_time').rename(columns={'level_0':'date','level_1':'exchange'})
 
-        # TODO make generalizable for other FX pairs
+        currency_map = {'GBp': 'GBP'}
+        needed_currencies = sorted(
+            set(adr_info['currency'].dropna().unique().tolist())
+            .intersection({'GBp', 'GBP', 'EUR', 'JPY', 'AUD', 'NOK', 'SEK', 'DKK', 'CHF', 'HKD'})
+        )
+
         all_fx_data = []
-        for cur in ['GBP', 'EUR', 'JPY', 'AUD']:
-            fx_file = os.path.join(fx_dir, f'{cur}USD_full_1min.txt')
+        for currency in needed_currencies:
+            source_cur = currency_map.get(currency, currency)
+            fx_file = os.path.join(fx_dir, f'{source_cur}USD_full_1min.txt')
             fx_df = pd.read_csv(fx_file, header=None, index_col=None, names=['date','time','open','high','low','close','volume'])
             fx_df['timestamp'] = pd.to_datetime(fx_df['date'].astype(str) + ' ' + fx_df['time'].astype(str)).dt.tz_localize('America/New_York')
-            if cur == 'GBP':
+            if currency == 'GBp':
                 fx_df[['open','high','low','close']] = fx_df[['open','high','low','close']] / 100 # convert to GBpUSD
-                fx_df['currency'] = 'GBp'
-            else:
-                fx_df['currency'] = cur
+            fx_df['currency'] = currency
                 
             all_fx_data.append(fx_df)
         
@@ -89,8 +93,7 @@ if __name__ == "__main__":
         stacked_price = pd.merge(stacked_price, adr_info[['id','exchange','currency']], left_on='ticker', right_on='id', how='left').drop(columns=['id'])
         stacked_price = pd.merge(stacked_price, close_time, on=['date','exchange'], how='left')
 
-        # FOR NOW, ONLY USING GBP EUR JPY AUD
-        stacked_price = stacked_price[stacked_price['currency'].isin(['GBp','EUR','JPY','AUD'])]
+        stacked_price = stacked_price[stacked_price['currency'].isin(needed_currencies)]
 
         stacked_price = pd.merge(stacked_price, fx_df[['timestamp','close','currency']].rename(columns={'close':'fx_rate'}), left_on=['close_time','currency'], right_on=['timestamp','currency'], how='left').drop(columns=['timestamp'])
         stacked_price['price_usd'] = stacked_price['price'] * stacked_price['fx_rate']

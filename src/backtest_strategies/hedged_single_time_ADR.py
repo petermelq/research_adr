@@ -66,6 +66,8 @@ class hedged_single_time_ADR(BaseStrategy):
                 vol_lookback: int,
                 turnover_lookback: int,
                 skip_earnings: bool = False,
+                hedged: bool = True,
+                position_limit: float = 1e6,
         ):
         """
         Initialize the minimal strategy.
@@ -78,6 +80,7 @@ class hedged_single_time_ADR(BaseStrategy):
         self.var_penalty = var_penalty
         self.p_volume = p_volume
         self.vol_lookback = vol_lookback
+        self.hedged = hedged
         params = utils.load_params()
         self.trade_time = pd.Timedelta(hours=params['fixed_trade_time_hours'],
                                         minutes=params['fixed_trade_time_min'])
@@ -103,6 +106,7 @@ class hedged_single_time_ADR(BaseStrategy):
         self.hedge_dict = self.adr_info.set_index('adr_ticker')['market_etf_hedge'].to_dict()
         self.skip_earnings = skip_earnings
         self.turnover_lookback = turnover_lookback
+        self.position_limit = position_limit
         if skip_earnings:
             self.earnings = pd.read_csv(os.path.join(MODULE_DIR, '..', '..', 'data', 'raw', 'earnings.csv'), index_col=0, parse_dates=['announcement_date'])
             adr_dict = self.adr_info.set_index('id')['adr'].to_dict()
@@ -187,7 +191,7 @@ class hedged_single_time_ADR(BaseStrategy):
 
             objective = cp.Maximize((alpha @ w) - self.var_penalty * cp.quad_form(w, Cov))
             adv_constraint = cp.multiply(cp.abs(w), 1/turnover) <= self.p_volume
-            pos_constraint = cp.abs(w) <= 1e6
+            pos_constraint = cp.abs(w) <= self.position_limit
             constraints = [adv_constraint, pos_constraint]
             
             prob = cp.Problem(objective, constraints)
@@ -209,6 +213,7 @@ class hedged_single_time_ADR(BaseStrategy):
             weights['hedge_weight'] = weights['weight'] * weights['hedge_ratio'] * (-1)
             etf_weights = weights.groupby('hedge_ticker')['hedge_weight'].sum()
             shares = (weights['weight']/weights['trade_price']).round()
+            
             try:
                 etf_shares = (etf_weights/etf_trade_price.loc[trading_day]).round()
             except:
@@ -238,22 +243,22 @@ class hedged_single_time_ADR(BaseStrategy):
                                         price=adr_close.loc[trading_day, ticker],
                                     )
                                 )
-                    
-            for etf_ticker, size in etf_shares.items():
-                trades.append(
-                                Trade(
-                                    timestamp=trading_day + self.trade_time,
-                                    ticker=etf_ticker,
-                                    size=int(size),
-                                    price=etf_trade_price.loc[trading_day, etf_ticker],
+            if self.hedged:
+                for etf_ticker, size in etf_shares.items():
+                    trades.append(
+                                    Trade(
+                                        timestamp=trading_day + self.trade_time,
+                                        ticker=etf_ticker,
+                                        size=int(size),
+                                        price=etf_trade_price.loc[trading_day, etf_ticker],
+                                    )
                                 )
-                            )
-                trades.append(
-                                Trade(
-                                    timestamp=trading_day + pd.Timedelta('16:00:00'),
-                                    ticker=etf_ticker,
-                                    size=-int(size),
-                                    price=etf_close.loc[trading_day, etf_ticker],
-                                )
-                            )   
+                    trades.append(
+                                    Trade(
+                                        timestamp=trading_day + pd.Timedelta('16:00:00'),
+                                        ticker=etf_ticker,
+                                        size=-int(size),
+                                        price=etf_close.loc[trading_day, etf_ticker],
+                                    )
+                                )   
             return trades

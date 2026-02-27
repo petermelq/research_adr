@@ -35,12 +35,14 @@ if __name__ == "__main__":
     hedge_returns = hedge_data.pct_change()
     adr_returns = adr_data.pct_change()
     beta_dict = {}
+    missing_pairs = []
     for ticker in adr_tickers:
         hedge_ticker = hedge_dict[ticker]
-        try:
-            valid_data = pd.concat([adr_returns[ticker], hedge_returns[hedge_ticker]], axis=1).dropna()
-        except:
-            import IPython; IPython.embed()
+        if ticker not in adr_returns.columns or hedge_ticker not in hedge_returns.columns:
+            missing_pairs.append((ticker, hedge_ticker))
+            continue
+
+        valid_data = pd.concat([adr_returns[ticker], hedge_returns[hedge_ticker]], axis=1).dropna()
         if len(valid_data) < 2:
             continue
             
@@ -54,6 +56,13 @@ if __name__ == "__main__":
             beta_dict[(valid_data.index[i], ticker)] = hedge_beta
 
         print(f"Processed {ticker}")
+
+    if missing_pairs:
+        preview = ", ".join([f"{t}->{h}" for t, h in missing_pairs[:10]])
+        print(
+            f"Warning: skipped {len(missing_pairs)} tickers due to missing ADR/hedge columns. "
+            f"First pairs: {preview}"
+        )
 
     beta_df = pd.Series(beta_dict).unstack().sort_index()
     beta_df.to_csv(output_filename)

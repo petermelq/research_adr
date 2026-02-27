@@ -1,0 +1,154 @@
+data_loaders:
+  adr_close:
+    class: HistoricalDailyCSVDataLoader
+    csv_path: data/raw/adrs/adr_PX_LAST_adjust_none.csv
+    start_date: 2018-05-01
+  adr_signal:
+    class: HistoricalDailyCSVDataLoader
+    csv_path: data/processed/fixed_time_signal.csv
+    start_date: 2018-05-01
+  adr_trade_price:
+    class: HistoricalDailyCSVDataLoader
+    csv_path: data/processed/adrs/adr_daily_fixed_time_mid.csv
+    start_date: 2018-05-01
+  etf_close:
+    class: HistoricalDailyCSVDataLoader
+    csv_path: data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
+    start_date: 2018-05-01
+  etf_trade_price:
+    class: HistoricalDailyCSVDataLoader
+    csv_path: data/processed/etfs/market/market_etf_daily_fixed_time_mid.csv
+    start_date: 2018-05-01
+  hedge_ratios:
+    class: HistoricalDailyCSVDataLoader
+    csv_path: data/processed/market_etf_hedge_ratios.csv
+    start_date: 2018-05-01
+  turnover_df:
+    class: HistoricalDailyCSVDataLoader
+    csv_path: data/raw/adrs/adr_turnover.csv
+    start_date: 2018-05-01
+end_date: '2026-02-13'
+evaluation:
+  plot_pnl:
+    parameters:
+      market_calendar: NYSE
+      price_filename:
+      - data/raw/adrs/adr_PX_LAST_adjust_none.csv
+      - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
+      reassign_dates: false
+  return_on_max_gmv:
+    parameters:
+      market_calendar: NYSE
+      price_filename:
+      - data/raw/adrs/adr_PX_LAST_adjust_none.csv
+      - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
+      reassign_dates: false
+  return_on_median_gmv:
+    parameters:
+      market_calendar: NYSE
+      price_filename:
+      - data/raw/adrs/adr_PX_LAST_adjust_none.csv
+      - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
+      reassign_dates: false
+initial_positions: {}
+market_calendar: NYSE
+market_impact:
+  class: "MinimalMarketImpactModel"
+  slippage_bps: 0.0  # 5 basis points slippage
+output:
+  formats:
+  - csv
+  - json
+  path: ./adr_results/long_1e-6_penalty_5e-2_pct_volume_unhedged/
+start_date: '2019-01-02'
+stock_split_file: data/raw/all_splits.csv
+strategy:
+  class: hedged_single_time_ADR
+  module: src/backtest_strategies/hedged_single_time_ADR.py
+  parameters:
+    adr_info_filename: data/raw/adr_info.csv
+    hedged: false
+    p_volume: 0.005
+    skip_earnings: false
+    turnover_lookback: 90
+    var_penalty: 0.000001
+    vol_lookback: 100
+    position_limit: 2e6
+symbols:
+- BUD
+- AEG
+- ARGX
+- ASML
+- BCS
+- BTI
+- BBVA
+- BP
+- DEO
+- E
+- FMS
+- GSK
+- HLN
+- HSBC
+- IHG
+- ING
+- LYG
+- NGG
+- NOK
+- NWG
+- PHG
+- PUK
+- PSO
+- RELX
+- RIO
+- RTO
+- SNY
+- SAN
+- SAP
+- SHEL
+- SNN
+- TS
+- TTE
+- UL
+- VOD
+- WPP
+- DB
+- EWU
+- FEZ
+- EQNR
+- ERIC
+- NVS
+- NVO
+- UBS
+- TAK
+- SONY
+- TM
+- HMC
+- MUFG
+- SMFG
+- MFG
+- BHP
+- WDS
+- EWA
+- EWJ
+- TME
+- BEKE
+- MT
+- STM
+- BABA
+- BIDU
+- JD
+- NIO
+- TCOM
+- XPEV
+- LI
+- ONC
+- NTES
+- GDS
+- BILI
+- HTHT
+- EDU
+- ZTO
+- KC
+- ZLAB
+- MNSO
+- WB

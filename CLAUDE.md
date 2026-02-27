@@ -54,5 +54,7 @@ The repo uses `pandas_market_calendars` for market hours and holidays. The closi
 
 - `dvc repro` detects which stages need rerun. For signal changes: any new data stages + signal generation + backtest.
 - Signal generation and backtest strategy/evaluation are the most actively changing parts. Data download, NBBO consolidation, and currency conversion are stable.
+- Default inference mode: run full minute inference (`index_russell_experiment_signal.py` without `--eval-times-only`) unless explicitly asked to run the 30-minute-only path.
+- Default evaluation metric to report is mean per-ticker IC. Treat pooled IC as secondary/context only unless explicitly requested.
 - Hard-coded date exclusions are ad-hoc — leave as-is.
 - When making changes: write a detailed plan, suggest unit tests, then ask for feedback before implementing.

@@ -1,17 +1,18 @@
 output:
   formats: ["csv", "json"]
-  path: "./adr_results/full_to_2026/"
+  path: "./adr_results/2_pct_volume_unhedged/"
 
 strategy:
   module: src/backtest_strategies/hedged_single_time_ADR.py
   class: "hedged_single_time_ADR" # Will map to MinimalStrategy class
   parameters:
-    var_penalty: 0.0001
     adr_info_filename: data/raw/adr_info.csv
-    vol_lookback: 100
+    hedged: false
     p_volume: 0.02
-    skip_earnings: False
+    skip_earnings: false
     turnover_lookback: 90
+    var_penalty: 0.0001
+    vol_lookback: 100
 
 stock_split_file: data/raw/all_splits.csv
 
@@ -22,7 +23,7 @@ data_loaders:
     start_date: 2018-05-01
   adr_signal:
     class: HistoricalDailyCSVDataLoader
-    csv_path: data/processed/fixed_time_signal.csv #/home/pmalonis/adr_trade/data/processed/brit_adr_futures_fixed_time_signal_time=13:00:00.csv 
+    csv_path:  data/processed/fixed_time_signal.csv
     start_date: 2018-05-01
   turnover_df:
     class: HistoricalDailyCSVDataLoader
@@ -116,6 +117,29 @@ symbols:
   - WDS
   - EWA
   - EWJ
+  - EEM
+  - TME
+  - BEKE
+  - MT
+  - STM
+  - BABA
+  - BIDU
+  - JD
+  - NIO
+  - TCOM
+  - XPEV
+  - LI
+  - ONC
+  - NTES
+  - GDS
+  - BILI
+  - HTHT
+  - EDU
+  - ZTO
+  - KC
+  - ZLAB
+  - MNSO
+  - WB
 
 market_calendar: NYSE
 

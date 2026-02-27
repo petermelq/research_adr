@@ -10,7 +10,6 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 if __name__ == '__main__':
     domestic_close_mid_filename = os.path.join(SCRIPT_DIR, '..', 'data', 'processed', 'adrs', 'adr_mid_at_ord_auction_adjust_none.csv')
     ord_close_to_usd_filename = os.path.join(SCRIPT_DIR, '..', 'data', 'processed', 'ordinary', 'ord_close_to_usd_adr_PX_LAST_adjust_none.csv')
-    mean_premium_filename = os.path.join(SCRIPT_DIR, '..', 'data', 'processed', 'adrs', 'adr_open_mean_premium.csv')
     betas_filename = os.path.join(SCRIPT_DIR, '..', 'data', 'processed', 'models', 'ordinary_betas_index_only.csv')
     futures_dir = os.path.join(SCRIPT_DIR, '../data/processed/futures/converted_bbo')
     adr_nbbo_dir = os.path.join(SCRIPT_DIR, '../data/raw/adrs/bbo-1m/nbbo')
@@ -29,18 +28,12 @@ if __name__ == '__main__':
     # reading daily data
     adr_domestic_close = pd.read_csv(domestic_close_mid_filename, index_col=0)
     ord_close_to_usd = pd.read_csv(ord_close_to_usd_filename, index_col=0).rename(columns=adr_dict)
-    adr_mean_premium = pd.read_csv(mean_premium_filename, index_col=0)
-    
     # using different adr baseline for asia
-    asia_tickers = adr_info[adr_info['country'].isin(['JAPAN','AUSTRALIA'])]['adr'].str.replace(' US Equity','').tolist()
-    ord_close_to_usd_asia = ord_close_to_usd[asia_tickers]
-    adr_mean_premium_asia = adr_mean_premium[asia_tickers]
-    stacked_prem_asia = adr_mean_premium_asia.stack().rename('mean_premium')
-    stacked_ord_close_asia = ord_close_to_usd_asia.stack().rename('ord_close_to_usd')
-    merged_asia = pd.concat([stacked_prem_asia, stacked_ord_close_asia], axis=1).dropna()
-    merged_asia['adr_theo_start'] = merged_asia['ord_close_to_usd']# * (1 + merged_asia['mean_premium'])
-    adr_theo_start_asia = merged_asia['adr_theo_start'].unstack()
-    adr_domestic_close = pd.concat([adr_domestic_close.drop(columns=asia_tickers), adr_theo_start_asia], axis=1).sort_index()
+    asia_exchanges = {'XTKS', 'XASX', 'XHKG', 'XSES', 'XSHG', 'XSHE'}
+    asia_tickers = adr_info[adr_info['exchange'].isin(asia_exchanges)]['adr'].str.replace(' US Equity','').tolist()
+    available_asia_tickers = [t for t in asia_tickers if t in ord_close_to_usd.columns]
+    adr_theo_start_asia = ord_close_to_usd[available_asia_tickers]
+    adr_domestic_close = pd.concat([adr_domestic_close.drop(columns=available_asia_tickers, errors='ignore'), adr_theo_start_asia], axis=1).sort_index()
     params = utils.load_params()
     
     start_date = params['start_date']
@@ -52,22 +45,11 @@ if __name__ == '__main__':
     df['date'] = df['timestamp'].dt.strftime('%Y-%m-%d')
     df = df.set_index('timestamp')
 
-    time_futures_after_close = {}
-    time_futures_after_close['XLON'] = pd.Timedelta('6min')
-    time_futures_after_close['XAMS'] = pd.Timedelta('6min')
-    time_futures_after_close['XPAR'] = pd.Timedelta('6min')
-    time_futures_after_close['XETR'] = pd.Timedelta('6min')
-    time_futures_after_close['XMIL'] = pd.Timedelta('6min')
-    time_futures_after_close['XBRU'] = pd.Timedelta('6min')
-    time_futures_after_close['XMAD'] = pd.Timedelta('6min')
-    time_futures_after_close['XHEL'] = pd.Timedelta('0min')
-    time_futures_after_close['XDUB'] = pd.Timedelta('0min')
-    time_futures_after_close['XOSL'] = pd.Timedelta('5min')
-    time_futures_after_close['XSTO'] = pd.Timedelta('0min')
-    time_futures_after_close['XSWX'] = pd.Timedelta('1min')
-    time_futures_after_close['XCSE'] = pd.Timedelta('0min')
-    time_futures_after_close['XTKS'] = pd.Timedelta('1min')
-    time_futures_after_close['XASX'] = pd.Timedelta('11min')
+    close_offsets = pd.read_csv(os.path.join(SCRIPT_DIR, '..', 'data', 'raw', 'close_time_offsets.csv'))
+    time_futures_after_close = {
+        row['exchange_mic']: pd.Timedelta(str(row['offset']))
+        for _, row in close_offsets.iterrows()
+    }
     betas = pd.read_csv(betas_filename, index_col=0)
     
     # Create close times dataframe
@@ -85,6 +67,12 @@ if __name__ == '__main__':
     adr_info['adr'] = adr_info['adr'].str.replace(' US Equity','')
     adr_tickers = adr_info['adr'].tolist()
     exchanges = adr_info['exchange'].unique().tolist()
+    missing_offsets = sorted(set(exchanges) - set(time_futures_after_close.keys()))
+    if missing_offsets:
+        raise RuntimeError(
+            "Missing close-time offsets for exchanges in data/raw/close_time_offsets.csv: "
+            + ", ".join(missing_offsets)
+        )
     exchange_dict = adr_info.set_index('adr')['exchange'].to_dict()
     
     # Create close times dataframe
