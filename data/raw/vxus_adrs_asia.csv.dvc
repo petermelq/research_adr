@@ -1,0 +1,6 @@
+outs:
+- md5: f64694be0ccba671e359310fb83c725d
+  size: 3392
+  isexec: true
+  hash: md5
+  path: vxus_adrs_asia.csv
