@@ -8,7 +8,7 @@ stages:
       - data/raw/russell1000_tickers.csv
 
   download_russell1000_frd_ohlcv-1m:
-    cmd: yes y | python -m data_tools.cli.frd_download_to_parquet_with_append --tickers=data/raw/russell1000_tickers.csv --tickers_columns=ticker --asset_types stock etf --start_date=${frd_start_date} --end_date=${end_date} --output_dir=data/raw/russell1000/ohlcv-1m --timeframe=1min --adjustment=UNADJUSTED --partition_period=none
+    cmd: yes y | python -m data_tools.cli.frd_download_to_parquet_with_append --tickers=data/raw/russell1000_tickers.csv --tickers_columns=ticker --asset_types stock --start_date=${frd_start_date} --end_date=${end_date} --output_dir=data/raw/russell1000/ohlcv-1m --timeframe=1min --adjustment=UNADJUSTED --partition_period=none --full-workers 2
     deps:
       - data/raw/russell1000_tickers.csv
     params:
@@ -618,6 +618,15 @@ stages:
     outs:
       - data/processed/adrs/adr_open_mid.csv
 
+  adr_mid_ny_open:
+    cmd: python -m src.daily_fixed_time_mid --nbbo_dir=data/raw/adrs/bbo-1m/nbbo --time_to_save_hrs=9 --time_to_save_min=35 --tickers=data/raw/adr_info.csv --tickers_columns=adr --output_filename=data/processed/adrs/adr_mid_ny_open.csv
+    deps:
+      - src/daily_fixed_time_mid.py
+      - data/raw/adrs/bbo-1m/nbbo
+      - data/raw/adr_info.csv
+    outs:
+      - data/processed/adrs/adr_mid_ny_open.csv
+
   daily_adr_for_cov:
     cmd: python -m src.daily_fixed_time_mid --nbbo_dir=data/raw/adrs/bbo-1m/nbbo --time_to_save_hrs=${daily_time_for_cov_hours} --time_to_save_min=${daily_time_for_cov_min} --tickers=data/raw/adr_info.csv --tickers_columns=adr --output_filename=data/processed/adrs/daily_mid_for_cov.csv
     deps:
@@ -1014,7 +1023,7 @@ stages:
       - src/utils_lasso_residuals.py
       - data/raw/ordinary/ord_PX_LAST_adjust_all.csv
       - data/raw/adr_info.csv
-      - data/raw/adrs/adr_PX_LAST_adjust_none.csv
+      - data/raw/adrs/adr_PX_LAST_adjust_all.csv
       - data/processed/ordinary/ord_close_to_usd_adr_PX_LAST_adjust_none.csv
       - data/raw/futures_symbols.csv
       - data/raw/russell1000/ohlcv-1m
@@ -1039,7 +1048,7 @@ stages:
       - data/processed/models/with_us_stocks/features_extended
 
   pcr_train_models:
-    cmd: python src/train_russell_experiment_models.py --model-kind pcr_mcap --features-dir data/processed/models/with_us_stocks/features_extended --output-dir data/processed/models/with_us_stocks/pcr --train-months ${russell_model_train_months} --val-months ${russell_model_val_months} --min-train-months ${russell_model_min_train_months} --min-model-date ${min_model_date} --market-cap-file data/raw/russell1000/russell1000_CUR_MKT_CAP.csv --pcr-max-components 10
+    cmd: python src/train_russell_experiment_models.py --model-kind pcr --features-dir data/processed/models/with_us_stocks/features_extended --output-dir data/processed/models/with_us_stocks/pcr --train-months ${russell_model_train_months} --val-months ${russell_model_val_months} --min-train-months ${russell_model_min_train_months} --min-model-date ${min_model_date} --market-cap-file data/raw/russell1000/russell1000_CUR_MKT_CAP.csv --pcr-max-components 50
     deps:
       - src/train_russell_experiment_models.py
       - data/processed/models/with_us_stocks/features_extended
@@ -1148,6 +1157,22 @@ stages:
       - data/processed/futures_only_signal
     outs:
       - data/processed/index_russell_pcr_signal_gated
+
+  index_russell_pcr_signal_gated_intraday:
+    cmd: python src/gate_russell_intraday_ic_signal.py --model-signal-dir data/processed/index_russell_pcr_signal --baseline-signal-dir data/processed/futures_only_signal --output-dir data/processed/index_russell_pcr_signal_gated_intraday --entry-time ${intraday_gate_entry_time} --lookback-months ${intraday_gate_lookback_months} --min-obs ${intraday_gate_min_obs} --min-output-date ${min_model_date}
+    deps:
+      - src/gate_russell_intraday_ic_signal.py
+      - data/processed/index_russell_pcr_signal
+      - data/processed/futures_only_signal
+      - data/raw/adrs/bbo-1m/nbbo
+      - data/raw/adrs/adr_PX_LAST_adjust_none.csv
+    params:
+      - min_model_date
+      - intraday_gate_entry_time
+      - intraday_gate_lookback_months
+      - intraday_gate_min_obs
+    outs:
+      - data/processed/index_russell_pcr_signal_gated_intraday
 
   index_russell_pcr_signal_gated_30m:
     cmd: python src/gate_russell_experiment_signal.py --model-dir data/processed/models/with_us_stocks/pcr --model-signal-dir data/processed/index_russell_pcr_signal_30m --baseline-signal-dir data/processed/futures_only_signal --output-dir data/processed/index_russell_pcr_signal_gated_30m

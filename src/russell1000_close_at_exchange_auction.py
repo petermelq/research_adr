@@ -47,15 +47,15 @@ def compute_exchange_auction_times(exchange_mic, offset_str, start_date, end_dat
     cal = mcal.get_calendar(exchange_mic)
     sched = cal.schedule(start_date=start_date, end_date=end_date)
 
-    # Convert market close to ET for comparison
-    close_times_et = sched['market_close'].dt.tz_convert('America/New_York')
-
-    # Determine the most common close time (this is the "normal" close time)
-    close_times_only = close_times_et.dt.time
-    most_common_close = close_times_only.mode()[0]
+    # Determine normal close in the exchange's local timezone.
+    # Using ET wall-clock times here is wrong for non-US venues because
+    # US and local DST transitions happen on different dates.
+    close_times_local = sched['market_close'].dt.tz_convert(str(cal.tz))
+    close_times_only_local = close_times_local.dt.time
+    most_common_close = close_times_only_local.mode()[0]
 
     # Filter to only normal close days (exclude early close days)
-    is_normal_close = close_times_only == most_common_close
+    is_normal_close = close_times_only_local == most_common_close
     sched_normal = sched[is_normal_close]
 
     # Convert market close to ET, add offset, then strip timezone

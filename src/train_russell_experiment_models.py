@@ -11,7 +11,7 @@ from sklearn.decomposition import PCA
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.cross_decomposition import PLSRegression
 from sklearn.linear_model import HuberRegressor
-from sklearn.linear_model import ElasticNet, Ridge
+from sklearn.linear_model import ElasticNet, Lasso, Ridge
 from sklearn.preprocessing import StandardScaler
 
 
@@ -288,10 +288,47 @@ def fit_linear_elasticnet(X_train, y_train, X_val, y_val):
     return {'val_ic': best[0], 'bundle': LinearModelBundle(None, w, c), 'alpha': best[1], 'l1_ratio': best[2], 'kind': 'linear'}
 
 
-def fit_linear_pcr(X_train, y_train, X_val, y_val, pcr_max_components=None):
+def fit_linear_lasso(X_train, y_train, X_val, y_val):
+    scaler = StandardScaler().fit(X_train)
+    Xt = scaler.transform(X_train)
+    Xv = scaler.transform(X_val)
+
+    # Keep alpha grid aligned to ridge scale used elsewhere for robust regularization search.
+    alphas = np.logspace(-2, 4, 40)
+    best = (-np.inf, None, None)
+    for a in alphas:
+        m = Lasso(alpha=float(a), fit_intercept=True, max_iter=50000)
+        m.fit(Xt, y_train)
+        ic = compute_ic(m.predict(Xv), y_val)
+        if ic > best[0]:
+            best = (ic, float(a), m)
+
+    Xfull = np.vstack([X_train, X_val])
+    yfull = np.concatenate([y_train, y_val])
+    scaler = StandardScaler().fit(Xfull)
+    Xf = scaler.transform(Xfull)
+    m = Lasso(alpha=best[1], fit_intercept=True, max_iter=50000)
+    m.fit(Xf, yfull)
+
+    coef = m.coef_.astype(np.float32)
+    scale = np.where(scaler.scale_.astype(np.float32) == 0, 1.0, scaler.scale_.astype(np.float32))
+    mean = scaler.mean_.astype(np.float32)
+    w = coef / scale
+    c = -float(np.dot(mean / scale, coef))
+    return {'val_ic': best[0], 'bundle': LinearModelBundle(None, w, c), 'alpha': best[1], 'kind': 'linear'}
+
+
+def fit_linear_pcr(
+    X_train,
+    y_train,
+    X_val,
+    y_val,
+    pcr_max_components=None,
+    pcr_min_component_variance=1e-4,
+):
     # Guardrails tuned to avoid numerically degenerate high-k PCR fits.
     hard_cap = 100
-    variance_floor = 1e-4
+    variance_floor = float(pcr_min_component_variance)
     weight_pathology_threshold = 1e3
 
     def _fit_ridge_with_alpha(X_fit, y_fit, alpha):
@@ -332,9 +369,10 @@ def fit_linear_pcr(X_train, y_train, X_val, y_val, pcr_max_components=None):
     y_train_arr = np.asarray(y_train, dtype=np.float64)
 
     best = (-np.inf, None)
+    train_intercept = float(np.mean(y_train_arr))
     for k in grid:
         beta = (Zt_all[:, :k].T @ y_train_arr) / zt_norm2[:k]
-        pred = Zv_all[:, :k] @ beta
+        pred = Zv_all[:, :k] @ beta + train_intercept
         ic = compute_ic(pred, y_val)
         # Tie-break toward lower-k to reduce instability when IC is effectively equal.
         if (ic > best[0]) or (np.isfinite(ic) and np.isfinite(best[0]) and np.isclose(ic, best[0], atol=1e-12) and (best[1] is None or k < best[1])):
@@ -388,9 +426,17 @@ def fit_linear_pcr(X_train, y_train, X_val, y_val, pcr_max_components=None):
     return {'val_ic': best[0], 'bundle': bundle, 'n_components': int(n_comp), 'kind': 'linear'}
 
 
-def fit_linear_pcr_mcap(X_train, y_train, X_val, y_val, feature_weights, pcr_max_components=None):
+def fit_linear_pcr_mcap(
+    X_train,
+    y_train,
+    X_val,
+    y_val,
+    feature_weights,
+    pcr_max_components=None,
+    pcr_min_component_variance=1e-4,
+):
     hard_cap = 100
-    variance_floor = 1e-4
+    variance_floor = float(pcr_min_component_variance)
     scaler = StandardScaler().fit(X_train)
     Xt = scaler.transform(X_train)
     Xv = scaler.transform(X_val)
@@ -693,6 +739,7 @@ def train_single_ticker(
     constituent_sets,
     min_model_date=None,
     pcr_max_components=None,
+    pcr_min_component_variance=1e-4,
     skip_existing=False,
     feature_universe=None,
     min_train_months=12,
@@ -762,6 +809,7 @@ def train_single_ticker(
                 X_val,
                 y_val,
                 pcr_max_components=pcr_max_components,
+                pcr_min_component_variance=pcr_min_component_variance,
             )
             y_pred = fit['bundle'].predict_raw(X_test)
         elif model_kind == 'pcr_mcap':
@@ -777,6 +825,7 @@ def train_single_ticker(
                 y_val,
                 feature_weights=feature_weights,
                 pcr_max_components=pcr_max_components,
+                pcr_min_component_variance=pcr_min_component_variance,
             )
             y_pred = fit['bundle'].predict_raw(X_test)
         elif model_kind == 'robust_pcr':
@@ -784,6 +833,9 @@ def train_single_ticker(
             y_pred = fit['bundle'].predict_raw(X_test)
         elif model_kind == 'elasticnet':
             fit = fit_linear_elasticnet(X_train, y_train, X_val, y_val)
+            y_pred = fit['bundle'].predict_raw(X_test)
+        elif model_kind == 'lasso':
+            fit = fit_linear_lasso(X_train, y_train, X_val, y_val)
             y_pred = fit['bundle'].predict_raw(X_test)
         elif model_kind == 'pls':
             fit = fit_linear_pls(X_train, y_train, X_val, y_val)
@@ -835,6 +887,8 @@ def train_single_ticker(
             'test_ic': test_ic,
             'n_features': len(feature_cols),
         }
+        if model_kind in {'pcr', 'pcr_mcap'}:
+            model_data['pcr_min_component_variance'] = float(pcr_min_component_variance)
         if model_kind == 'pcr_mcap':
             model_data['feature_weighting'] = 'sqrt_mcap_at_val_end_after_standardization'
             model_data['feature_weights'] = fit.get('feature_weights')
@@ -977,7 +1031,7 @@ def train_rrr(features_dir, output_dir, train_months, val_months, universe, min_
 
 def parse_args():
     p = argparse.ArgumentParser()
-    p.add_argument('--model-kind', choices=['ridge', 'pcr', 'pcr_mcap', 'robust_pcr', 'elasticnet', 'pls', 'rf', 'rrr', 'huber'], required=True)
+    p.add_argument('--model-kind', choices=['ridge', 'pcr', 'pcr_mcap', 'robust_pcr', 'elasticnet', 'lasso', 'pls', 'rf', 'rrr', 'huber'], required=True)
     p.add_argument('--features-dir', default='data/processed/models/with_us_stocks/features_extended')
     p.add_argument('--output-dir', required=True)
     p.add_argument('--train-months', type=int, default=48)
@@ -989,7 +1043,13 @@ def parse_args():
     p.add_argument('--market-cap-file', default='data/raw/russell1000/russell1000_CUR_MKT_CAP.csv')
     p.add_argument('--min-turnover', type=float, default=10_000_000.0)
     p.add_argument('--pcr-max-components', type=int, default=None)
+    p.add_argument('--pcr-min-component-variance', type=float, default=1e-4)
     p.add_argument('--universe-file', default=None)
+    p.add_argument(
+        '--target-universe-file',
+        default=None,
+        help='Optional CSV of ADR tickers to train (filters target tickers, not feature universe).',
+    )
     p.add_argument('--skip-existing', action='store_true')
     return p.parse_args()
 
@@ -1004,6 +1064,8 @@ def main():
 
     all_md = []
     experiment_universe = load_experiment_universe()
+    if args.target_universe_file:
+        experiment_universe &= load_ticker_universe(args.target_universe_file)
     feature_universe = load_ticker_universe(args.universe_file) if args.universe_file else None
     market_cap_df = load_market_cap(Path(args.market_cap_file)) if args.model_kind == 'pcr_mcap' else None
 
@@ -1029,6 +1091,7 @@ def main():
                     constituent_sets=constituent_sets,
                     min_model_date=min_model_date,
                     pcr_max_components=args.pcr_max_components,
+                    pcr_min_component_variance=args.pcr_min_component_variance,
                     skip_existing=args.skip_existing,
                     feature_universe=feature_universe,
                     min_train_months=args.min_train_months,

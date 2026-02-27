@@ -3,7 +3,6 @@ import polars as pl
 import pandas as pd
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-
 def normalize_future_currency(value):
     if value is None:
         return 'USD'

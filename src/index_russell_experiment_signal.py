@@ -34,7 +34,7 @@ def parse_args():
     p = argparse.ArgumentParser()
     p.add_argument('--model-dir', required=True)
     p.add_argument('--output-dir', required=True)
-    p.add_argument('--model-kind', choices=['ridge', 'pcr', 'robust_pcr', 'elasticnet', 'pls', 'rf', 'rrr', 'huber'], required=True)
+    p.add_argument('--model-kind', choices=['ridge', 'pcr', 'robust_pcr', 'elasticnet', 'lasso', 'pls', 'rf', 'rrr', 'huber'], required=True)
     p.add_argument(
         '--eval-times-only',
         action='store_true',
