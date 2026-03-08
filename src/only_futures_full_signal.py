@@ -157,7 +157,7 @@ if __name__ == '__main__':
         )
 
         merged_all = merged_fut_after_close.merge(merged_adr[['adr_ret']], 
-                                                  left_index=True, right_index=True)
+                                                left_index=True, right_index=True)
         
         # Calculate signal: futures return * beta - ADR return
         merged_all['signal'] = merged_all['fut_ret'] * merged_all['beta'] - merged_all['adr_ret']

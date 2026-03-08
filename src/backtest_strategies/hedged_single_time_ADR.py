@@ -181,7 +181,7 @@ class hedged_single_time_ADR(BaseStrategy):
 
             tickers = adr_signal.columns.tolist()
             
-            Cov = cp.psd_wrap(Cov)            
+            Cov = cp.psd_wrap(Cov)
             alpha = adr_signal.loc[trading_day].clip(lower=-0.01, upper=0.01).fillna(0).values
             
             turnover = turnover_df.loc[:trading_day, tickers].iloc[-self.turnover_lookback:-1].mean().fillna(1).values

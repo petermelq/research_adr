@@ -7,7 +7,7 @@ strategy:
   class: "hedged_single_time_ADR" # Will map to MinimalStrategy class
   parameters:
     adr_info_filename: data/raw/adr_info.csv
-    hedged: false
+    hedged: True
     p_volume: 0.005
     position_limit: 2e6
     skip_earnings: false
@@ -55,7 +55,7 @@ market_impact:
 initial_positions: {}
 
 # Date range for backtest
-start_date: "2019-01-02"
+start_date: "2022-07-02"
 end_date: "2026-02-13"
 
 # Symbols to trade
@@ -80,6 +80,7 @@ symbols:
   - ZLAB
   - MNSO
   - WB
+  - EEM
 
 market_calendar: NYSE
 
