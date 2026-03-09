@@ -1,6 +1,6 @@
 output:
   formats: ["csv", "json"]
-  path: "./adr_results/2_pct_volume_unhedged/"
+  path: "./adr_results/march_26_matching_test"
 
 strategy:
   module: src/backtest_strategies/hedged_single_time_ADR.py
@@ -54,8 +54,8 @@ market_impact:
 initial_positions: {}
 
 # Date range for backtest
-start_date: "2019-01-02"
-end_date: "2026-02-13"
+start_date: "2025-01-02"
+end_date: "2026-03-06"
 
 # Symbols to trade
 symbols:
