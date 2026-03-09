@@ -323,7 +323,7 @@ stages:
       --schema=bbo-1m --datasets XNYS.PILLAR XNAS.ITCH ARCX.PILLAR 
       --tickers=data/raw/adr_info.csv --tickers_columns=adr 
       --output_dir=data/raw/adrs/bbo-1m/by_exchange --start_date=2018-05-01 
-      --end_date=2026-02-13 --partition_period=none
+      --end_date=2026-03-06 --partition_period=none
     deps:
     - path: data/raw/adr_info.csv
       hash: md5
@@ -331,13 +331,13 @@ stages:
       size: 13988
     params:
       params.yaml:
-        end_date: '2026-02-13'
+        end_date: '2026-03-06'
         start_date: '2018-05-01'
     outs:
     - path: data/raw/adrs/bbo-1m/by_exchange
       hash: md5
-      md5: e13e29981849b11db948953d67c86c8e.dir
-      size: 6204042904
+      md5: 79b22089cfde0bfdf14d794b579a97a2.dir
+      size: 6255279360
       nfiles: 243
   create_nbbo_adr_bbo-1m:
     cmd: python -m data_tools.cli.nbbo_consolidate_bbo_1m_with_append 
@@ -352,14 +352,14 @@ stages:
       size: 13988
     - path: data/raw/adrs/bbo-1m/by_exchange
       hash: md5
-      md5: e13e29981849b11db948953d67c86c8e.dir
-      size: 6204042904
+      md5: 79b22089cfde0bfdf14d794b579a97a2.dir
+      size: 6255279360
       nfiles: 243
     outs:
     - path: data/raw/adrs/bbo-1m/nbbo
       hash: md5
-      md5: 52c098a2dc7b93ebcb818a0bd00e60dd.dir
-      size: 3756630173
+      md5: 09853134d5d7fec3deaeefd9672d4385.dir
+      size: 3791672073
       nfiles: 76
   download_index_close:
     cmd: python -m data_tools.cli.download_bbg_daily 
@@ -446,7 +446,7 @@ stages:
       --schema=bbo-1m --datasets XNAS.ITCH ARCX.PILLAR 
       --tickers=data/raw/adr_info.csv --tickers_columns=market_etf_hedge 
       --output_dir=data/raw/etfs/market/bbo-1m/by_exchange 
-      --start_date=2018-05-01 --end_date=2026-02-13 --partition_period=none
+      --start_date=2018-05-01 --end_date=2026-03-06 --partition_period=none
     deps:
     - path: data/raw/adr_info.csv
       hash: md5
@@ -454,13 +454,13 @@ stages:
       size: 13988
     params:
       params.yaml:
-        end_date: '2026-02-13'
+        end_date: '2026-03-06'
         start_date: '2018-05-01'
     outs:
     - path: data/raw/etfs/market/bbo-1m/by_exchange
       hash: md5
-      md5: 4c977df1692c817a42e675220f27e721.dir
-      size: 394218228
+      md5: 07fde4a9a0f24809e23fd7e1d5f9e433.dir
+      size: 396624615
       nfiles: 14
   download_sector_etf_bbo-1m:
     cmd: python -m data_tools.cli.batch_download_to_parquet_with_append 
@@ -492,14 +492,14 @@ stages:
     deps:
     - path: data/raw/etfs/market/bbo-1m/by_exchange
       hash: md5
-      md5: 4c977df1692c817a42e675220f27e721.dir
-      size: 394218228
+      md5: 07fde4a9a0f24809e23fd7e1d5f9e433.dir
+      size: 396624615
       nfiles: 14
     outs:
     - path: data/raw/etfs/market/bbo-1m/nbbo
       hash: md5
-      md5: 3ceba709e2214bbcd2cca1e9d5d1f49d.dir
-      size: 242661096
+      md5: fa5314c5e2ba703bd13cef0723a51116.dir
+      size: 244429016
       nfiles: 5
   download_adr_turnover:
     cmd: python -m data_tools.cli.download_bbg_daily data/raw/adr_info.csv 
