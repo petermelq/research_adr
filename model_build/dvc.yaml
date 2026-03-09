@@ -1,0 +1,148 @@
+stages:
+  build_context:
+    cmd: python scripts/render_model_artifact.py --artifact-dir model_artifact --output-dir build/context
+    deps:
+      - model_artifact
+      - scripts/common.py
+      - scripts/render_model_artifact.py
+    outs:
+      - build/context
+
+  validate_imports:
+    cmd: python scripts/validate_imported_data.py --context-dir build/context --imports-root imports --output build/validation/imports.json
+    deps:
+      - build/context
+      - imports
+      - scripts/validate_imported_data.py
+    outs:
+      - build/validation/imports.json
+
+  download_daily_market_data:
+    cmd: python scripts/download_bloomberg_daily_inputs.py --context-dir build/context --output-root data/raw
+    deps:
+      - build/context
+      - scripts/download_bloomberg_daily_inputs.py
+    outs:
+      - data/raw/adrs/adr_PX_LAST_adjust_none.csv
+      - data/raw/adrs/adr_PX_LAST_adjust_all.csv
+      - data/raw/ordinary/ord_PX_LAST_adjust_none.csv
+      - data/raw/ordinary/ord_PX_LAST_adjust_split.csv
+      - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
+      - data/raw/etfs/market/market_etf_PX_LAST_adjust_all.csv
+      - data/raw/indices/indices_PX_LAST.csv
+
+  ord_close_to_usd:
+    cmd: PYTHONPATH=.. python -m adr_strategy_kernel.pipelines.closing_domestic_prices --raw-ordinary-dir data/raw/ordinary --output-dir data/processed/ordinary --adr-info build/context/metadata/adr_info.csv --fx-dir imports/data/raw/currencies/minute_bars --share-reclass build/context/metadata/share_reclass.csv --splits build/context/metadata/all_splits.csv --adjustments none
+    deps:
+      - ../adr_strategy_kernel
+      - build/context
+      - data/raw/ordinary/ord_PX_LAST_adjust_none.csv
+      - imports/data/raw/currencies/minute_bars
+    outs:
+      - data/processed/ordinary/ord_close_to_usd_adr_PX_LAST_adjust_none.csv
+
+  aligned_index_prices:
+    cmd: PYTHONPATH=.. python -m adr_strategy_kernel.pipelines.build_aligned_index_prices --adr-info build/context/metadata/adr_info.csv --futures-symbols build/context/metadata/futures_symbols.csv --index-prices data/raw/indices/indices_PX_LAST.csv --bloomberg-close-times build/context/metadata/bloomberg_close_times.csv --close-offsets build/context/metadata/close_time_offsets.csv --futures-minute-dir imports/data/raw/futures/minute_bars --output data/processed/aligned_index_prices.csv
+    deps:
+      - ../adr_strategy_kernel
+      - build/context
+      - data/raw/indices/indices_PX_LAST.csv
+      - imports/data/raw/futures/minute_bars
+    outs:
+      - data/processed/aligned_index_prices.csv
+
+  ordinary_betas:
+    cmd: PYTHONPATH=.. python -m adr_strategy_kernel.pipelines.index_only_betas --output data/processed/models/ordinary_betas_index_only.csv --index-prices data/processed/aligned_index_prices.csv --ordinary-prices data/raw/ordinary/ord_PX_LAST_adjust_split.csv --adr-info build/context/metadata/adr_info.csv --close-offsets build/context/metadata/close_time_offsets.csv --futures-symbols build/context/metadata/futures_symbols.csv --fx-dir imports/data/raw/currencies/minute_bars --params build/context/market_data_params.yaml
+    deps:
+      - ../adr_strategy_kernel
+      - build/context
+      - data/raw/ordinary/ord_PX_LAST_adjust_split.csv
+      - data/processed/aligned_index_prices.csv
+      - imports/data/raw/currencies/minute_bars
+    outs:
+      - data/processed/models/ordinary_betas_index_only.csv
+
+  usd_index_futures:
+    cmd: PYTHONPATH=.. python -m adr_strategy_kernel.pipelines.usd_index_futures --futures-symbols build/context/metadata/futures_symbols.csv --futures-minute-dir imports/data/raw/futures/minute_bars --fx-dir imports/data/raw/currencies/minute_bars --output-dir data/processed/futures/converted_minute_bars --symbols FTUK FCE FDAX FESX FTI FXXP NIY MME
+    deps:
+      - ../adr_strategy_kernel
+      - build/context
+      - imports/data/raw/futures/minute_bars
+      - imports/data/raw/currencies/minute_bars
+    outs:
+      - data/processed/futures/converted_minute_bars
+
+  adr_mid_at_ordinary_auction:
+    cmd: PYTHONPATH=.. python -m adr_strategy_kernel.pipelines.adr_mid_at_ordinary_auction --adr-path imports/data/raw/adrs/bbo-1m/nbbo --adr-info build/context/metadata/adr_info.csv --params build/context/signal_params.yaml --output-unadjusted data/processed/adrs/adr_mid_at_ord_auction_adjust_none.csv --skip-adjusted-output
+    deps:
+      - ../adr_strategy_kernel
+      - build/context
+      - imports/data/raw/adrs/bbo-1m/nbbo
+    outs:
+      - data/processed/adrs/adr_mid_at_ord_auction_adjust_none.csv
+
+  only_futures_full_signal:
+    cmd: PYTHONPATH=.. python -m adr_strategy_kernel.pipelines.only_futures_full_signal data/processed/futures/converted_minute_bars data/processed/futures_only_signal --domestic-close-mid data/processed/adrs/adr_mid_at_ord_auction_adjust_none.csv --ord-close-to-usd data/processed/ordinary/ord_close_to_usd_adr_PX_LAST_adjust_none.csv --betas data/processed/models/ordinary_betas_index_only.csv --adr-nbbo-dir imports/data/raw/adrs/bbo-1m/nbbo --adr-info build/context/metadata/adr_info.csv --futures-symbols build/context/metadata/futures_symbols.csv --close-offsets build/context/metadata/close_time_offsets.csv --params build/context/signal_params.yaml
+    deps:
+      - ../adr_strategy_kernel
+      - build/context
+      - data/processed/futures/converted_minute_bars
+      - data/processed/adrs/adr_mid_at_ord_auction_adjust_none.csv
+      - data/processed/ordinary/ord_close_to_usd_adr_PX_LAST_adjust_none.csv
+      - data/processed/models/ordinary_betas_index_only.csv
+      - imports/data/raw/adrs/bbo-1m/nbbo
+    outs:
+      - data/processed/futures_only_signal
+
+  fixed_time_signal:
+    cmd: PYTHONPATH=.. python -m adr_strategy_kernel.pipelines.fixed_time_signal data/processed/futures_only_signal data/processed/fixed_time_signal.csv --tickers-csv build/context/metadata/adr_info.csv --tickers-columns adr --params build/context/signal_params.yaml
+    deps:
+      - ../adr_strategy_kernel
+      - build/context
+      - data/processed/futures_only_signal
+    outs:
+      - data/processed/fixed_time_signal.csv
+
+  adr_trade_mid:
+    cmd: PYTHONPATH=.. python -m adr_strategy_kernel.pipelines.fixed_time_mid --nbbo-dir imports/data/raw/adrs/bbo-1m/nbbo --tickers-csv build/context/metadata/adr_info.csv --tickers-columns adr --params build/context/signal_params.yaml --output data/processed/adrs/adr_daily_fixed_time_mid.csv
+    deps:
+      - ../adr_strategy_kernel
+      - build/context
+      - imports/data/raw/adrs/bbo-1m/nbbo
+    outs:
+      - data/processed/adrs/adr_daily_fixed_time_mid.csv
+
+  market_etf_trade_mid:
+    cmd: PYTHONPATH=.. python -m adr_strategy_kernel.pipelines.fixed_time_mid --nbbo-dir imports/data/raw/etfs/market/bbo-1m/nbbo --tickers-csv build/context/metadata/adr_info.csv --tickers-columns market_etf_hedge --params build/context/signal_params.yaml --output data/processed/etfs/market/market_etf_daily_fixed_time_mid.csv
+    deps:
+      - ../adr_strategy_kernel
+      - build/context
+      - imports/data/raw/etfs/market/bbo-1m/nbbo
+    outs:
+      - data/processed/etfs/market/market_etf_daily_fixed_time_mid.csv
+
+  market_etf_hedge_ratios:
+    cmd: PYTHONPATH=.. python -m adr_strategy_kernel.pipelines.market_etf_hedge_ratios --adr-prices data/raw/adrs/adr_PX_LAST_adjust_all.csv --hedge-prices data/raw/etfs/market/market_etf_PX_LAST_adjust_all.csv --adr-info build/context/metadata/adr_info.csv --params build/context/market_data_params.yaml --output data/processed/market_etf_hedge_ratios.csv
+    deps:
+      - ../adr_strategy_kernel
+      - build/context
+      - data/raw/adrs/adr_PX_LAST_adjust_all.csv
+      - data/raw/etfs/market/market_etf_PX_LAST_adjust_all.csv
+    outs:
+      - data/processed/market_etf_hedge_ratios.csv
+
+  current_covariance:
+    cmd: PYTHONPATH=.. python -m adr_strategy_kernel.pipelines.current_covariance --params build/context/market_data_params.yaml --adr-info build/context/metadata/adr_info.csv --trade-symbols-csv build/context/trade_symbols.csv --adr-signal data/processed/fixed_time_signal.csv --adr-trade-price data/processed/adrs/adr_daily_fixed_time_mid.csv --adr-close data/raw/adrs/adr_PX_LAST_adjust_none.csv --etf-trade-price data/processed/etfs/market/market_etf_daily_fixed_time_mid.csv --etf-close data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv --hedge-ratios data/processed/market_etf_hedge_ratios.csv --output data/processed/current_covariance/current_covariance.csv --residuals-output data/processed/current_covariance/current_covariance_residuals.csv --metadata-output data/processed/current_covariance/current_covariance_metadata.json
+    deps:
+      - ../adr_strategy_kernel
+      - build/context
+      - data/processed/fixed_time_signal.csv
+      - data/processed/adrs/adr_daily_fixed_time_mid.csv
+      - data/raw/adrs/adr_PX_LAST_adjust_none.csv
+      - data/processed/etfs/market/market_etf_daily_fixed_time_mid.csv
+      - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
+      - data/processed/market_etf_hedge_ratios.csv
+    outs:
+      - data/processed/current_covariance/current_covariance.csv
+      - data/processed/current_covariance/current_covariance_residuals.csv
+      - data/processed/current_covariance/current_covariance_metadata.json

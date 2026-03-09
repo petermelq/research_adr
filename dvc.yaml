@@ -505,9 +505,10 @@ stages:
     - data/raw/adr_info.csv
 
   convert_ord_currency_close:
-    cmd: python -m src.closing_domestic_prices
+    cmd: PYTHONPATH=. python -m 
+      adr_strategy_kernel.pipelines.closing_domestic_prices
     deps:
-    - src/closing_domestic_prices.py
+    - adr_strategy_kernel
     - data/raw/adr_info.csv
     - data/raw/ordinary/ord_PX_LAST_adjust_none.csv
     - data/raw/ordinary/ord_PX_LAST_adjust_all.csv
@@ -529,6 +530,7 @@ stages:
   convert_ord_currency_open:
     cmd: python -m src.opening_domestic_prices
     deps:
+    - adr_strategy_kernel
     - data/raw/adr_info.csv
     - src/opening_domestic_prices.py
     - src/closing_domestic_prices.py
@@ -582,9 +584,10 @@ stages:
     - data/processed/etfs/sector_etf_adjustment_factors.csv
 
   adr_mid_at_ordinary_auction:
-    cmd: python src/adr_mid_at_ordinary_auction.py
+    cmd: PYTHONPATH=. python -m 
+      adr_strategy_kernel.pipelines.adr_mid_at_ordinary_auction
     deps:
-    - src/adr_mid_at_ordinary_auction.py
+    - adr_strategy_kernel
     - data/raw/adrs/adr_PX_LAST_adjust_none.csv
     - data/processed/adrs/adr_adjustment_factors.csv
     - data/raw/adr_info.csv
@@ -671,9 +674,9 @@ stages:
     - data/processed/futures/active/ohlcv-1m
 
   usd_index_futures:
-    cmd: python src/usd_index_futures.py
+    cmd: PYTHONPATH=. python -m adr_strategy_kernel.pipelines.usd_index_futures
     deps:
-    - src/usd_index_futures.py
+    - adr_strategy_kernel
     - data/raw/futures/minute_bars/FTUK_full_1min_continuous_ratio_adjusted.txt
     - data/raw/futures/minute_bars/FDAX_full_1min_continuous_ratio_adjusted.txt
     - data/raw/futures/minute_bars/FESX_full_1min_continuous_ratio_adjusted.txt
@@ -727,56 +730,70 @@ stages:
     - data/processed/futures/converted_ohlcv/symbol=NIY/NIY_close_to_usd_1min.parquet
 
   adr_daily_mid:
-    cmd: python -m src.daily_fixed_time_mid --nbbo_dir=data/raw/adrs/bbo-1m/nbbo
-      --time_to_save_hrs=${fixed_trade_time_hours} 
-      --time_to_save_min=${fixed_trade_time_min} --tickers=data/raw/adr_info.csv
-      --tickers_columns=adr 
-      --output_filename=data/processed/adrs/adr_daily_fixed_time_mid.csv
+    cmd: PYTHONPATH=. python -m adr_strategy_kernel.pipelines.fixed_time_mid 
+      --nbbo-dir=data/raw/adrs/bbo-1m/nbbo --tickers-csv data/raw/adr_info.csv 
+      --tickers-columns adr --time-to-save-hours=${fixed_trade_time_hours} 
+      --time-to-save-minutes=${fixed_trade_time_min} --start-date=${start_date} 
+      --end-date=${end_date} 
+      --output=data/processed/adrs/adr_daily_fixed_time_mid.csv
     deps:
-    - src/daily_fixed_time_mid.py
+    - adr_strategy_kernel
     - data/raw/adrs/bbo-1m/nbbo
     - data/raw/adr_info.csv
     params:
+    - start_date
+    - end_date
     - fixed_trade_time_hours
     - fixed_trade_time_min
     outs:
     - data/processed/adrs/adr_daily_fixed_time_mid.csv
 
   adr_open_mid:
-    cmd: python -m src.daily_fixed_time_mid --nbbo_dir=data/raw/adrs/bbo-1m/nbbo
-      --time_to_save_hrs=9 --time_to_save_min=31 --tickers=data/raw/adr_info.csv
-      --tickers_columns=adr 
-      --output_filename=data/processed/adrs/adr_open_mid.csv
+    cmd: PYTHONPATH=. python -m adr_strategy_kernel.pipelines.fixed_time_mid 
+      --nbbo-dir=data/raw/adrs/bbo-1m/nbbo --tickers-csv data/raw/adr_info.csv 
+      --tickers-columns adr --time-to-save-hours=9 --time-to-save-minutes=31 
+      --start-date=${start_date} --end-date=${end_date} 
+      --output=data/processed/adrs/adr_open_mid.csv
     deps:
-    - src/daily_fixed_time_mid.py
+    - adr_strategy_kernel
     - data/raw/adrs/bbo-1m/nbbo
     - data/raw/adr_info.csv
+    params:
+    - start_date
+    - end_date
     outs:
     - data/processed/adrs/adr_open_mid.csv
 
   adr_mid_ny_open:
-    cmd: python -m src.daily_fixed_time_mid --nbbo_dir=data/raw/adrs/bbo-1m/nbbo
-      --time_to_save_hrs=9 --time_to_save_min=35 --tickers=data/raw/adr_info.csv
-      --tickers_columns=adr 
-      --output_filename=data/processed/adrs/adr_mid_ny_open.csv
+    cmd: PYTHONPATH=. python -m adr_strategy_kernel.pipelines.fixed_time_mid 
+      --nbbo-dir=data/raw/adrs/bbo-1m/nbbo --tickers-csv data/raw/adr_info.csv 
+      --tickers-columns adr --time-to-save-hours=9 --time-to-save-minutes=35 
+      --start-date=${start_date} --end-date=${end_date} 
+      --output=data/processed/adrs/adr_mid_ny_open.csv
     deps:
-    - src/daily_fixed_time_mid.py
+    - adr_strategy_kernel
     - data/raw/adrs/bbo-1m/nbbo
     - data/raw/adr_info.csv
+    params:
+    - start_date
+    - end_date
     outs:
     - data/processed/adrs/adr_mid_ny_open.csv
 
   daily_adr_for_cov:
-    cmd: python -m src.daily_fixed_time_mid --nbbo_dir=data/raw/adrs/bbo-1m/nbbo
-      --time_to_save_hrs=${daily_time_for_cov_hours} 
-      --time_to_save_min=${daily_time_for_cov_min} 
-      --tickers=data/raw/adr_info.csv --tickers_columns=adr 
-      --output_filename=data/processed/adrs/daily_mid_for_cov.csv
+    cmd: PYTHONPATH=. python -m adr_strategy_kernel.pipelines.fixed_time_mid 
+      --nbbo-dir=data/raw/adrs/bbo-1m/nbbo --tickers-csv data/raw/adr_info.csv 
+      --tickers-columns adr --time-to-save-hours=${daily_time_for_cov_hours} 
+      --time-to-save-minutes=${daily_time_for_cov_min} 
+      --start-date=${start_date} --end-date=${end_date} 
+      --output=data/processed/adrs/daily_mid_for_cov.csv
     deps:
-    - src/daily_fixed_time_mid.py
+    - adr_strategy_kernel
     - data/raw/adrs/bbo-1m/nbbo
     - data/raw/adr_info.csv
     params:
+    - start_date
+    - end_date
     - daily_time_for_cov_hours
     - daily_time_for_cov_min
     outs:
@@ -793,17 +810,20 @@ stages:
     - data/processed/adrs/adr_open_mean_premium.csv
 
   market_etf_daily_fixed_time_mid:
-    cmd: python -m src.daily_fixed_time_mid 
-      --nbbo_dir=data/raw/etfs/market/bbo-1m/nbbo 
-      --time_to_save_hrs=${fixed_trade_time_hours} 
-      --time_to_save_min=${fixed_trade_time_min} --tickers=data/raw/adr_info.csv
-      --tickers_columns=market_etf_hedge 
-      --output_filename=data/processed/etfs/market/market_etf_daily_fixed_time_mid.csv
+    cmd: PYTHONPATH=. python -m adr_strategy_kernel.pipelines.fixed_time_mid 
+      --nbbo-dir=data/raw/etfs/market/bbo-1m/nbbo --tickers-csv 
+      data/raw/adr_info.csv --tickers-columns market_etf_hedge 
+      --time-to-save-hours=${fixed_trade_time_hours} 
+      --time-to-save-minutes=${fixed_trade_time_min} --start-date=${start_date} 
+      --end-date=${end_date} 
+      --output=data/processed/etfs/market/market_etf_daily_fixed_time_mid.csv
     deps:
-    - src/daily_fixed_time_mid.py
+    - adr_strategy_kernel
     - data/raw/etfs/market/bbo-1m/nbbo
     - data/raw/adr_info.csv
     params:
+    - start_date
+    - end_date
     - fixed_trade_time_hours
     - fixed_trade_time_min
     outs:
@@ -828,10 +848,14 @@ stages:
   #     - data/processed/fixed_time_signal.csv
 
   fixed_time_signal:
-    cmd: python src/from_full_futures_fixed_time_signal.py 
-      data/processed/futures_only_signal data/processed/fixed_time_signal.csv
+    cmd: PYTHONPATH=. python -m adr_strategy_kernel.pipelines.fixed_time_signal 
+      data/processed/futures_only_signal data/processed/fixed_time_signal.csv 
+      --tickers-csv data/raw/adr_info.csv --tickers-columns adr 
+      --time-to-save-hours=${fixed_trade_time_hours} 
+      --time-to-save-minutes=${fixed_trade_time_min} --start-date=${start_date} 
+      --end-date=${end_date}
     deps:
-    - src/from_full_futures_fixed_time_signal.py
+    - adr_strategy_kernel
     - data/processed/futures_only_signal/
     - data/raw/adr_info.csv
     params:
@@ -843,11 +867,15 @@ stages:
     - data/processed/fixed_time_signal.csv
 
   pcr_fixed_time_signal:
-    cmd: python src/from_full_futures_fixed_time_signal.py 
+    cmd: PYTHONPATH=. python -m adr_strategy_kernel.pipelines.fixed_time_signal 
       data/processed/index_russell_pcr_signal_old_universe_gated/ 
-      data/processed/pcr_fixed_time_signal.csv
+      data/processed/pcr_fixed_time_signal.csv --tickers-csv 
+      data/raw/adr_info.csv --tickers-columns adr 
+      --time-to-save-hours=${fixed_trade_time_hours} 
+      --time-to-save-minutes=${fixed_trade_time_min} --start-date=${start_date} 
+      --end-date=${end_date}
     deps:
-    - src/from_full_futures_fixed_time_signal.py
+    - adr_strategy_kernel
     - data/processed/index_russell_pcr_signal_old_universe_gated/
     - data/raw/adr_info.csv
     params:
@@ -859,11 +887,15 @@ stages:
     - data/processed/pcr_fixed_time_signal.csv
 
   ridge_fixed_time_signal:
-    cmd: python src/from_full_futures_fixed_time_signal.py 
+    cmd: PYTHONPATH=. python -m adr_strategy_kernel.pipelines.fixed_time_signal 
       data/processed/index_russell_ridge_signal/ 
-      data/processed/ridge_fixed_time_signal.csv
+      data/processed/ridge_fixed_time_signal.csv --tickers-csv 
+      data/raw/adr_info.csv --tickers-columns adr 
+      --time-to-save-hours=${fixed_trade_time_hours} 
+      --time-to-save-minutes=${fixed_trade_time_min} --start-date=${start_date} 
+      --end-date=${end_date}
     deps:
-    - src/from_full_futures_fixed_time_signal.py
+    - adr_strategy_kernel
     - data/processed/index_russell_ridge_signal/
     - data/raw/adr_info.csv
     params:
@@ -875,11 +907,15 @@ stages:
     - data/processed/ridge_fixed_time_signal.csv
 
   db_fixed_time_signal:
-    cmd: python src/from_full_futures_fixed_time_signal.py 
+    cmd: PYTHONPATH=. python -m adr_strategy_kernel.pipelines.fixed_time_signal 
       data/processed/db_futures_only_signal 
-      data/processed/db_fixed_time_signal.csv
+      data/processed/db_fixed_time_signal.csv --tickers-csv 
+      data/raw/adr_info.csv --tickers-columns adr 
+      --time-to-save-hours=${fixed_trade_time_hours} 
+      --time-to-save-minutes=${fixed_trade_time_min} --start-date=${start_date} 
+      --end-date=${end_date}
     deps:
-    - src/from_full_futures_fixed_time_signal.py
+    - adr_strategy_kernel
     - data/processed/adrs/adr_mid_at_ord_auction_adjust_none.csv
     - data/processed/adrs/adr_daily_fixed_time_mid.csv
     - data/processed/models/ordinary_betas_index_only.csv
@@ -897,11 +933,12 @@ stages:
     - data/processed/db_fixed_time_signal.csv
 
   only_futures_full_signal:
-    cmd: python src/only_futures_full_signal.py 
+    cmd: PYTHONPATH=. python -m 
+      adr_strategy_kernel.pipelines.only_futures_full_signal 
       data/processed/futures/converted_minute_bars 
       data/processed/futures_only_signal
     deps:
-    - src/only_futures_full_signal.py
+    - adr_strategy_kernel
     - data/processed/adrs/adr_open_mean_premium.csv
     - data/processed/ordinary/ord_close_to_usd_adr_PX_LAST_adjust_none.csv
     - data/processed/adrs/adr_mid_at_ord_auction_adjust_none.csv
@@ -919,10 +956,11 @@ stages:
     - data/processed/futures_only_signal/
 
   db_only_futures_full_signal:
-    cmd: python src/only_futures_full_signal.py 
+    cmd: PYTHONPATH=. python -m 
+      adr_strategy_kernel.pipelines.only_futures_full_signal 
       data/processed/futures/converted_bbo data/processed/db_futures_only_signal
     deps:
-    - src/only_futures_full_signal.py
+    - adr_strategy_kernel
     - data/processed/adrs/adr_open_mean_premium.csv
     - data/processed/ordinary/ord_close_to_usd_adr_PX_LAST_adjust_none.csv
     - data/processed/adrs/adr_mid_at_ord_auction_adjust_none.csv
@@ -958,9 +996,10 @@ stages:
     - data/raw/all_dividends.csv
 
   build_aligned_index_prices:
-    cmd: python src/build_aligned_index_prices.py
+    cmd: PYTHONPATH=. python -m 
+      adr_strategy_kernel.pipelines.build_aligned_index_prices
     deps:
-    - src/build_aligned_index_prices.py
+    - adr_strategy_kernel
     - data/raw/adr_info.csv
     - data/raw/futures_symbols.csv
     - data/raw/indices/indices_PX_LAST.csv
@@ -976,11 +1015,9 @@ stages:
     - data/processed/aligned_index_prices.csv
 
   index_only_model:
-    cmd: python src/get_betas_no_sector.py
+    cmd: PYTHONPATH=. python -m adr_strategy_kernel.pipelines.index_only_betas
     deps:
-    - src/get_betas_no_sector.py
-    - src/utils_lasso_residuals.py
-    - src/utils.py
+    - adr_strategy_kernel
     - data/raw/adr_info.csv
     - data/raw/ordinary/ord_PX_LAST_adjust_split.csv
     - data/processed/aligned_index_prices.csv
@@ -1012,9 +1049,10 @@ stages:
     - data/processed/adrs/minute_volume_stats
 
   market_etf_hedge_ratios:
-    cmd: python src/market_etf_hedge_ratios.py
+    cmd: PYTHONPATH=. python -m 
+      adr_strategy_kernel.pipelines.market_etf_hedge_ratios
     deps:
-    - src/market_etf_hedge_ratios.py
+    - adr_strategy_kernel
     - data/raw/adr_info.csv
     - data/raw/etfs/market/market_etf_PX_LAST_adjust_all.csv
     - data/raw/adrs/adr_PX_LAST_adjust_all.csv

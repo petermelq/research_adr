@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "adr_strategy_kernel"
+version = "0.1.0"
+description = "Core ADR strategy computations packaged for reuse across research and production workflows."
+requires-python = ">=3.10"
+dependencies = [
+  "numpy",
+  "pandas",
+  "pandas-market-calendars",
+  "polars",
+  "PyYAML",
+  "scikit-learn",
+]
+
+[project.scripts]
+adr-kernel-adr-mid-at-ordinary-auction = "adr_strategy_kernel.pipelines.adr_mid_at_ordinary_auction:main"
+adr-kernel-build-aligned-index-prices = "adr_strategy_kernel.pipelines.build_aligned_index_prices:main"
+adr-kernel-convert-ord-close-to-usd = "adr_strategy_kernel.pipelines.closing_domestic_prices:main"
+adr-kernel-current-covariance = "adr_strategy_kernel.pipelines.current_covariance:main"
+adr-kernel-extract-fixed-time-mid = "adr_strategy_kernel.pipelines.fixed_time_mid:main"
+adr-kernel-extract-fixed-time-signal = "adr_strategy_kernel.pipelines.fixed_time_signal:main"
+adr-kernel-fit-index-only-betas = "adr_strategy_kernel.pipelines.index_only_betas:main"
+adr-kernel-fit-market-etf-hedge-ratios = "adr_strategy_kernel.pipelines.market_etf_hedge_ratios:main"
+adr-kernel-only-futures-full-signal = "adr_strategy_kernel.pipelines.only_futures_full_signal:main"
+adr-kernel-usd-index-futures = "adr_strategy_kernel.pipelines.usd_index_futures:main"
+
+[tool.setuptools.packages.find]
+include = ["adr_strategy_kernel*"]

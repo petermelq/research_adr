@@ -243,6 +243,10 @@ class hedged_single_time_ADR(BaseStrategy):
                                         price=adr_close.loc[trading_day, ticker],
                                     )
                                 )
+                    import numpy as np
+                    if adr_close.loc[trading_day, ticker] == np.nan:
+                        import IPython; IPython.embed()
+
             if self.hedged:
                 for etf_ticker, size in etf_shares.items():
                     trades.append(

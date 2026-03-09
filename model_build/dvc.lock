@@ -1,0 +1,25 @@
+schema: '2.0'
+stages:
+  build_context:
+    cmd: python scripts/render_model_artifact.py --artifact-dir model_artifact 
+      --output-dir build/context
+    deps:
+    - path: model_artifact
+      hash: md5
+      md5: f6936a2da8e3aa81e0f5e2789a48cda9.dir
+      size: 34259
+      nfiles: 8
+    - path: scripts/common.py
+      hash: md5
+      md5: 13510f656f29df98fffc9a7cfb162001
+      size: 6654
+    - path: scripts/render_model_artifact.py
+      hash: md5
+      md5: 07d11d928ca8efeea3588d0bd09b7cc0
+      size: 3822
+    outs:
+    - path: build/context
+      hash: md5
+      md5: 35dd29900197ebf95a3be6667701453b.dir
+      size: 35587
+      nfiles: 14
