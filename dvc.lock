@@ -971,7 +971,7 @@ stages:
     deps:
     - path: backtest_conifgs/hedged_single_time.yaml
       hash: md5
-      md5: 3110f075c53c08ddff507c35c8d52be1
+      md5: 46bca94cb937ef7c2d2580dbd3696156
       size: 3165
     - path: data/processed/adrs/adr_daily_fixed_time_mid.csv
       hash: md5
