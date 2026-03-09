@@ -1,0 +1,15 @@
+artifact_version: 1
+trade_date: "2026-03-09"
+fixed_trade_time: "14:00"
+lookbacks:
+  index_beta_days: 280
+  hedge_ratio_days: 280
+  covariance_days: 100
+kernel:
+  package: adr_strategy_kernel
+  repo_commit: "0ed40e7cadc126e5121c0c4f010bde7e2e2b9bb9"
+  signal_pipeline: only_futures_full_signal
+  backtest_strategy_module: src/backtest_strategies/hedged_single_time_ADR.py
+sources:
+  dvc_repo: /home/pmalonis/research_adr
+  dvc_rev:

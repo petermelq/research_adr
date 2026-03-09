@@ -2,664 +2,832 @@ stages:
   build_russell1000_tickers:
     cmd: python src/build_russell1000_tickers.py
     deps:
-      - src/build_russell1000_tickers.py
-      - data/raw/historical_russell_1000.csv
+    - src/build_russell1000_tickers.py
+    - data/raw/historical_russell_1000.csv
     outs:
-      - data/raw/russell1000_tickers.csv
+    - data/raw/russell1000_tickers.csv
 
   download_russell1000_frd_ohlcv-1m:
-    cmd: yes y | python -m data_tools.cli.frd_download_to_parquet_with_append --tickers=data/raw/russell1000_tickers.csv --tickers_columns=ticker --asset_types stock --start_date=${frd_start_date} --end_date=${end_date} --output_dir=data/raw/russell1000/ohlcv-1m --timeframe=1min --adjustment=UNADJUSTED --partition_period=none --full-workers 2
+    cmd: yes y | python -m data_tools.cli.frd_download_to_parquet_with_append 
+      --tickers=data/raw/russell1000_tickers.csv --tickers_columns=ticker 
+      --asset_types stock --start_date=${frd_start_date} --end_date=${end_date} 
+      --output_dir=data/raw/russell1000/ohlcv-1m --timeframe=1min 
+      --adjustment=UNADJUSTED --partition_period=none --full-workers 2
     deps:
-      - data/raw/russell1000_tickers.csv
+    - data/raw/russell1000_tickers.csv
     params:
-      - frd_start_date
-      - end_date
+    - frd_start_date
+    - end_date
     outs:
-      - data/raw/russell1000/ohlcv-1m:
-          persist: true
+    - data/raw/russell1000/ohlcv-1m:
+        persist: true
 
   russell1000_close_at_exchange_auction:
     cmd: python src/russell1000_close_at_exchange_auction.py
     deps:
-      - src/russell1000_close_at_exchange_auction.py
-      - data/raw/russell1000/ohlcv-1m
-      - data/raw/close_time_offsets.csv
+    - src/russell1000_close_at_exchange_auction.py
+    - data/raw/russell1000/ohlcv-1m
+    - data/raw/close_time_offsets.csv
     params:
-      - frd_start_date
-      - end_date
+    - frd_start_date
+    - end_date
     outs:
-      - data/processed/russell1000/close_at_exchange_auction
+    - data/processed/russell1000/close_at_exchange_auction
 
   russell1000_adjustments:
     cmd: python src/get_russell1000_adjustments.py
     deps:
-      - src/get_russell1000_adjustments.py
-      - data/raw/russell1000_tickers.csv
+    - src/get_russell1000_adjustments.py
+    - data/raw/russell1000_tickers.csv
     params:
-      - frd_start_date
-      - end_date
+    - frd_start_date
+    - end_date
     outs:
-      - data/processed/russell1000/adjustment_factors.csv
+    - data/processed/russell1000/adjustment_factors.csv
 
   russell1000_close_at_exchange_auction_adjusted:
     cmd: python src/russell1000_close_at_exchange_auction_adjusted.py
     deps:
-      - src/russell1000_close_at_exchange_auction_adjusted.py
-      - data/processed/russell1000/close_at_exchange_auction
-      - data/processed/russell1000/adjustment_factors.csv
+    - src/russell1000_close_at_exchange_auction_adjusted.py
+    - data/processed/russell1000/close_at_exchange_auction
+    - data/processed/russell1000/adjustment_factors.csv
     params:
-      - frd_start_date
-      - end_date
+    - frd_start_date
+    - end_date
     outs:
-      - data/processed/russell1000/close_at_exchange_auction_adjusted
+    - data/processed/russell1000/close_at_exchange_auction_adjusted
 
   download_adr_tcbbo:
-    cmd: python -m data_tools.cli.batch_download_to_parquet_with_append --schema=tcbbo --datasets XNAS.BASIC --tickers=data/raw/adr_info.csv --tickers_columns=adr --output_dir=data/raw/adrs/tcbbo --start_date=2024-07-01 --end_date=${end_date} --partition_period=date
+    cmd: python -m data_tools.cli.batch_download_to_parquet_with_append 
+      --schema=tcbbo --datasets XNAS.BASIC --tickers=data/raw/adr_info.csv 
+      --tickers_columns=adr --output_dir=data/raw/adrs/tcbbo 
+      --start_date=2024-07-01 --end_date=${end_date} --partition_period=date
     deps:
-      - data/raw/adr_info.csv
+    - data/raw/adr_info.csv
     params:
-      - start_date
-      - end_date
+    - start_date
+    - end_date
     outs:
-      - data/raw/adrs/tcbbo:
-          persist: true
+    - data/raw/adrs/tcbbo:
+        persist: true
 
   download_market_etf_tcbbo:
-    cmd: python -m data_tools.cli.batch_download_to_parquet_with_append --schema=tcbbo --datasets XNAS.BASIC --tickers=data/raw/adr_info.csv --tickers_columns=market_etf_hedge --output_dir=data/raw/etfs/market/tcbbo --start_date=2024-07-01 --end_date=${end_date} --partition_period=date
+    cmd: python -m data_tools.cli.batch_download_to_parquet_with_append 
+      --schema=tcbbo --datasets XNAS.BASIC --tickers=data/raw/adr_info.csv 
+      --tickers_columns=market_etf_hedge --output_dir=data/raw/etfs/market/tcbbo
+      --start_date=2024-07-01 --end_date=${end_date} --partition_period=date
     deps:
-      - data/raw/adr_info.csv
+    - data/raw/adr_info.csv
     params:
-      - start_date
-      - end_date
+    - start_date
+    - end_date
     outs:
-      - data/raw/etfs/market/tcbbo:
-          persist: true
+    - data/raw/etfs/market/tcbbo:
+        persist: true
 
   # 1-minute BBO data download
   download_adr_bbo-1m:
-    cmd: python -m data_tools.cli.batch_download_to_parquet_with_append --schema=bbo-1m --datasets XNYS.PILLAR XNAS.ITCH ARCX.PILLAR --tickers=data/raw/adr_info.csv --tickers_columns=adr --output_dir=data/raw/adrs/bbo-1m/by_exchange --start_date=${start_date} --end_date=${end_date} --partition_period=none
+    cmd: python -m data_tools.cli.batch_download_to_parquet_with_append 
+      --schema=bbo-1m --datasets XNYS.PILLAR XNAS.ITCH ARCX.PILLAR 
+      --tickers=data/raw/adr_info.csv --tickers_columns=adr 
+      --output_dir=data/raw/adrs/bbo-1m/by_exchange --start_date=${start_date} 
+      --end_date=${end_date} --partition_period=none
     deps:
-      - data/raw/adr_info.csv
+    - data/raw/adr_info.csv
     params:
-      - start_date
-      - end_date
+    - start_date
+    - end_date
     outs:
-      - data/raw/adrs/bbo-1m/by_exchange:
-          persist: true
+    - data/raw/adrs/bbo-1m/by_exchange:
+        persist: true
 
   download_market_etf_bbo-1m:
     #cmd: python -m data_tools.cli.batch_download_to_parquet_with_append --schema=bbo-1m --datasets XNYS.PILLAR XNAS.ITCH ARCX.PILLAR --tickers=data/raw/adr_info.csv --tickers_columns=market_etf_hedge --output_dir=data/raw/etfs/market/bbo-1m/by_exchange --start_date=${start_date} --end_date=${end_date} --partition_period=none
-    cmd: python -m data_tools.cli.batch_download_to_parquet_with_append --schema=bbo-1m --datasets XNAS.ITCH ARCX.PILLAR --tickers=data/raw/adr_info.csv --tickers_columns=market_etf_hedge --output_dir=data/raw/etfs/market/bbo-1m/by_exchange --start_date=${start_date} --end_date=${end_date} --partition_period=none
+    cmd: python -m data_tools.cli.batch_download_to_parquet_with_append 
+      --schema=bbo-1m --datasets XNAS.ITCH ARCX.PILLAR 
+      --tickers=data/raw/adr_info.csv --tickers_columns=market_etf_hedge 
+      --output_dir=data/raw/etfs/market/bbo-1m/by_exchange 
+      --start_date=${start_date} --end_date=${end_date} --partition_period=none
     deps:
-      - data/raw/adr_info.csv
+    - data/raw/adr_info.csv
     params:
-      - start_date
-      - end_date
+    - start_date
+    - end_date
     outs:
-      - data/raw/etfs/market/bbo-1m/by_exchange:
-          persist: true
+    - data/raw/etfs/market/bbo-1m/by_exchange:
+        persist: true
 
   download_sector_etf_bbo-1m:
-    cmd: python -m data_tools.cli.batch_download_to_parquet_with_append --schema=bbo-1m --datasets XNYS.PILLAR XNAS.ITCH ARCX.PILLAR --tickers=data/raw/sector_etfs.csv --tickers_columns=hedge --output_dir=data/raw/etfs/sector/bbo-1m/by_exchange --start_date=${start_date} --end_date=${end_date} --partition_period=none
+    cmd: python -m data_tools.cli.batch_download_to_parquet_with_append 
+      --schema=bbo-1m --datasets XNYS.PILLAR XNAS.ITCH ARCX.PILLAR 
+      --tickers=data/raw/sector_etfs.csv --tickers_columns=hedge 
+      --output_dir=data/raw/etfs/sector/bbo-1m/by_exchange 
+      --start_date=${start_date} --end_date=${end_date} --partition_period=none
     deps:
-      - data/raw/sector_etfs.csv
+    - data/raw/sector_etfs.csv
     params:
-      - start_date
-      - end_date
+    - start_date
+    - end_date
     outs:
-      - data/raw/etfs/sector/bbo-1m/by_exchange:
-          persist: true
+    - data/raw/etfs/sector/bbo-1m/by_exchange:
+        persist: true
 
   download_eurex_bbo-1m:
-    cmd: python -m data_tools.cli.batch_download_to_parquet_with_append --tickers FESX FESB FXXP --datasets XEUR.EOBI --futures --schema=bbo-1m --start_date=2025-03-10 --end_date=${end_date} --output_dir=data/raw/futures/bbo-1m/exchange=XEUR.EOBI --partition_period=none
+    cmd: python -m data_tools.cli.batch_download_to_parquet_with_append 
+      --tickers FESX FESB FXXP --datasets XEUR.EOBI --futures --schema=bbo-1m 
+      --start_date=2025-03-10 --end_date=${end_date} 
+      --output_dir=data/raw/futures/bbo-1m/exchange=XEUR.EOBI 
+      --partition_period=none
     params:
-      - end_date
+    - end_date
     outs:
-      - data/raw/futures/bbo-1m/exchange=XEUR.EOBI:
-          persist: true
+    - data/raw/futures/bbo-1m/exchange=XEUR.EOBI:
+        persist: true
 
   download_ice_bbo-1m:
-    cmd: python -m data_tools.cli.batch_download_to_parquet_with_append --tickers Z --datasets IFLL.IMPACT --futures --schema=bbo-1m --start_date=2025-03-10 --end_date=${end_date} --output_dir=data/raw/futures/bbo-1m/exchange=IFLL.IMPACT --partition_period=none
+    cmd: python -m data_tools.cli.batch_download_to_parquet_with_append 
+      --tickers Z --datasets IFLL.IMPACT --futures --schema=bbo-1m 
+      --start_date=2025-03-10 --end_date=${end_date} 
+      --output_dir=data/raw/futures/bbo-1m/exchange=IFLL.IMPACT 
+      --partition_period=none
     params:
-      - end_date
+    - end_date
     outs:
-      - data/raw/futures/bbo-1m/exchange=IFLL.IMPACT:
-          persist: true
+    - data/raw/futures/bbo-1m/exchange=IFLL.IMPACT:
+        persist: true
 
   download_cme_bbo-1m:
-    cmd: python -m data_tools.cli.batch_download_to_parquet_with_append --tickers NIY --datasets GLBX.MDP3 --futures --schema=bbo-1m --start_date=2025-03-10 --end_date=${end_date} --output_dir=data/raw/futures/bbo-1m/exchange=GLBX.MDP3 --partition_period=none
+    cmd: python -m data_tools.cli.batch_download_to_parquet_with_append 
+      --tickers NIY --datasets GLBX.MDP3 --futures --schema=bbo-1m 
+      --start_date=2025-03-10 --end_date=${end_date} 
+      --output_dir=data/raw/futures/bbo-1m/exchange=GLBX.MDP3 
+      --partition_period=none
     params:
-      - end_date
-    outs:      
-      - data/raw/futures/bbo-1m/exchange=GLBX.MDP3:
-          persist: true
+    - end_date
+    outs:
+    - data/raw/futures/bbo-1m/exchange=GLBX.MDP3:
+        persist: true
 
   download_eurex_ohlcv-1m:
-    cmd: python -m data_tools.cli.batch_download_to_parquet_with_append --tickers FESX FESB FXXP FSMI FDAX --datasets XEUR.EOBI --futures --schema=ohlcv-1m --start_date=2025-03-10 --end_date=${end_date} --output_dir=data/raw/futures/ohlcv-1m/exchange=XEUR.EOBI --partition_period=none
+    cmd: python -m data_tools.cli.batch_download_to_parquet_with_append 
+      --tickers FESX FESB FXXP FSMI FDAX --datasets XEUR.EOBI --futures 
+      --schema=ohlcv-1m --start_date=2025-03-10 --end_date=${end_date} 
+      --output_dir=data/raw/futures/ohlcv-1m/exchange=XEUR.EOBI 
+      --partition_period=none
     params:
-      - end_date
+    - end_date
     outs:
-      - data/raw/futures/ohlcv-1m/exchange=XEUR.EOBI:
-          persist: true
+    - data/raw/futures/ohlcv-1m/exchange=XEUR.EOBI:
+        persist: true
 
   download_ice_ohlcv-1m:
-    cmd: python -m data_tools.cli.batch_download_to_parquet_with_append --tickers Z --datasets IFLL.IMPACT --futures --schema=ohlcv-1m --start_date=2025-03-10 --end_date=${end_date} --output_dir=data/raw/futures/ohlcv-1m/exchange=IFLL.IMPACT --partition_period=none
+    cmd: python -m data_tools.cli.batch_download_to_parquet_with_append 
+      --tickers Z --datasets IFLL.IMPACT --futures --schema=ohlcv-1m 
+      --start_date=2025-03-10 --end_date=${end_date} 
+      --output_dir=data/raw/futures/ohlcv-1m/exchange=IFLL.IMPACT 
+      --partition_period=none
     params:
-      - end_date
+    - end_date
     outs:
-      - data/raw/futures/ohlcv-1m/exchange=IFLL.IMPACT:
-          persist: true
+    - data/raw/futures/ohlcv-1m/exchange=IFLL.IMPACT:
+        persist: true
 
   download_cme_ohlcv-1m:
-    cmd: python -m data_tools.cli.batch_download_to_parquet_with_append --tickers NIY --datasets GLBX.MDP3 --futures --schema=ohlcv-1m --start_date=2025-03-10 --end_date=${end_date} --output_dir=data/raw/futures/ohlcv-1m/exchange=GLBX.MDP3 --partition_period=none
+    cmd: python -m data_tools.cli.batch_download_to_parquet_with_append 
+      --tickers NIY --datasets GLBX.MDP3 --futures --schema=ohlcv-1m 
+      --start_date=2025-03-10 --end_date=${end_date} 
+      --output_dir=data/raw/futures/ohlcv-1m/exchange=GLBX.MDP3 
+      --partition_period=none
     params:
-      - end_date
+    - end_date
     outs:
-      - data/raw/futures/ohlcv-1m/exchange=GLBX.MDP3:
-          persist: true
+    - data/raw/futures/ohlcv-1m/exchange=GLBX.MDP3:
+        persist: true
 
   # nbbo creation from 1min data
   create_nbbo_adr_bbo-1m:
-    cmd: python -m data_tools.cli.nbbo_consolidate_bbo_1m_with_append --tickers=data/raw/adr_info.csv --tickers_columns=adr --raw_data_dir=data/raw/adrs/bbo-1m/by_exchange --output_dir=data/raw/adrs/bbo-1m/nbbo --parallel --ncores=20 --partition_period=none
+    cmd: python -m data_tools.cli.nbbo_consolidate_bbo_1m_with_append 
+      --tickers=data/raw/adr_info.csv --tickers_columns=adr 
+      --raw_data_dir=data/raw/adrs/bbo-1m/by_exchange 
+      --output_dir=data/raw/adrs/bbo-1m/nbbo --parallel --ncores=20 
+      --partition_period=none
     deps:
-      - data/raw/adr_info.csv
-      - data/raw/adrs/bbo-1m/by_exchange
+    - data/raw/adr_info.csv
+    - data/raw/adrs/bbo-1m/by_exchange
     outs:
-      - data/raw/adrs/bbo-1m/nbbo:
-          persist: true
+    - data/raw/adrs/bbo-1m/nbbo:
+        persist: true
 
+    frozen: true
   create_nbbo_market_etf_bbo-1m:
-    cmd: python -m data_tools.cli.nbbo_consolidate_bbo_1m_with_append --tickers=data/raw/adr_info.csv --tickers_columns=market_etf_hedge --raw_data_dir=data/raw/etfs/market/bbo-1m/by_exchange --output_dir=data/raw/etfs/market/bbo-1m/nbbo --parallel --ncores=20 --partition_period=none
+    cmd: python -m data_tools.cli.nbbo_consolidate_bbo_1m_with_append 
+      --tickers=data/raw/adr_info.csv --tickers_columns=market_etf_hedge 
+      --raw_data_dir=data/raw/etfs/market/bbo-1m/by_exchange 
+      --output_dir=data/raw/etfs/market/bbo-1m/nbbo --parallel --ncores=20 
+      --partition_period=none
     deps:
-      - data/raw/etfs/market/bbo-1m/by_exchange
+    - data/raw/etfs/market/bbo-1m/by_exchange
     outs:
-      - data/raw/etfs/market/bbo-1m/nbbo:
-          persist: true
+    - data/raw/etfs/market/bbo-1m/nbbo:
+        persist: true
 
+    frozen: true
   create_nbbo_sector_etf_bbo-1m:
-    cmd: python -m data_tools.cli.nbbo_consolidate_bbo_1m_with_append --tickers=data/raw/sector_etfs.csv --tickers_columns=hedge --raw_data_dir=data/raw/etfs/sector/bbo-1m/by_exchange --output_dir=data/raw/etfs/sector/bbo-1m/nbbo --parallel --ncores=20 --partition_period=none
+    cmd: python -m data_tools.cli.nbbo_consolidate_bbo_1m_with_append 
+      --tickers=data/raw/sector_etfs.csv --tickers_columns=hedge 
+      --raw_data_dir=data/raw/etfs/sector/bbo-1m/by_exchange 
+      --output_dir=data/raw/etfs/sector/bbo-1m/nbbo --parallel --ncores=20 
+      --partition_period=none
     deps:
-      - data/raw/etfs/sector/bbo-1m/by_exchange
+    - data/raw/etfs/sector/bbo-1m/by_exchange
     outs:
-      - data/raw/etfs/sector/bbo-1m/nbbo:
-          persist: true
+    - data/raw/etfs/sector/bbo-1m/nbbo:
+        persist: true
 
   # daily closing price data download
   download_adr_close:
-    cmd: python -m data_tools.cli.download_bbg_daily data/raw/adr_info.csv data/raw/adrs/adr_PX_LAST_adjust_none.csv --tickers_columns=adr --field=PX_LAST --start_date=${start_date} --end_date=${end_date}
+    cmd: python -m data_tools.cli.download_bbg_daily data/raw/adr_info.csv 
+      data/raw/adrs/adr_PX_LAST_adjust_none.csv --tickers_columns=adr 
+      --field=PX_LAST --start_date=${start_date} --end_date=${end_date}
     deps:
-      - data/raw/adr_info.csv
+    - data/raw/adr_info.csv
     params:
-      - start_date
-      - end_date
+    - start_date
+    - end_date
     outs:
-      - data/raw/adrs/adr_PX_LAST_adjust_none.csv:
-          persist: true
+    - data/raw/adrs/adr_PX_LAST_adjust_none.csv:
+        persist: true
 
   download_adr_open:
-    cmd: python -m data_tools.cli.download_bbg_daily data/raw/adr_info.csv data/raw/adrs/adr_PX_OPEN_adjust_none.csv --tickers_columns=adr --field=PX_OPEN --start_date=${start_date} --end_date=${end_date}
+    cmd: python -m data_tools.cli.download_bbg_daily data/raw/adr_info.csv 
+      data/raw/adrs/adr_PX_OPEN_adjust_none.csv --tickers_columns=adr 
+      --field=PX_OPEN --start_date=${start_date} --end_date=${end_date}
     deps:
-      - data/raw/adr_info.csv
+    - data/raw/adr_info.csv
     params:
-      - start_date
-      - end_date
+    - start_date
+    - end_date
     outs:
-      - data/raw/adrs/adr_PX_OPEN_adjust_none.csv:
-          persist: true
+    - data/raw/adrs/adr_PX_OPEN_adjust_none.csv:
+        persist: true
 
   adj_download_adr_open:
-    cmd: python -m data_tools.cli.download_bbg_daily data/raw/adr_info.csv data/raw/adrs/adr_PX_OPEN_adjust_all.csv --tickers_columns=adr --field=PX_OPEN --adjust=all --start_date=${start_date} --end_date=${end_date}
+    cmd: python -m data_tools.cli.download_bbg_daily data/raw/adr_info.csv 
+      data/raw/adrs/adr_PX_OPEN_adjust_all.csv --tickers_columns=adr 
+      --field=PX_OPEN --adjust=all --start_date=${start_date} 
+      --end_date=${end_date}
     deps:
-      - data/raw/adr_info.csv
+    - data/raw/adr_info.csv
     params:
-      - start_date
-      - end_date
+    - start_date
+    - end_date
     outs:
-      - data/raw/adrs/adr_PX_OPEN_adjust_all.csv:
-          persist: true
+    - data/raw/adrs/adr_PX_OPEN_adjust_all.csv:
+        persist: true
 
   download_ord_open:
-    cmd: python -m data_tools.cli.download_bbg_daily data/raw/adr_info.csv data/raw/ordinary/ord_PX_OPEN_adjust_none.csv --tickers_columns=id --field=PX_OPEN --include_suffix --start_date=${start_date} --end_date=${end_date}
+    cmd: python -m data_tools.cli.download_bbg_daily data/raw/adr_info.csv 
+      data/raw/ordinary/ord_PX_OPEN_adjust_none.csv --tickers_columns=id 
+      --field=PX_OPEN --include_suffix --start_date=${start_date} 
+      --end_date=${end_date}
     deps:
-      - data/raw/adr_info.csv
+    - data/raw/adr_info.csv
     params:
-      - start_date
-      - end_date
+    - start_date
+    - end_date
     outs:
-      - data/raw/ordinary/ord_PX_OPEN_adjust_none.csv:
-          persist: true
+    - data/raw/ordinary/ord_PX_OPEN_adjust_none.csv:
+        persist: true
 
   adj_download_ord_open:
-    cmd: python -m data_tools.cli.download_bbg_daily data/raw/adr_info.csv data/raw/ordinary/ord_PX_OPEN_adjust_all.csv --tickers_columns=id --adjust=all --field=PX_OPEN --include_suffix --start_date=${start_date} --end_date=${end_date}
+    cmd: python -m data_tools.cli.download_bbg_daily data/raw/adr_info.csv 
+      data/raw/ordinary/ord_PX_OPEN_adjust_all.csv --tickers_columns=id 
+      --adjust=all --field=PX_OPEN --include_suffix --start_date=${start_date} 
+      --end_date=${end_date}
     deps:
-      - data/raw/adr_info.csv
+    - data/raw/adr_info.csv
     params:
-      - start_date
-      - end_date
+    - start_date
+    - end_date
     outs:
-      - data/raw/ordinary/ord_PX_OPEN_adjust_all.csv:
-          persist: true
+    - data/raw/ordinary/ord_PX_OPEN_adjust_all.csv:
+        persist: true
 
   download_market_etf_open:
-    cmd: python -m data_tools.cli.download_bbg_daily data/raw/adr_info.csv data/raw/etfs/market/market_etf_PX_OPEN_adjust_none.csv --tickers_columns=market_etf_hedge --field=PX_OPEN --symbol_suffix=" US Equity" --start_date=${start_date} --end_date=${end_date}
+    cmd: python -m data_tools.cli.download_bbg_daily data/raw/adr_info.csv 
+      data/raw/etfs/market/market_etf_PX_OPEN_adjust_none.csv 
+      --tickers_columns=market_etf_hedge --field=PX_OPEN --symbol_suffix=" US 
+      Equity" --start_date=${start_date} --end_date=${end_date}
     deps:
-      - data/raw/adr_info.csv
+    - data/raw/adr_info.csv
     params:
-      - start_date
-      - end_date
+    - start_date
+    - end_date
     outs:
-      - data/raw/etfs/market/market_etf_PX_OPEN_adjust_none.csv:
-          persist: true
+    - data/raw/etfs/market/market_etf_PX_OPEN_adjust_none.csv:
+        persist: true
 
   download_market_etf_close:
-    cmd: python -m data_tools.cli.download_bbg_daily data/raw/adr_info.csv data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv --tickers_columns=market_etf_hedge --symbol_suffix=" US Equity" --field=PX_LAST --start_date=${start_date} --end_date=${end_date}
+    cmd: python -m data_tools.cli.download_bbg_daily data/raw/adr_info.csv 
+      data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv 
+      --tickers_columns=market_etf_hedge --symbol_suffix=" US Equity" 
+      --field=PX_LAST --start_date=${start_date} --end_date=${end_date}
     deps:
-      - data/raw/adr_info.csv
+    - data/raw/adr_info.csv
     params:
-      - start_date
-      - end_date
+    - start_date
+    - end_date
     outs:
-      - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv:
-          persist: true
+    - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv:
+        persist: true
 
   adj_adr_close:
-    cmd: python -m data_tools.cli.download_bbg_daily data/raw/adr_info.csv data/raw/adrs/adr_PX_LAST_adjust_all.csv --tickers_columns=adr --adjust=all --pad_lookback=${pred.lookback_days} --field=PX_LAST --start_date=${start_date} --end_date=${end_date}
+    cmd: python -m data_tools.cli.download_bbg_daily data/raw/adr_info.csv 
+      data/raw/adrs/adr_PX_LAST_adjust_all.csv --tickers_columns=adr 
+      --adjust=all --pad_lookback=${pred.lookback_days} --field=PX_LAST 
+      --start_date=${start_date} --end_date=${end_date}
     deps:
-      - data/raw/adr_info.csv
+    - data/raw/adr_info.csv
     params:
-      - start_date
-      - end_date
+    - start_date
+    - end_date
     outs:
-      - data/raw/adrs/adr_PX_LAST_adjust_all.csv:
-          persist: true
+    - data/raw/adrs/adr_PX_LAST_adjust_all.csv:
+        persist: true
 
   adj_market_etf_close:
-    cmd: python -m data_tools.cli.download_bbg_daily data/raw/adr_info.csv data/raw/etfs/market/market_etf_PX_LAST_adjust_all.csv --tickers_columns=market_etf_hedge --symbol_suffix=" US Equity" --adjust=all --pad_lookback=${pred.lookback_days} --field=PX_LAST --start_date=${start_date} --end_date=${end_date}
+    cmd: python -m data_tools.cli.download_bbg_daily data/raw/adr_info.csv 
+      data/raw/etfs/market/market_etf_PX_LAST_adjust_all.csv 
+      --tickers_columns=market_etf_hedge --symbol_suffix=" US Equity" 
+      --adjust=all --pad_lookback=${pred.lookback_days} --field=PX_LAST 
+      --start_date=${start_date} --end_date=${end_date}
     deps:
-      - data/raw/adr_info.csv
+    - data/raw/adr_info.csv
     params:
-      - start_date
-      - end_date
+    - start_date
+    - end_date
     outs:
-      - data/raw/etfs/market/market_etf_PX_LAST_adjust_all.csv:
-          persist: true
+    - data/raw/etfs/market/market_etf_PX_LAST_adjust_all.csv:
+        persist: true
 
   # downloading adr turnover
   download_adr_turnover:
-    cmd: python -m data_tools.cli.download_bbg_daily data/raw/adr_info.csv data/raw/adrs/adr_turnover.csv --tickers_columns=adr --field=TURNOVER --start_date=${start_date} --end_date=${end_date}
+    cmd: python -m data_tools.cli.download_bbg_daily data/raw/adr_info.csv 
+      data/raw/adrs/adr_turnover.csv --tickers_columns=adr --field=TURNOVER 
+      --start_date=${start_date} --end_date=${end_date}
     deps:
-      - data/raw/adr_info.csv
+    - data/raw/adr_info.csv
     params:
-      - start_date
-      - end_date
+    - start_date
+    - end_date
     outs:
-      - data/raw/adrs/adr_turnover.csv:
-          persist: true
+    - data/raw/adrs/adr_turnover.csv:
+        persist: true
 
   # downloading Russell 1000 constituent turnover
   download_russell1000_turnover:
-    cmd: python -m data_tools.cli.download_bbg_daily data/raw/russell1000_tickers.csv data/raw/russell1000/russell1000_turnover.csv --tickers_columns=ticker --symbol_suffix=" US Equity" --field=TURNOVER --start_date=${frd_start_date} --end_date=${end_date}
+    cmd: python -m data_tools.cli.download_bbg_daily 
+      data/raw/russell1000_tickers.csv 
+      data/raw/russell1000/russell1000_turnover.csv --tickers_columns=ticker 
+      --symbol_suffix=" US Equity" --field=TURNOVER 
+      --start_date=${frd_start_date} --end_date=${end_date}
     deps:
-      - data/raw/russell1000_tickers.csv
+    - data/raw/russell1000_tickers.csv
     params:
-      - frd_start_date
-      - end_date
+    - frd_start_date
+    - end_date
     outs:
-      - data/raw/russell1000/russell1000_turnover.csv:
-          persist: true
+    - data/raw/russell1000/russell1000_turnover.csv:
+        persist: true
 
   # downloading Russell 1000 constituent market cap
   download_russell1000_market_cap:
-    cmd: python -m data_tools.cli.download_bbg_daily data/raw/russell1000_tickers.csv data/raw/russell1000/russell1000_CUR_MKT_CAP.csv --tickers_columns=ticker --symbol_suffix=" US Equity" --field=CUR_MKT_CAP --start_date=${frd_start_date} --end_date=${end_date}
+    cmd: python -m data_tools.cli.download_bbg_daily 
+      data/raw/russell1000_tickers.csv 
+      data/raw/russell1000/russell1000_CUR_MKT_CAP.csv --tickers_columns=ticker 
+      --symbol_suffix=" US Equity" --field=CUR_MKT_CAP 
+      --start_date=${frd_start_date} --end_date=${end_date}
     deps:
-      - data/raw/russell1000_tickers.csv
+    - data/raw/russell1000_tickers.csv
     params:
-      - frd_start_date
-      - end_date
+    - frd_start_date
+    - end_date
     outs:
-      - data/raw/russell1000/russell1000_CUR_MKT_CAP.csv:
-          persist: true
+    - data/raw/russell1000/russell1000_CUR_MKT_CAP.csv:
+        persist: true
 
   # download sector etf close prices
   download_sector_etf_close:
-    cmd: python -m data_tools.cli.download_bbg_daily data/raw/sector_etfs.csv data/raw/etfs/sector_etf_PX_LAST_adjust_none.csv --tickers_columns=hedge --symbol_suffix=" US Equity" --field=PX_LAST --start_date=${start_date} --end_date=${end_date}
+    cmd: python -m data_tools.cli.download_bbg_daily data/raw/sector_etfs.csv 
+      data/raw/etfs/sector_etf_PX_LAST_adjust_none.csv --tickers_columns=hedge 
+      --symbol_suffix=" US Equity" --field=PX_LAST --start_date=${start_date} 
+      --end_date=${end_date}
     deps:
-      - data/raw/sector_etfs.csv
+    - data/raw/sector_etfs.csv
     params:
-      - start_date
-      - end_date
+    - start_date
+    - end_date
     outs:
-      - data/raw/etfs/sector_etf_PX_LAST_adjust_none.csv:
-          persist: true
+    - data/raw/etfs/sector_etf_PX_LAST_adjust_none.csv:
+        persist: true
 
   download_ord_close:
-    cmd: python -m data_tools.cli.download_bbg_daily data/raw/adr_info.csv data/raw/ordinary/ord_PX_LAST_adjust_none.csv --tickers_columns=id --include_suffix --field=PX_LAST --start_date=${start_date} --end_date=${end_date}
+    cmd: python -m data_tools.cli.download_bbg_daily data/raw/adr_info.csv 
+      data/raw/ordinary/ord_PX_LAST_adjust_none.csv --tickers_columns=id 
+      --include_suffix --field=PX_LAST --start_date=${start_date} 
+      --end_date=${end_date}
     deps:
-      - data/raw/adr_info.csv
+    - data/raw/adr_info.csv
     params:
-      - start_date
-      - end_date
+    - start_date
+    - end_date
     outs:
-      - data/raw/ordinary/ord_PX_LAST_adjust_none.csv:
-          persist: true
+    - data/raw/ordinary/ord_PX_LAST_adjust_none.csv:
+        persist: true
 
   adj_download_ord_close:
-    cmd: python -m data_tools.cli.download_bbg_daily data/raw/adr_info.csv data/raw/ordinary/ord_PX_LAST_adjust_all.csv --tickers_columns=id --include_suffix --adjust=all --field=PX_LAST --start_date=${start_date} --end_date=${end_date}
+    cmd: python -m data_tools.cli.download_bbg_daily data/raw/adr_info.csv 
+      data/raw/ordinary/ord_PX_LAST_adjust_all.csv --tickers_columns=id 
+      --include_suffix --adjust=all --field=PX_LAST --start_date=${start_date} 
+      --end_date=${end_date}
     deps:
-      - data/raw/adr_info.csv
+    - data/raw/adr_info.csv
     params:
-      - start_date
-      - end_date
+    - start_date
+    - end_date
     outs:
-      - data/raw/ordinary/ord_PX_LAST_adjust_all.csv:
-          persist: true
+    - data/raw/ordinary/ord_PX_LAST_adjust_all.csv:
+        persist: true
 
   split_adj_download_ord_close:
-    cmd: python -m data_tools.cli.download_bbg_daily data/raw/adr_info.csv data/raw/ordinary/ord_PX_LAST_adjust_split.csv --tickers_columns=id --include_suffix --adjust=split --pad_lookback=${pred.lookback_days} --field=PX_LAST --start_date=${start_date} --end_date=${end_date}
+    cmd: python -m data_tools.cli.download_bbg_daily data/raw/adr_info.csv 
+      data/raw/ordinary/ord_PX_LAST_adjust_split.csv --tickers_columns=id 
+      --include_suffix --adjust=split --pad_lookback=${pred.lookback_days} 
+      --field=PX_LAST --start_date=${start_date} --end_date=${end_date}
     deps:
-      - data/raw/adr_info.csv
+    - data/raw/adr_info.csv
     params:
-      - start_date
-      - end_date
+    - start_date
+    - end_date
     outs:
-      - data/raw/ordinary/ord_PX_LAST_adjust_split.csv:
-          persist: true
+    - data/raw/ordinary/ord_PX_LAST_adjust_split.csv:
+        persist: true
 
   download_index_close:
-    cmd: python -m data_tools.cli.download_bbg_daily data/raw/futures_symbols.csv data/raw/indices/indices_PX_LAST.csv --tickers_columns=index --symbol_suffix=" Index" --pad_lookback=${pred.lookback_days} --field=PX_LAST --start_date=${start_date} --end_date=${end_date}
+    cmd: python -m data_tools.cli.download_bbg_daily 
+      data/raw/futures_symbols.csv data/raw/indices/indices_PX_LAST.csv 
+      --tickers_columns=index --symbol_suffix=" Index" 
+      --pad_lookback=${pred.lookback_days} --field=PX_LAST 
+      --start_date=${start_date} --end_date=${end_date}
     deps:
-      - data/raw/adr_info.csv
+    - data/raw/adr_info.csv
     params:
-      - start_date
-      - end_date
-      - pred.lookback_days
+    - start_date
+    - end_date
+    - pred.lookback_days
     outs:
-      - data/raw/indices/indices_PX_LAST.csv:
-          persist: true
+    - data/raw/indices/indices_PX_LAST.csv:
+        persist: true
 
   download_close_times:
     cmd: python src/download_close_times.py
     deps:
-      - src/download_close_times.py
-      - data/raw/adr_info.csv
-      - data/raw/futures_symbols.csv
+    - src/download_close_times.py
+    - data/raw/adr_info.csv
+    - data/raw/futures_symbols.csv
     outs:
-      - data/raw/bloomberg_close_times.csv
+    - data/raw/bloomberg_close_times.csv
 
   earnings:
     cmd: python src/get_earnings.py
     deps:
-      - src/get_earnings.py
-      - data/raw/adr_info.csv
+    - src/get_earnings.py
+    - data/raw/adr_info.csv
 
   convert_ord_currency_close:
-    cmd: python -m src.closing_domestic_prices
+    cmd: PYTHONPATH=. python -m 
+      adr_strategy_kernel.pipelines.closing_domestic_prices
     deps:
-      - src/closing_domestic_prices.py
-      - data/raw/adr_info.csv
-      - data/raw/ordinary/ord_PX_LAST_adjust_none.csv
-      - data/raw/ordinary/ord_PX_LAST_adjust_all.csv
-      - data/raw/adrs/share_reclass.csv
-      - data/raw/all_splits.csv
-      - data/raw/currencies/minute_bars/GBPUSD_full_1min.txt
-      - data/raw/currencies/minute_bars/EURUSD_full_1min.txt
-      - data/raw/currencies/minute_bars/JPYUSD_full_1min.txt
-      - data/raw/currencies/minute_bars/AUDUSD_full_1min.txt
-      - data/raw/currencies/minute_bars/CHFUSD_full_1min.txt
-      - data/raw/currencies/minute_bars/HKDUSD_full_1min.txt
-      - data/raw/currencies/minute_bars/NOKUSD_full_1min.txt
-      - data/raw/currencies/minute_bars/SEKUSD_full_1min.txt
-      - data/raw/currencies/minute_bars/DKKUSD_full_1min.txt
+    - adr_strategy_kernel
+    - data/raw/adr_info.csv
+    - data/raw/ordinary/ord_PX_LAST_adjust_none.csv
+    - data/raw/ordinary/ord_PX_LAST_adjust_all.csv
+    - data/raw/adrs/share_reclass.csv
+    - data/raw/all_splits.csv
+    - data/raw/currencies/minute_bars/GBPUSD_full_1min.txt
+    - data/raw/currencies/minute_bars/EURUSD_full_1min.txt
+    - data/raw/currencies/minute_bars/JPYUSD_full_1min.txt
+    - data/raw/currencies/minute_bars/AUDUSD_full_1min.txt
+    - data/raw/currencies/minute_bars/CHFUSD_full_1min.txt
+    - data/raw/currencies/minute_bars/HKDUSD_full_1min.txt
+    - data/raw/currencies/minute_bars/NOKUSD_full_1min.txt
+    - data/raw/currencies/minute_bars/SEKUSD_full_1min.txt
+    - data/raw/currencies/minute_bars/DKKUSD_full_1min.txt
     outs:
-      - data/processed/ordinary/ord_close_to_usd_adr_PX_LAST_adjust_none.csv
-      - data/processed/ordinary/ord_close_to_usd_adr_PX_LAST_adjust_all.csv
+    - data/processed/ordinary/ord_close_to_usd_adr_PX_LAST_adjust_none.csv
+    - data/processed/ordinary/ord_close_to_usd_adr_PX_LAST_adjust_all.csv
 
   convert_ord_currency_open:
     cmd: python -m src.opening_domestic_prices
     deps:
-      - data/raw/adr_info.csv
-      - src/opening_domestic_prices.py
-      - src/closing_domestic_prices.py
-      - data/raw/adrs/share_reclass.csv
-      - data/raw/all_splits.csv
-      - data/raw/ordinary/ord_PX_OPEN_adjust_all.csv
-      - data/raw/ordinary/ord_PX_OPEN_adjust_none.csv
-      - data/raw/currencies/minute_bars/GBPUSD_full_1min.txt
-      - data/raw/currencies/minute_bars/EURUSD_full_1min.txt
-      - data/raw/currencies/minute_bars/JPYUSD_full_1min.txt
-      - data/raw/currencies/minute_bars/AUDUSD_full_1min.txt
-      - data/raw/currencies/minute_bars/CHFUSD_full_1min.txt
-      - data/raw/currencies/minute_bars/HKDUSD_full_1min.txt
-      - data/raw/currencies/minute_bars/NOKUSD_full_1min.txt
-      - data/raw/currencies/minute_bars/SEKUSD_full_1min.txt
-      - data/raw/currencies/minute_bars/DKKUSD_full_1min.txt
+    - adr_strategy_kernel
+    - data/raw/adr_info.csv
+    - src/opening_domestic_prices.py
+    - src/closing_domestic_prices.py
+    - data/raw/adrs/share_reclass.csv
+    - data/raw/all_splits.csv
+    - data/raw/ordinary/ord_PX_OPEN_adjust_all.csv
+    - data/raw/ordinary/ord_PX_OPEN_adjust_none.csv
+    - data/raw/currencies/minute_bars/GBPUSD_full_1min.txt
+    - data/raw/currencies/minute_bars/EURUSD_full_1min.txt
+    - data/raw/currencies/minute_bars/JPYUSD_full_1min.txt
+    - data/raw/currencies/minute_bars/AUDUSD_full_1min.txt
+    - data/raw/currencies/minute_bars/CHFUSD_full_1min.txt
+    - data/raw/currencies/minute_bars/HKDUSD_full_1min.txt
+    - data/raw/currencies/minute_bars/NOKUSD_full_1min.txt
+    - data/raw/currencies/minute_bars/SEKUSD_full_1min.txt
+    - data/raw/currencies/minute_bars/DKKUSD_full_1min.txt
     outs:
-      - data/processed/ordinary/ord_open_to_usd_adr_PX_OPEN_adjust_all.csv
-      - data/processed/ordinary/ord_open_to_usd_adr_PX_OPEN_adjust_none.csv
-      
+    - data/processed/ordinary/ord_open_to_usd_adr_PX_OPEN_adjust_all.csv
+    - data/processed/ordinary/ord_open_to_usd_adr_PX_OPEN_adjust_none.csv
+
   adr_adjustments:
-    cmd: python src/get_adjustments.py data/raw/adrs/adr_PX_LAST_adjust_none.csv data/processed/adrs/adr_adjustment_factors.csv --symbol_suffix=" US Equity"
+    cmd: python src/get_adjustments.py data/raw/adrs/adr_PX_LAST_adjust_none.csv
+      data/processed/adrs/adr_adjustment_factors.csv --symbol_suffix=" US 
+      Equity"
     deps:
-      - src/get_adjustments.py
-      - data/raw/adrs/adr_PX_LAST_adjust_none.csv
+    - src/get_adjustments.py
+    - data/raw/adrs/adr_PX_LAST_adjust_none.csv
     outs:
-      - data/processed/adrs/adr_adjustment_factors.csv
+    - data/processed/adrs/adr_adjustment_factors.csv
 
   market_etf_adjustments:
-    cmd: python src/get_adjustments.py data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv data/processed/etfs/market/market_etf_adjustment_factors.csv --symbol_suffix=" US Equity"
+    cmd: python src/get_adjustments.py 
+      data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv 
+      data/processed/etfs/market/market_etf_adjustment_factors.csv 
+      --symbol_suffix=" US Equity"
     deps:
-      - src/get_adjustments.py
-      - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
+    - src/get_adjustments.py
+    - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
     outs:
-      - data/processed/etfs/market/market_etf_adjustment_factors.csv
+    - data/processed/etfs/market/market_etf_adjustment_factors.csv
 
   sector_etf_adjustments:
-    cmd: python src/get_adjustments.py data/raw/etfs/sector_etf_PX_LAST_adjust_none.csv data/processed/etfs/sector_etf_adjustment_factors.csv --symbol_suffix=" US Equity"
+    cmd: python src/get_adjustments.py 
+      data/raw/etfs/sector_etf_PX_LAST_adjust_none.csv 
+      data/processed/etfs/sector_etf_adjustment_factors.csv --symbol_suffix=" US
+      Equity"
     deps:
-      - src/get_adjustments.py
-      - data/raw/etfs/sector_etf_PX_LAST_adjust_none.csv
+    - src/get_adjustments.py
+    - data/raw/etfs/sector_etf_PX_LAST_adjust_none.csv
     outs:
-      - data/processed/etfs/sector_etf_adjustment_factors.csv
+    - data/processed/etfs/sector_etf_adjustment_factors.csv
 
   adr_mid_at_ordinary_auction:
-    cmd: python src/adr_mid_at_ordinary_auction.py
+    cmd: PYTHONPATH=. python -m 
+      adr_strategy_kernel.pipelines.adr_mid_at_ordinary_auction
     deps:
-      - src/adr_mid_at_ordinary_auction.py
-      - data/raw/adrs/adr_PX_LAST_adjust_none.csv
-      - data/processed/adrs/adr_adjustment_factors.csv
-      - data/raw/adr_info.csv
-      - data/raw/adrs/bbo-1m/nbbo
+    - adr_strategy_kernel
+    - data/raw/adrs/adr_PX_LAST_adjust_none.csv
+    - data/processed/adrs/adr_adjustment_factors.csv
+    - data/raw/adr_info.csv
+    - data/raw/adrs/bbo-1m/nbbo
     params:
-      - start_date
-      - end_date
+    - start_date
+    - end_date
     outs:
-      - data/processed/adrs/adr_mid_at_ord_auction_adjust_all.csv
-      - data/processed/adrs/adr_mid_at_ord_auction_adjust_none.csv
+    - data/processed/adrs/adr_mid_at_ord_auction_adjust_all.csv
+    - data/processed/adrs/adr_mid_at_ord_auction_adjust_none.csv
 
   usdjpy_to_jpyusd:
     cmd: python src/usdjpy_to_jpyusd_bars.py
     deps:
-      - src/usdjpy_to_jpyusd_bars.py
-      - data/raw/currencies/minute_bars/USDJPY_full_1min.txt
+    - src/usdjpy_to_jpyusd_bars.py
+    - data/raw/currencies/minute_bars/USDJPY_full_1min.txt
     outs:
-      - data/raw/currencies/minute_bars/JPYUSD_full_1min.txt
+    - data/raw/currencies/minute_bars/JPYUSD_full_1min.txt
 
   usdchf_to_chfusd:
-    cmd: python src/invert_fx_minute_bars.py --data-dir data/raw/currencies/minute_bars --pair USDCHF:CHFUSD
+    cmd: python src/invert_fx_minute_bars.py --data-dir 
+      data/raw/currencies/minute_bars --pair USDCHF:CHFUSD
     deps:
-      - src/invert_fx_minute_bars.py
-      - data/raw/currencies/minute_bars/USDCHF_full_1min.txt
+    - src/invert_fx_minute_bars.py
+    - data/raw/currencies/minute_bars/USDCHF_full_1min.txt
     outs:
-      - data/raw/currencies/minute_bars/CHFUSD_full_1min.txt
+    - data/raw/currencies/minute_bars/CHFUSD_full_1min.txt
 
   usdhkd_to_hkdusd:
-    cmd: python src/invert_fx_minute_bars.py --data-dir data/raw/currencies/minute_bars --pair USDHKD:HKDUSD
+    cmd: python src/invert_fx_minute_bars.py --data-dir 
+      data/raw/currencies/minute_bars --pair USDHKD:HKDUSD
     deps:
-      - src/invert_fx_minute_bars.py
-      - data/raw/currencies/minute_bars/USDHKD_full_1min.txt
+    - src/invert_fx_minute_bars.py
+    - data/raw/currencies/minute_bars/USDHKD_full_1min.txt
     outs:
-      - data/raw/currencies/minute_bars/HKDUSD_full_1min.txt
+    - data/raw/currencies/minute_bars/HKDUSD_full_1min.txt
 
   download_scandi_usd_fx_bars:
-    cmd: python src/download_histdata_fx_minute_bars.py --pairs USDNOK USDSEK USDDKK --start-year 2015 --output-dir data/raw/currencies/minute_bars
+    cmd: python src/download_histdata_fx_minute_bars.py --pairs USDNOK USDSEK 
+      USDDKK --start-year 2015 --output-dir data/raw/currencies/minute_bars
     deps:
-      - src/download_histdata_fx_minute_bars.py
+    - src/download_histdata_fx_minute_bars.py
     outs:
-      - data/raw/currencies/minute_bars/USDNOK_full_1min.txt
-      - data/raw/currencies/minute_bars/USDSEK_full_1min.txt
-      - data/raw/currencies/minute_bars/USDDKK_full_1min.txt
+    - data/raw/currencies/minute_bars/USDNOK_full_1min.txt
+    - data/raw/currencies/minute_bars/USDSEK_full_1min.txt
+    - data/raw/currencies/minute_bars/USDDKK_full_1min.txt
 
   invert_scandi_usd_fx_bars:
-    cmd: python src/invert_fx_minute_bars.py --data-dir data/raw/currencies/minute_bars --pair USDNOK:NOKUSD --pair USDSEK:SEKUSD --pair USDDKK:DKKUSD
+    cmd: python src/invert_fx_minute_bars.py --data-dir 
+      data/raw/currencies/minute_bars --pair USDNOK:NOKUSD --pair USDSEK:SEKUSD 
+      --pair USDDKK:DKKUSD
     deps:
-      - src/invert_fx_minute_bars.py
-      - data/raw/currencies/minute_bars/USDNOK_full_1min.txt
-      - data/raw/currencies/minute_bars/USDSEK_full_1min.txt
-      - data/raw/currencies/minute_bars/USDDKK_full_1min.txt
+    - src/invert_fx_minute_bars.py
+    - data/raw/currencies/minute_bars/USDNOK_full_1min.txt
+    - data/raw/currencies/minute_bars/USDSEK_full_1min.txt
+    - data/raw/currencies/minute_bars/USDDKK_full_1min.txt
     outs:
-      - data/raw/currencies/minute_bars/NOKUSD_full_1min.txt
-      - data/raw/currencies/minute_bars/SEKUSD_full_1min.txt
-      - data/raw/currencies/minute_bars/DKKUSD_full_1min.txt
+    - data/raw/currencies/minute_bars/NOKUSD_full_1min.txt
+    - data/raw/currencies/minute_bars/SEKUSD_full_1min.txt
+    - data/raw/currencies/minute_bars/DKKUSD_full_1min.txt
 
   active_futures_series:
-    cmd: python src/active_futures_series.py data/raw/futures/bbo-1m data/processed/futures/active/bbo-1m
+    cmd: python src/active_futures_series.py data/raw/futures/bbo-1m 
+      data/processed/futures/active/bbo-1m
     deps:
-      - src/active_futures_series.py
-      - data/raw/futures_symbols.csv
-      - data/raw/futures/bbo-1m
-      - data/raw/adr_info.csv
-      - data/raw/futures/daily_futures_volume.parquet
+    - src/active_futures_series.py
+    - data/raw/futures_symbols.csv
+    - data/raw/futures/bbo-1m
+    - data/raw/adr_info.csv
+    - data/raw/futures/daily_futures_volume.parquet
     outs:
-      - data/processed/futures/active/bbo-1m
+    - data/processed/futures/active/bbo-1m
 
   ohlcv-1m_active_futures_series:
-    cmd: python src/active_futures_series.py data/raw/futures/ohlcv-1m data/processed/futures/active/ohlcv-1m
+    cmd: python src/active_futures_series.py data/raw/futures/ohlcv-1m 
+      data/processed/futures/active/ohlcv-1m
     deps:
-      - src/active_futures_series.py
-      - data/raw/futures_symbols.csv
-      - data/raw/futures/ohlcv-1m
-      - data/raw/adr_info.csv
-      - data/raw/futures/daily_futures_volume.parquet
+    - src/active_futures_series.py
+    - data/raw/futures_symbols.csv
+    - data/raw/futures/ohlcv-1m
+    - data/raw/adr_info.csv
+    - data/raw/futures/daily_futures_volume.parquet
     outs:
-      - data/processed/futures/active/ohlcv-1m
+    - data/processed/futures/active/ohlcv-1m
 
   usd_index_futures:
-    cmd: python src/usd_index_futures.py
+    cmd: PYTHONPATH=. python -m adr_strategy_kernel.pipelines.usd_index_futures
     deps:
-      - src/usd_index_futures.py
-      - data/raw/futures/minute_bars/FTUK_full_1min_continuous_ratio_adjusted.txt
-      - data/raw/futures/minute_bars/FDAX_full_1min_continuous_ratio_adjusted.txt
-      - data/raw/futures/minute_bars/FESX_full_1min_continuous_ratio_adjusted.txt
-      - data/raw/futures/minute_bars/FXXP_full_1min_continuous_ratio_adjusted.txt
-      - data/raw/futures/minute_bars/FTI_full_1min_continuous_ratio_adjusted.txt
-      - data/raw/futures/minute_bars/FCE_full_1min_continuous_ratio_adjusted.txt
-      - data/raw/futures/minute_bars/MME_full_1min_continuous_ratio_adjusted.txt
-      - data/raw/currencies/minute_bars/GBPUSD_full_1min.txt # All the futures are in these three currency pairs
-      - data/raw/currencies/minute_bars/EURUSD_full_1min.txt
-      - data/raw/currencies/minute_bars/JPYUSD_full_1min.txt
+    - adr_strategy_kernel
+    - data/raw/futures/minute_bars/FTUK_full_1min_continuous_ratio_adjusted.txt
+    - data/raw/futures/minute_bars/FDAX_full_1min_continuous_ratio_adjusted.txt
+    - data/raw/futures/minute_bars/FESX_full_1min_continuous_ratio_adjusted.txt
+    - data/raw/futures/minute_bars/FXXP_full_1min_continuous_ratio_adjusted.txt
+    - data/raw/futures/minute_bars/FTI_full_1min_continuous_ratio_adjusted.txt
+    - data/raw/futures/minute_bars/FCE_full_1min_continuous_ratio_adjusted.txt
+    - data/raw/futures/minute_bars/MME_full_1min_continuous_ratio_adjusted.txt
+    - data/raw/currencies/minute_bars/GBPUSD_full_1min.txt   # All the futures are in these three currency pairs
+    - data/raw/currencies/minute_bars/EURUSD_full_1min.txt
+    - data/raw/currencies/minute_bars/JPYUSD_full_1min.txt
     outs:
-      - data/processed/futures/converted_minute_bars/symbol=FTUK/FTUK_close_to_usd_1min.parquet
-      - data/processed/futures/converted_minute_bars/symbol=FDAX/FDAX_close_to_usd_1min.parquet
-      - data/processed/futures/converted_minute_bars/symbol=FESX/FESX_close_to_usd_1min.parquet
-      - data/processed/futures/converted_minute_bars/symbol=FXXP/FXXP_close_to_usd_1min.parquet
-      - data/processed/futures/converted_minute_bars/symbol=FTI/FTI_close_to_usd_1min.parquet
-      - data/processed/futures/converted_minute_bars/symbol=FCE/FCE_close_to_usd_1min.parquet
-      - data/processed/futures/converted_minute_bars/symbol=NIY/NIY_close_to_usd_1min.parquet
-      - data/processed/futures/converted_minute_bars/symbol=MME/MME_close_to_usd_1min.parquet
+    - data/processed/futures/converted_minute_bars/symbol=FTUK/FTUK_close_to_usd_1min.parquet
+    - data/processed/futures/converted_minute_bars/symbol=FDAX/FDAX_close_to_usd_1min.parquet
+    - data/processed/futures/converted_minute_bars/symbol=FESX/FESX_close_to_usd_1min.parquet
+    - data/processed/futures/converted_minute_bars/symbol=FXXP/FXXP_close_to_usd_1min.parquet
+    - data/processed/futures/converted_minute_bars/symbol=FTI/FTI_close_to_usd_1min.parquet
+    - data/processed/futures/converted_minute_bars/symbol=FCE/FCE_close_to_usd_1min.parquet
+    - data/processed/futures/converted_minute_bars/symbol=NIY/NIY_close_to_usd_1min.parquet
+    - data/processed/futures/converted_minute_bars/symbol=MME/MME_close_to_usd_1min.parquet
 
   bbo_usd_index_futures:
     cmd: python src/bbo_usd_index_futures.py
     deps:
-      - src/bbo_usd_index_futures.py
-      - data/processed/futures/active/bbo-1m/exchange=IFLL.IMPACT/code=Z/
-      - data/processed/futures/active/bbo-1m/exchange=XEUR.EOBI/code=FESX/
-      - data/processed/futures/active/bbo-1m/exchange=GLBX.MDP3/code=NIY/
-      - data/raw/currencies/minute_bars/GBPUSD_full_1min.txt
-      - data/raw/currencies/minute_bars/EURUSD_full_1min.txt
-      - data/raw/currencies/minute_bars/JPYUSD_full_1min.txt
+    - src/bbo_usd_index_futures.py
+    - data/processed/futures/active/bbo-1m/exchange=IFLL.IMPACT/code=Z/
+    - data/processed/futures/active/bbo-1m/exchange=XEUR.EOBI/code=FESX/
+    - data/processed/futures/active/bbo-1m/exchange=GLBX.MDP3/code=NIY/
+    - data/raw/currencies/minute_bars/GBPUSD_full_1min.txt
+    - data/raw/currencies/minute_bars/EURUSD_full_1min.txt
+    - data/raw/currencies/minute_bars/JPYUSD_full_1min.txt
     outs:
-      - data/processed/futures/converted_bbo/symbol=FTUK/FTUK_close_to_usd_1min.parquet
-      - data/processed/futures/converted_bbo/symbol=FESX/FESX_close_to_usd_1min.parquet
-      - data/processed/futures/converted_bbo/symbol=NIY/NIY_close_to_usd_1min.parquet
+    - data/processed/futures/converted_bbo/symbol=FTUK/FTUK_close_to_usd_1min.parquet
+    - data/processed/futures/converted_bbo/symbol=FESX/FESX_close_to_usd_1min.parquet
+    - data/processed/futures/converted_bbo/symbol=NIY/NIY_close_to_usd_1min.parquet
 
   ohlcv-1m_usd_index_futures:
-    cmd: python src/ohlcv_usd_index_futures.py data/processed/futures/active/ohlcv-1m data/processed/futures/converted_ohlcv
+    cmd: python src/ohlcv_usd_index_futures.py 
+      data/processed/futures/active/ohlcv-1m 
+      data/processed/futures/converted_ohlcv
     deps:
-      - src/ohlcv_usd_index_futures.py
-      - data/processed/futures/active/ohlcv-1m/exchange=IFLL.IMPACT/code=Z/
-      - data/processed/futures/active/ohlcv-1m/exchange=XEUR.EOBI/code=FESX/
-      - data/processed/futures/active/ohlcv-1m/exchange=GLBX.MDP3/code=NIY/
-      - data/raw/currencies/minute_bars/GBPUSD_full_1min.txt
-      - data/raw/currencies/minute_bars/EURUSD_full_1min.txt
-      - data/raw/currencies/minute_bars/JPYUSD_full_1min.txt
+    - src/ohlcv_usd_index_futures.py
+    - data/processed/futures/active/ohlcv-1m/exchange=IFLL.IMPACT/code=Z/
+    - data/processed/futures/active/ohlcv-1m/exchange=XEUR.EOBI/code=FESX/
+    - data/processed/futures/active/ohlcv-1m/exchange=GLBX.MDP3/code=NIY/
+    - data/raw/currencies/minute_bars/GBPUSD_full_1min.txt
+    - data/raw/currencies/minute_bars/EURUSD_full_1min.txt
+    - data/raw/currencies/minute_bars/JPYUSD_full_1min.txt
     outs:
-      - data/processed/futures/converted_ohlcv/symbol=FTUK/FTUK_close_to_usd_1min.parquet
-      - data/processed/futures/converted_ohlcv/symbol=FESX/FESX_close_to_usd_1min.parquet
-      - data/processed/futures/converted_ohlcv/symbol=NIY/NIY_close_to_usd_1min.parquet
+    - data/processed/futures/converted_ohlcv/symbol=FTUK/FTUK_close_to_usd_1min.parquet
+    - data/processed/futures/converted_ohlcv/symbol=FESX/FESX_close_to_usd_1min.parquet
+    - data/processed/futures/converted_ohlcv/symbol=NIY/NIY_close_to_usd_1min.parquet
 
   adr_daily_mid:
-    cmd: python -m src.daily_fixed_time_mid --nbbo_dir=data/raw/adrs/bbo-1m/nbbo --time_to_save_hrs=${fixed_trade_time_hours} --time_to_save_min=${fixed_trade_time_min} --tickers=data/raw/adr_info.csv --tickers_columns=adr --output_filename=data/processed/adrs/adr_daily_fixed_time_mid.csv
+    cmd: PYTHONPATH=. python -m adr_strategy_kernel.pipelines.fixed_time_mid 
+      --nbbo-dir=data/raw/adrs/bbo-1m/nbbo --tickers-csv data/raw/adr_info.csv 
+      --tickers-columns adr --time-to-save-hours=${fixed_trade_time_hours} 
+      --time-to-save-minutes=${fixed_trade_time_min} --start-date=${start_date} 
+      --end-date=${end_date} 
+      --output=data/processed/adrs/adr_daily_fixed_time_mid.csv
     deps:
-      - src/daily_fixed_time_mid.py
-      - data/raw/adrs/bbo-1m/nbbo
-      - data/raw/adr_info.csv
+    - adr_strategy_kernel
+    - data/raw/adrs/bbo-1m/nbbo
+    - data/raw/adr_info.csv
     params:
-      - fixed_trade_time_hours
-      - fixed_trade_time_min
+    - start_date
+    - end_date
+    - fixed_trade_time_hours
+    - fixed_trade_time_min
     outs:
-      - data/processed/adrs/adr_daily_fixed_time_mid.csv
+    - data/processed/adrs/adr_daily_fixed_time_mid.csv
 
   adr_open_mid:
-    cmd: python -m src.daily_fixed_time_mid --nbbo_dir=data/raw/adrs/bbo-1m/nbbo --time_to_save_hrs=9 --time_to_save_min=31 --tickers=data/raw/adr_info.csv --tickers_columns=adr --output_filename=data/processed/adrs/adr_open_mid.csv
+    cmd: PYTHONPATH=. python -m adr_strategy_kernel.pipelines.fixed_time_mid 
+      --nbbo-dir=data/raw/adrs/bbo-1m/nbbo --tickers-csv data/raw/adr_info.csv 
+      --tickers-columns adr --time-to-save-hours=9 --time-to-save-minutes=31 
+      --start-date=${start_date} --end-date=${end_date} 
+      --output=data/processed/adrs/adr_open_mid.csv
     deps:
-      - src/daily_fixed_time_mid.py
-      - data/raw/adrs/bbo-1m/nbbo
-      - data/raw/adr_info.csv
+    - adr_strategy_kernel
+    - data/raw/adrs/bbo-1m/nbbo
+    - data/raw/adr_info.csv
+    params:
+    - start_date
+    - end_date
     outs:
-      - data/processed/adrs/adr_open_mid.csv
+    - data/processed/adrs/adr_open_mid.csv
 
   adr_mid_ny_open:
-    cmd: python -m src.daily_fixed_time_mid --nbbo_dir=data/raw/adrs/bbo-1m/nbbo --time_to_save_hrs=9 --time_to_save_min=35 --tickers=data/raw/adr_info.csv --tickers_columns=adr --output_filename=data/processed/adrs/adr_mid_ny_open.csv
+    cmd: PYTHONPATH=. python -m adr_strategy_kernel.pipelines.fixed_time_mid 
+      --nbbo-dir=data/raw/adrs/bbo-1m/nbbo --tickers-csv data/raw/adr_info.csv 
+      --tickers-columns adr --time-to-save-hours=9 --time-to-save-minutes=35 
+      --start-date=${start_date} --end-date=${end_date} 
+      --output=data/processed/adrs/adr_mid_ny_open.csv
     deps:
-      - src/daily_fixed_time_mid.py
-      - data/raw/adrs/bbo-1m/nbbo
-      - data/raw/adr_info.csv
+    - adr_strategy_kernel
+    - data/raw/adrs/bbo-1m/nbbo
+    - data/raw/adr_info.csv
+    params:
+    - start_date
+    - end_date
     outs:
-      - data/processed/adrs/adr_mid_ny_open.csv
+    - data/processed/adrs/adr_mid_ny_open.csv
 
   daily_adr_for_cov:
-    cmd: python -m src.daily_fixed_time_mid --nbbo_dir=data/raw/adrs/bbo-1m/nbbo --time_to_save_hrs=${daily_time_for_cov_hours} --time_to_save_min=${daily_time_for_cov_min} --tickers=data/raw/adr_info.csv --tickers_columns=adr --output_filename=data/processed/adrs/daily_mid_for_cov.csv
+    cmd: PYTHONPATH=. python -m adr_strategy_kernel.pipelines.fixed_time_mid 
+      --nbbo-dir=data/raw/adrs/bbo-1m/nbbo --tickers-csv data/raw/adr_info.csv 
+      --tickers-columns adr --time-to-save-hours=${daily_time_for_cov_hours} 
+      --time-to-save-minutes=${daily_time_for_cov_min} 
+      --start-date=${start_date} --end-date=${end_date} 
+      --output=data/processed/adrs/daily_mid_for_cov.csv
     deps:
-      - src/daily_fixed_time_mid.py
-      - data/raw/adrs/bbo-1m/nbbo
-      - data/raw/adr_info.csv
+    - adr_strategy_kernel
+    - data/raw/adrs/bbo-1m/nbbo
+    - data/raw/adr_info.csv
     params:
-      - daily_time_for_cov_hours
-      - daily_time_for_cov_min
+    - start_date
+    - end_date
+    - daily_time_for_cov_hours
+    - daily_time_for_cov_min
     outs:
-      - data/processed/adrs/daily_mid_for_cov.csv
+    - data/processed/adrs/daily_mid_for_cov.csv
 
   adr_open_mean_premium:
     cmd: python -m src.adr_open_mean_prem
     deps:
-      - src/adr_open_mean_prem.py
-      - data/raw/adr_info.csv
+    - src/adr_open_mean_prem.py
+    - data/raw/adr_info.csv
     params:
-      - avg_premium_lookback_days
+    - avg_premium_lookback_days
     outs:
-      - data/processed/adrs/adr_open_mean_premium.csv
+    - data/processed/adrs/adr_open_mean_premium.csv
 
   market_etf_daily_fixed_time_mid:
-    cmd: python -m src.daily_fixed_time_mid --nbbo_dir=data/raw/etfs/market/bbo-1m/nbbo --time_to_save_hrs=${fixed_trade_time_hours} --time_to_save_min=${fixed_trade_time_min} --tickers=data/raw/adr_info.csv --tickers_columns=market_etf_hedge --output_filename=data/processed/etfs/market/market_etf_daily_fixed_time_mid.csv
+    cmd: PYTHONPATH=. python -m adr_strategy_kernel.pipelines.fixed_time_mid 
+      --nbbo-dir=data/raw/etfs/market/bbo-1m/nbbo --tickers-csv 
+      data/raw/adr_info.csv --tickers-columns market_etf_hedge 
+      --time-to-save-hours=${fixed_trade_time_hours} 
+      --time-to-save-minutes=${fixed_trade_time_min} --start-date=${start_date} 
+      --end-date=${end_date} 
+      --output=data/processed/etfs/market/market_etf_daily_fixed_time_mid.csv
     deps:
-      - src/daily_fixed_time_mid.py
-      - data/raw/etfs/market/bbo-1m/nbbo
-      - data/raw/adr_info.csv
+    - adr_strategy_kernel
+    - data/raw/etfs/market/bbo-1m/nbbo
+    - data/raw/adr_info.csv
     params:
-      - fixed_trade_time_hours
-      - fixed_trade_time_min
+    - start_date
+    - end_date
+    - fixed_trade_time_hours
+    - fixed_trade_time_min
     outs:
-      - data/processed/etfs/market/market_etf_daily_fixed_time_mid.csv
+    - data/processed/etfs/market/market_etf_daily_fixed_time_mid.csv
 
   # fixed_time_signal:
   #   cmd: python src/futures_fixed_time_signal.py
@@ -680,867 +848,1204 @@ stages:
   #     - data/processed/fixed_time_signal.csv
 
   fixed_time_signal:
-    cmd: python src/from_full_futures_fixed_time_signal.py data/processed/futures_only_signal data/processed/fixed_time_signal.csv
+    cmd: PYTHONPATH=. python -m adr_strategy_kernel.pipelines.fixed_time_signal 
+      data/processed/futures_only_signal data/processed/fixed_time_signal.csv 
+      --tickers-csv data/raw/adr_info.csv --tickers-columns adr 
+      --time-to-save-hours=${fixed_trade_time_hours} 
+      --time-to-save-minutes=${fixed_trade_time_min} --start-date=${start_date} 
+      --end-date=${end_date}
     deps:
-      - src/from_full_futures_fixed_time_signal.py
-      - data/processed/futures_only_signal/
-      - data/raw/adr_info.csv
+    - adr_strategy_kernel
+    - data/processed/futures_only_signal/
+    - data/raw/adr_info.csv
     params:
-      - fixed_trade_time_hours
-      - fixed_trade_time_min
-      - start_date
-      - end_date
+    - fixed_trade_time_hours
+    - fixed_trade_time_min
+    - start_date
+    - end_date
     outs:
-      - data/processed/fixed_time_signal.csv
+    - data/processed/fixed_time_signal.csv
 
   pcr_fixed_time_signal:
-    cmd: python src/from_full_futures_fixed_time_signal.py data/processed/index_russell_pcr_signal_old_universe_gated/ data/processed/pcr_fixed_time_signal.csv
+    cmd: PYTHONPATH=. python -m adr_strategy_kernel.pipelines.fixed_time_signal 
+      data/processed/index_russell_pcr_signal_old_universe_gated/ 
+      data/processed/pcr_fixed_time_signal.csv --tickers-csv 
+      data/raw/adr_info.csv --tickers-columns adr 
+      --time-to-save-hours=${fixed_trade_time_hours} 
+      --time-to-save-minutes=${fixed_trade_time_min} --start-date=${start_date} 
+      --end-date=${end_date}
     deps:
-      - src/from_full_futures_fixed_time_signal.py
-      - data/processed/index_russell_pcr_signal_old_universe_gated/
-      - data/raw/adr_info.csv
+    - adr_strategy_kernel
+    - data/processed/index_russell_pcr_signal_old_universe_gated/
+    - data/raw/adr_info.csv
     params:
-      - fixed_trade_time_hours
-      - fixed_trade_time_min
-      - start_date
-      - end_date
+    - fixed_trade_time_hours
+    - fixed_trade_time_min
+    - start_date
+    - end_date
     outs:
-      - data/processed/pcr_fixed_time_signal.csv
+    - data/processed/pcr_fixed_time_signal.csv
 
   ridge_fixed_time_signal:
-    cmd: python src/from_full_futures_fixed_time_signal.py data/processed/index_russell_ridge_signal/ data/processed/ridge_fixed_time_signal.csv
+    cmd: PYTHONPATH=. python -m adr_strategy_kernel.pipelines.fixed_time_signal 
+      data/processed/index_russell_ridge_signal/ 
+      data/processed/ridge_fixed_time_signal.csv --tickers-csv 
+      data/raw/adr_info.csv --tickers-columns adr 
+      --time-to-save-hours=${fixed_trade_time_hours} 
+      --time-to-save-minutes=${fixed_trade_time_min} --start-date=${start_date} 
+      --end-date=${end_date}
     deps:
-      - src/from_full_futures_fixed_time_signal.py
-      - data/processed/index_russell_ridge_signal/
-      - data/raw/adr_info.csv
+    - adr_strategy_kernel
+    - data/processed/index_russell_ridge_signal/
+    - data/raw/adr_info.csv
     params:
-      - fixed_trade_time_hours
-      - fixed_trade_time_min
-      - start_date
-      - end_date
+    - fixed_trade_time_hours
+    - fixed_trade_time_min
+    - start_date
+    - end_date
     outs:
-      - data/processed/ridge_fixed_time_signal.csv
+    - data/processed/ridge_fixed_time_signal.csv
 
   db_fixed_time_signal:
-    cmd: python src/from_full_futures_fixed_time_signal.py data/processed/db_futures_only_signal data/processed/db_fixed_time_signal.csv
+    cmd: PYTHONPATH=. python -m adr_strategy_kernel.pipelines.fixed_time_signal 
+      data/processed/db_futures_only_signal 
+      data/processed/db_fixed_time_signal.csv --tickers-csv 
+      data/raw/adr_info.csv --tickers-columns adr 
+      --time-to-save-hours=${fixed_trade_time_hours} 
+      --time-to-save-minutes=${fixed_trade_time_min} --start-date=${start_date} 
+      --end-date=${end_date}
     deps:
-      - src/from_full_futures_fixed_time_signal.py
-      - data/processed/adrs/adr_mid_at_ord_auction_adjust_none.csv
-      - data/processed/adrs/adr_daily_fixed_time_mid.csv
-      - data/processed/models/ordinary_betas_index_only.csv
-      - data/processed/futures/converted_bbo
+    - adr_strategy_kernel
+    - data/processed/adrs/adr_mid_at_ord_auction_adjust_none.csv
+    - data/processed/adrs/adr_daily_fixed_time_mid.csv
+    - data/processed/models/ordinary_betas_index_only.csv
+    - data/processed/futures/converted_bbo
       #- data/processed/futures/converted_ohlcv
-      - data/processed/db_futures_only_signal/
-      - data/raw/adr_info.csv
-      - data/raw/futures_symbols.csv
+    - data/processed/db_futures_only_signal/
+    - data/raw/adr_info.csv
+    - data/raw/futures_symbols.csv
     params:
-      - fixed_trade_time_hours
-      - fixed_trade_time_min
-      - start_date
-      - end_date
+    - fixed_trade_time_hours
+    - fixed_trade_time_min
+    - start_date
+    - end_date
     outs:
-      - data/processed/db_fixed_time_signal.csv
+    - data/processed/db_fixed_time_signal.csv
 
   only_futures_full_signal:
-    cmd: python src/only_futures_full_signal.py data/processed/futures/converted_minute_bars data/processed/futures_only_signal
+    cmd: PYTHONPATH=. python -m 
+      adr_strategy_kernel.pipelines.only_futures_full_signal 
+      data/processed/futures/converted_minute_bars 
+      data/processed/futures_only_signal
     deps:
-      - src/only_futures_full_signal.py
-      - data/processed/adrs/adr_open_mean_premium.csv
-      - data/processed/ordinary/ord_close_to_usd_adr_PX_LAST_adjust_none.csv
-      - data/processed/adrs/adr_mid_at_ord_auction_adjust_none.csv
-      - data/processed/models/ordinary_betas_index_only.csv
-      - data/processed/futures/converted_minute_bars
-      - data/raw/adrs/bbo-1m/nbbo
-      - data/raw/adr_info.csv
-      - data/raw/futures_symbols.csv
+    - adr_strategy_kernel
+    - data/processed/adrs/adr_open_mean_premium.csv
+    - data/processed/ordinary/ord_close_to_usd_adr_PX_LAST_adjust_none.csv
+    - data/processed/adrs/adr_mid_at_ord_auction_adjust_none.csv
+    - data/processed/models/ordinary_betas_index_only.csv
+    - data/processed/futures/converted_minute_bars
+    - data/raw/adrs/bbo-1m/nbbo
+    - data/raw/adr_info.csv
+    - data/raw/futures_symbols.csv
     params:
-      - fixed_trade_time_hours
-      - fixed_trade_time_min
-      - start_date
-      - end_date
+    - fixed_trade_time_hours
+    - fixed_trade_time_min
+    - start_date
+    - end_date
     outs:
-      - data/processed/futures_only_signal/
+    - data/processed/futures_only_signal/
 
   db_only_futures_full_signal:
-    cmd: python src/only_futures_full_signal.py data/processed/futures/converted_bbo data/processed/db_futures_only_signal
+    cmd: PYTHONPATH=. python -m 
+      adr_strategy_kernel.pipelines.only_futures_full_signal 
+      data/processed/futures/converted_bbo data/processed/db_futures_only_signal
     deps:
-      - src/only_futures_full_signal.py
-      - data/processed/adrs/adr_open_mean_premium.csv
-      - data/processed/ordinary/ord_close_to_usd_adr_PX_LAST_adjust_none.csv
-      - data/processed/adrs/adr_mid_at_ord_auction_adjust_none.csv
-      - data/processed/models/ordinary_betas_index_only.csv
-      - data/processed/futures/converted_bbo
-      - data/raw/adrs/bbo-1m/nbbo
-      - data/raw/adr_info.csv
-      - data/raw/futures_symbols.csv
+    - adr_strategy_kernel
+    - data/processed/adrs/adr_open_mean_premium.csv
+    - data/processed/ordinary/ord_close_to_usd_adr_PX_LAST_adjust_none.csv
+    - data/processed/adrs/adr_mid_at_ord_auction_adjust_none.csv
+    - data/processed/models/ordinary_betas_index_only.csv
+    - data/processed/futures/converted_bbo
+    - data/raw/adrs/bbo-1m/nbbo
+    - data/raw/adr_info.csv
+    - data/raw/futures_symbols.csv
     params:
-      - fixed_trade_time_hours
-      - fixed_trade_time_min
-      - start_date
-      - end_date
+    - fixed_trade_time_hours
+    - fixed_trade_time_min
+    - start_date
+    - end_date
     outs:
-      - data/processed/db_futures_only_signal/
+    - data/processed/db_futures_only_signal/
 
   stock_splits:
     cmd: python -m src.get_splits
     deps:
-      - src/get_splits.py
-      - data/raw/adr_info.csv
-      - data/raw/sector_etfs.csv
+    - src/get_splits.py
+    - data/raw/adr_info.csv
+    - data/raw/sector_etfs.csv
     outs:
-      - data/raw/all_splits.csv
+    - data/raw/all_splits.csv
 
   stock_dividends:
     cmd: python -m src.get_dividends
     deps:
-      - src/get_dividends.py
-      - data/raw/adr_info.csv
-      - data/raw/sector_etfs.csv
+    - src/get_dividends.py
+    - data/raw/adr_info.csv
+    - data/raw/sector_etfs.csv
     outs:
-      - data/raw/all_dividends.csv
+    - data/raw/all_dividends.csv
 
   build_aligned_index_prices:
-    cmd: python src/build_aligned_index_prices.py
+    cmd: PYTHONPATH=. python -m 
+      adr_strategy_kernel.pipelines.build_aligned_index_prices
     deps:
-      - src/build_aligned_index_prices.py
-      - data/raw/adr_info.csv
-      - data/raw/futures_symbols.csv
-      - data/raw/indices/indices_PX_LAST.csv
-      - data/raw/bloomberg_close_times.csv
-      - data/raw/close_time_offsets.csv
-      - data/raw/futures/minute_bars/FESX_full_1min_continuous_ratio_adjusted.txt
-      - data/raw/futures/minute_bars/FTUK_full_1min_continuous_ratio_adjusted.txt
-      - data/raw/futures/minute_bars/NIY_full_1min_continuous_ratio_adjusted.txt
-      - data/raw/futures/minute_bars/FDAX_full_1min_continuous_ratio_adjusted.txt
-      - data/raw/futures/minute_bars/FXXP_full_1min_continuous_ratio_adjusted.txt
-      - data/raw/futures/minute_bars/MME_full_1min_continuous_ratio_adjusted.txt
+    - adr_strategy_kernel
+    - data/raw/adr_info.csv
+    - data/raw/futures_symbols.csv
+    - data/raw/indices/indices_PX_LAST.csv
+    - data/raw/bloomberg_close_times.csv
+    - data/raw/close_time_offsets.csv
+    - data/raw/futures/minute_bars/FESX_full_1min_continuous_ratio_adjusted.txt
+    - data/raw/futures/minute_bars/FTUK_full_1min_continuous_ratio_adjusted.txt
+    - data/raw/futures/minute_bars/NIY_full_1min_continuous_ratio_adjusted.txt
+    - data/raw/futures/minute_bars/FDAX_full_1min_continuous_ratio_adjusted.txt
+    - data/raw/futures/minute_bars/FXXP_full_1min_continuous_ratio_adjusted.txt
+    - data/raw/futures/minute_bars/MME_full_1min_continuous_ratio_adjusted.txt
     outs:
-      - data/processed/aligned_index_prices.csv
+    - data/processed/aligned_index_prices.csv
 
   index_only_model:
-    cmd: python src/get_betas_no_sector.py
+    cmd: PYTHONPATH=. python -m adr_strategy_kernel.pipelines.index_only_betas
     deps:
-      - src/get_betas_no_sector.py
-      - src/utils_lasso_residuals.py
-      - src/utils.py
-      - data/raw/adr_info.csv
-      - data/raw/ordinary/ord_PX_LAST_adjust_split.csv
-      - data/processed/aligned_index_prices.csv
-      - data/raw/close_time_offsets.csv
-      - data/raw/currencies/minute_bars/EURUSD_full_1min.txt
-      - data/raw/currencies/minute_bars/GBPUSD_full_1min.txt
-      - data/raw/currencies/minute_bars/JPYUSD_full_1min.txt
-      - data/raw/currencies/minute_bars/AUDUSD_full_1min.txt
-      - data/raw/currencies/minute_bars/CHFUSD_full_1min.txt
-      - data/raw/currencies/minute_bars/HKDUSD_full_1min.txt
-      - data/raw/currencies/minute_bars/NOKUSD_full_1min.txt
-      - data/raw/currencies/minute_bars/SEKUSD_full_1min.txt
-      - data/raw/currencies/minute_bars/DKKUSD_full_1min.txt
+    - adr_strategy_kernel
+    - data/raw/adr_info.csv
+    - data/raw/ordinary/ord_PX_LAST_adjust_split.csv
+    - data/processed/aligned_index_prices.csv
+    - data/raw/close_time_offsets.csv
+    - data/raw/currencies/minute_bars/EURUSD_full_1min.txt
+    - data/raw/currencies/minute_bars/GBPUSD_full_1min.txt
+    - data/raw/currencies/minute_bars/JPYUSD_full_1min.txt
+    - data/raw/currencies/minute_bars/AUDUSD_full_1min.txt
+    - data/raw/currencies/minute_bars/CHFUSD_full_1min.txt
+    - data/raw/currencies/minute_bars/HKDUSD_full_1min.txt
+    - data/raw/currencies/minute_bars/NOKUSD_full_1min.txt
+    - data/raw/currencies/minute_bars/SEKUSD_full_1min.txt
+    - data/raw/currencies/minute_bars/DKKUSD_full_1min.txt
     params:
-      - pred.lookback_days
+    - pred.lookback_days
     outs:
-      - data/processed/models/ordinary_betas_index_only.csv
-  
+    - data/processed/models/ordinary_betas_index_only.csv
+
   minute_volume_stats:
     cmd: python src/minute_volume_stats.py
     deps:
-      - src/minute_volume_stats.py
-      - data/raw/adrs/tcbbo/
+    - src/minute_volume_stats.py
+    - data/raw/adrs/tcbbo/
     params:
-      - start_date
-      - end_date
-      - avg_dollar_volume_lookback_days
+    - start_date
+    - end_date
+    - avg_dollar_volume_lookback_days
     outs:
-      - data/processed/adrs/minute_volume_stats
+    - data/processed/adrs/minute_volume_stats
 
   market_etf_hedge_ratios:
-    cmd: python src/market_etf_hedge_ratios.py
+    cmd: PYTHONPATH=. python -m 
+      adr_strategy_kernel.pipelines.market_etf_hedge_ratios
     deps:
-      - src/market_etf_hedge_ratios.py
-      - data/raw/adr_info.csv
-      - data/raw/etfs/market/market_etf_PX_LAST_adjust_all.csv
-      - data/raw/adrs/adr_PX_LAST_adjust_all.csv
+    - adr_strategy_kernel
+    - data/raw/adr_info.csv
+    - data/raw/etfs/market/market_etf_PX_LAST_adjust_all.csv
+    - data/raw/adrs/adr_PX_LAST_adjust_all.csv
     outs:
-      - data/processed/market_etf_hedge_ratios.csv
+    - data/processed/market_etf_hedge_ratios.csv
 
   daily_futures_volume:
     cmd: python -m src.daily_futures_volume
     deps:
-      - src/daily_futures_volume.py
-      - data/raw/futures_symbols.csv
-      - data/raw/adr_info.csv
+    - src/daily_futures_volume.py
+    - data/raw/futures_symbols.csv
+    - data/raw/adr_info.csv
     params:
-      - start_date
-      - end_date
+    - start_date
+    - end_date
     outs:
-      - data/raw/futures/daily_futures_volume.parquet
+    - data/raw/futures/daily_futures_volume.parquet
 
   brit_backtest_fixed_time:
     cmd: backtester_run backtest_conifgs/single_time.yaml
     deps:
-      - src/backtest_strategies/single_time_ADR.py
-      - backtest_conifgs/single_time.yaml
-      - data/processed/adrs/
-      - data/processed/fixed_time_signal.csv
-      - data/processed/adrs/adr_daily_fixed_time_mid.csv
+    - src/backtest_strategies/single_time_ADR.py
+    - backtest_conifgs/single_time.yaml
+    - data/processed/adrs/
+    - data/processed/fixed_time_signal.csv
+    - data/processed/adrs/adr_daily_fixed_time_mid.csv
       #- data/processed/etfs/market_etf_daily_fixed_time_mid.csv
-      - data/raw/adrs/adr_PX_LAST_adjust_none.csv
-      - data/raw/adrs/adr_turnover.csv
-      - data/raw/all_splits.csv
+    - data/raw/adrs/adr_PX_LAST_adjust_none.csv
+    - data/raw/adrs/adr_turnover.csv
+    - data/raw/all_splits.csv
 
   hedged_backtest_fixed_time:
     cmd: backtester_run backtest_conifgs/hedged_single_time.yaml
     deps:
-      - src/backtest_strategies/hedged_single_time_ADR.py
-      - backtest_conifgs/hedged_single_time.yaml
-      - data/processed/fixed_time_signal.csv
-      - data/processed/adrs/adr_daily_fixed_time_mid.csv
-      - data/raw/adrs/adr_PX_LAST_adjust_none.csv
-      - data/raw/adrs/adr_turnover.csv
-      - data/raw/all_splits.csv
-      - data/processed/etfs/market/market_etf_daily_fixed_time_mid.csv
-      - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
-      - data/processed/market_etf_hedge_ratios.csv
-  
+    - src/backtest_strategies/hedged_single_time_ADR.py
+    - backtest_conifgs/hedged_single_time.yaml
+    - data/processed/fixed_time_signal.csv
+    - data/processed/adrs/adr_daily_fixed_time_mid.csv
+    - data/raw/adrs/adr_PX_LAST_adjust_none.csv
+    - data/raw/adrs/adr_turnover.csv
+    - data/raw/all_splits.csv
+    - data/processed/etfs/market/market_etf_daily_fixed_time_mid.csv
+    - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
+    - data/processed/market_etf_hedge_ratios.csv
+
   fx_hedged_backtest_fixed_time:
     cmd: backtester_run backtest_conifgs/fx_hedged_single_time.yaml
     deps:
-      - src/backtest_strategies/hedged_single_time_ADR.py
-      - backtest_conifgs/hedged_single_time.yaml
-      - data/processed/fixed_time_signal.csv
-      - data/processed/adrs/adr_daily_fixed_time_mid.csv
-      - data/raw/adrs/adr_PX_LAST_adjust_none.csv
-      - data/raw/adrs/adr_turnover.csv
-      - data/raw/all_splits.csv
-      - data/processed/etfs/market/market_etf_daily_fixed_time_mid.csv
-      - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
-      - data/processed/market_etf_hedge_ratios.csv
+    - src/backtest_strategies/hedged_single_time_ADR.py
+    - backtest_conifgs/hedged_single_time.yaml
+    - data/processed/fixed_time_signal.csv
+    - data/processed/adrs/adr_daily_fixed_time_mid.csv
+    - data/raw/adrs/adr_PX_LAST_adjust_none.csv
+    - data/raw/adrs/adr_turnover.csv
+    - data/raw/all_splits.csv
+    - data/processed/etfs/market/market_etf_daily_fixed_time_mid.csv
+    - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
+    - data/processed/market_etf_hedge_ratios.csv
 
   db_hedged_backtest_fixed_time:
     cmd: backtester_run backtest_conifgs/db_hedged_single_time.yaml
     deps:
-      - src/backtest_strategies/hedged_single_time_ADR.py
-      - backtest_conifgs/db_hedged_single_time.yaml
-      - data/processed/db_fixed_time_signal.csv
-      - data/processed/fixed_time_signal.csv
-      - data/processed/adrs/adr_daily_fixed_time_mid.csv
-      - data/raw/adrs/adr_PX_LAST_adjust_none.csv
-      - data/raw/adrs/adr_turnover.csv
-      - data/raw/all_splits.csv
-      - data/processed/etfs/market/market_etf_daily_fixed_time_mid.csv
-      - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
-      - data/processed/market_etf_hedge_ratios.csv
+    - src/backtest_strategies/hedged_single_time_ADR.py
+    - backtest_conifgs/db_hedged_single_time.yaml
+    - data/processed/db_fixed_time_signal.csv
+    - data/processed/fixed_time_signal.csv
+    - data/processed/adrs/adr_daily_fixed_time_mid.csv
+    - data/raw/adrs/adr_PX_LAST_adjust_none.csv
+    - data/raw/adrs/adr_turnover.csv
+    - data/raw/all_splits.csv
+    - data/processed/etfs/market/market_etf_daily_fixed_time_mid.csv
+    - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
+    - data/processed/market_etf_hedge_ratios.csv
 
   minute_vwap_hedged_ADR_backtest:
     cmd: backtester_run backtest_conifgs/minute_vwap_hedged_ADR.yaml
     deps:
-      - src/backtest_strategies/minute_vwap_hedged_ADR.py
-      - backtest_conifgs/minute_vwap_hedged_ADR.yaml
-      - data/processed/fixed_time_signal.csv
-      - data/processed/adrs/adr_daily_fixed_time_mid.csv
-      - data/raw/adrs/adr_PX_LAST_adjust_none.csv
-      - data/raw/adrs/adr_turnover.csv
-      - data/raw/all_splits.csv
-      - data/processed/etfs/market/market_etf_daily_fixed_time_mid.csv
-      - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
-      - data/processed/market_etf_hedge_ratios.csv
-      - data/processed/adrs/minute_volume_stats
+    - src/backtest_strategies/minute_vwap_hedged_ADR.py
+    - backtest_conifgs/minute_vwap_hedged_ADR.yaml
+    - data/processed/fixed_time_signal.csv
+    - data/processed/adrs/adr_daily_fixed_time_mid.csv
+    - data/raw/adrs/adr_PX_LAST_adjust_none.csv
+    - data/raw/adrs/adr_turnover.csv
+    - data/raw/all_splits.csv
+    - data/processed/etfs/market/market_etf_daily_fixed_time_mid.csv
+    - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
+    - data/processed/market_etf_hedge_ratios.csv
+    - data/processed/adrs/minute_volume_stats
   compute_russell_betas:
     cmd: python src/compute_russell_betas.py
     deps:
-      - src/compute_russell_betas.py
-      - src/utils_lasso_residuals.py
-      - data/processed/russell1000/close_at_exchange_auction_adjusted
-      - data/processed/aligned_index_prices.csv
-      - data/raw/adr_info.csv
-      - data/raw/futures_symbols.csv
-      - data/raw/russell1000/ohlcv-1m
-      - data/processed/futures/converted_minute_bars
-      - data/raw/currencies/minute_bars/EURUSD_full_1min.txt
-      - data/raw/currencies/minute_bars/GBPUSD_full_1min.txt
-      - data/raw/currencies/minute_bars/JPYUSD_full_1min.txt
-      - data/raw/currencies/minute_bars/AUDUSD_full_1min.txt
-      - data/raw/currencies/minute_bars/CHFUSD_full_1min.txt
-      - data/raw/currencies/minute_bars/HKDUSD_full_1min.txt
-      - data/raw/currencies/minute_bars/NOKUSD_full_1min.txt
-      - data/raw/currencies/minute_bars/SEKUSD_full_1min.txt
-      - data/raw/currencies/minute_bars/DKKUSD_full_1min.txt
-      - data/raw/close_time_offsets.csv
+    - src/compute_russell_betas.py
+    - src/utils_lasso_residuals.py
+    - data/processed/russell1000/close_at_exchange_auction_adjusted
+    - data/processed/aligned_index_prices.csv
+    - data/raw/adr_info.csv
+    - data/raw/futures_symbols.csv
+    - data/raw/russell1000/ohlcv-1m
+    - data/processed/futures/converted_minute_bars
+    - data/raw/currencies/minute_bars/EURUSD_full_1min.txt
+    - data/raw/currencies/minute_bars/GBPUSD_full_1min.txt
+    - data/raw/currencies/minute_bars/JPYUSD_full_1min.txt
+    - data/raw/currencies/minute_bars/AUDUSD_full_1min.txt
+    - data/raw/currencies/minute_bars/CHFUSD_full_1min.txt
+    - data/raw/currencies/minute_bars/HKDUSD_full_1min.txt
+    - data/raw/currencies/minute_bars/NOKUSD_full_1min.txt
+    - data/raw/currencies/minute_bars/SEKUSD_full_1min.txt
+    - data/raw/currencies/minute_bars/DKKUSD_full_1min.txt
+    - data/raw/close_time_offsets.csv
     params:
-      - frd_start_date
-      - end_date
-      - russell_betas.lookback_days
+    - frd_start_date
+    - end_date
+    - russell_betas.lookback_days
     outs:
-      - data/processed/russell1000/russell_betas
+    - data/processed/russell1000/russell_betas
 
   ridge_train_models:
-    cmd: python src/train_russell_experiment_models.py --model-kind ridge --features-dir data/processed/models/with_us_stocks/features_extended --output-dir data/processed/models/with_us_stocks/ridge --train-months 14 --val-months 6
+    cmd: python src/train_russell_experiment_models.py --model-kind ridge 
+      --features-dir data/processed/models/with_us_stocks/features_extended 
+      --output-dir data/processed/models/with_us_stocks/ridge --train-months 14 
+      --val-months 6
     deps:
-      - src/train_russell_experiment_models.py
-      - data/processed/models/with_us_stocks/features_extended
-      - data/raw/historical_russell_1000.csv
-      - data/raw/russell1000/russell1000_turnover.csv
+    - src/train_russell_experiment_models.py
+    - data/processed/models/with_us_stocks/features_extended
+    - data/raw/historical_russell_1000.csv
+    - data/raw/russell1000/russell1000_turnover.csv
     outs:
-      - data/processed/models/with_us_stocks/ridge
+    - data/processed/models/with_us_stocks/ridge
 
   index_russell_ridge_signal:
-    cmd: python src/index_russell_experiment_signal.py --model-kind ridge --model-dir data/processed/models/with_us_stocks/ridge --output-dir data/processed/index_russell_ridge_signal
+    cmd: python src/index_russell_experiment_signal.py --model-kind ridge 
+      --model-dir data/processed/models/with_us_stocks/ridge --output-dir 
+      data/processed/index_russell_ridge_signal
     deps:
-      - src/index_russell_experiment_signal.py
-      - data/processed/futures/converted_minute_bars
-      - data/raw/adr_info.csv
-      - data/raw/futures_symbols.csv
-      - data/processed/models/with_us_stocks/ridge
-      - data/raw/russell1000/ohlcv-1m
-      - data/processed/russell1000/russell_betas
-      - data/processed/futures_only_signal
+    - src/index_russell_experiment_signal.py
+    - data/processed/futures/converted_minute_bars
+    - data/raw/adr_info.csv
+    - data/raw/futures_symbols.csv
+    - data/processed/models/with_us_stocks/ridge
+    - data/raw/russell1000/ohlcv-1m
+    - data/processed/russell1000/russell_betas
+    - data/processed/futures_only_signal
     params:
-      - start_date
-      - end_date
+    - start_date
+    - end_date
     outs:
-      - data/processed/index_russell_ridge_signal
+    - data/processed/index_russell_ridge_signal
 
   evaluate_ridge_notebook:
-    cmd: MODEL_KEY=ridge RETURNS_MODE=hedged jupyter nbconvert --to notebook --execute notebooks/signal_ic_analysis_template.ipynb --output-dir notebooks/reports --output ridge_ic_report_hedged_from_template.ipynb && python src/hardcode_report_notebook_env.py --notebook notebooks/reports/ridge_ic_report_hedged_from_template.ipynb --model-key ridge --model-name Ridge --model-signal-dir data/processed/index_russell_ridge_signal --returns-mode hedged && MODEL_KEY=ridge RETURNS_MODE=unhedged jupyter nbconvert --to notebook --execute notebooks/signal_ic_analysis_template.ipynb --output-dir notebooks/reports --output ridge_ic_report_unhedged_from_template.ipynb && python src/hardcode_report_notebook_env.py --notebook notebooks/reports/ridge_ic_report_unhedged_from_template.ipynb --model-key ridge --model-name Ridge --model-signal-dir data/processed/index_russell_ridge_signal --returns-mode unhedged
+    cmd: MODEL_KEY=ridge RETURNS_MODE=hedged jupyter nbconvert --to notebook 
+      --execute notebooks/signal_ic_analysis_template.ipynb --output-dir 
+      notebooks/reports --output ridge_ic_report_hedged_from_template.ipynb && 
+      python src/hardcode_report_notebook_env.py --notebook 
+      notebooks/reports/ridge_ic_report_hedged_from_template.ipynb --model-key 
+      ridge --model-name Ridge --model-signal-dir 
+      data/processed/index_russell_ridge_signal --returns-mode hedged && 
+      MODEL_KEY=ridge RETURNS_MODE=unhedged jupyter nbconvert --to notebook 
+      --execute notebooks/signal_ic_analysis_template.ipynb --output-dir 
+      notebooks/reports --output ridge_ic_report_unhedged_from_template.ipynb &&
+      python src/hardcode_report_notebook_env.py --notebook 
+      notebooks/reports/ridge_ic_report_unhedged_from_template.ipynb --model-key
+      ridge --model-name Ridge --model-signal-dir 
+      data/processed/index_russell_ridge_signal --returns-mode unhedged
     deps:
-      - notebooks/signal_ic_analysis_template.ipynb
-      - src/hardcode_report_notebook_env.py
-      - data/processed/index_russell_ridge_signal
-      - data/processed/futures_only_signal
-      - data/raw/adrs/bbo-1m/nbbo
-      - data/raw/etfs/market/bbo-1m/nbbo
-      - data/raw/adrs/adr_PX_LAST_adjust_none.csv
-      - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
-      - data/processed/market_etf_hedge_ratios.csv
+    - notebooks/signal_ic_analysis_template.ipynb
+    - src/hardcode_report_notebook_env.py
+    - data/processed/index_russell_ridge_signal
+    - data/processed/futures_only_signal
+    - data/raw/adrs/bbo-1m/nbbo
+    - data/raw/etfs/market/bbo-1m/nbbo
+    - data/raw/adrs/adr_PX_LAST_adjust_none.csv
+    - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
+    - data/processed/market_etf_hedge_ratios.csv
     outs:
-      - notebooks/reports/ridge_ic_report_hedged_from_template.ipynb
-      - notebooks/reports/ridge_ic_report_unhedged_from_template.ipynb
+    - notebooks/reports/ridge_ic_report_hedged_from_template.ipynb
+    - notebooks/reports/ridge_ic_report_unhedged_from_template.ipynb
 
   prepare_russell_features_extended:
     cmd: python src/prepare_russell_features_extended.py
     deps:
-      - src/prepare_russell_features_extended.py
-      - src/utils_lasso_residuals.py
-      - data/raw/ordinary/ord_PX_LAST_adjust_all.csv
-      - data/raw/adr_info.csv
-      - data/raw/adrs/adr_PX_LAST_adjust_all.csv
-      - data/processed/ordinary/ord_close_to_usd_adr_PX_LAST_adjust_none.csv
-      - data/raw/futures_symbols.csv
-      - data/raw/russell1000/ohlcv-1m
-      - data/processed/futures/converted_minute_bars
-      - data/processed/aligned_index_prices.csv
-      - data/processed/models/ordinary_betas_index_only.csv
-      - data/processed/russell1000/close_at_exchange_auction_adjusted
-      - data/raw/currencies/minute_bars/EURUSD_full_1min.txt
-      - data/raw/currencies/minute_bars/GBPUSD_full_1min.txt
-      - data/raw/currencies/minute_bars/JPYUSD_full_1min.txt
-      - data/raw/currencies/minute_bars/AUDUSD_full_1min.txt
-      - data/raw/currencies/minute_bars/CHFUSD_full_1min.txt
-      - data/raw/currencies/minute_bars/HKDUSD_full_1min.txt
-      - data/raw/currencies/minute_bars/NOKUSD_full_1min.txt
-      - data/raw/currencies/minute_bars/SEKUSD_full_1min.txt
-      - data/raw/currencies/minute_bars/DKKUSD_full_1min.txt
-      - data/raw/close_time_offsets.csv
+    - src/prepare_russell_features_extended.py
+    - src/utils_lasso_residuals.py
+    - data/raw/ordinary/ord_PX_LAST_adjust_all.csv
+    - data/raw/adr_info.csv
+    - data/raw/adrs/adr_PX_LAST_adjust_all.csv
+    - data/processed/ordinary/ord_close_to_usd_adr_PX_LAST_adjust_none.csv
+    - data/raw/futures_symbols.csv
+    - data/raw/russell1000/ohlcv-1m
+    - data/processed/futures/converted_minute_bars
+    - data/processed/aligned_index_prices.csv
+    - data/processed/models/ordinary_betas_index_only.csv
+    - data/processed/russell1000/close_at_exchange_auction_adjusted
+    - data/raw/currencies/minute_bars/EURUSD_full_1min.txt
+    - data/raw/currencies/minute_bars/GBPUSD_full_1min.txt
+    - data/raw/currencies/minute_bars/JPYUSD_full_1min.txt
+    - data/raw/currencies/minute_bars/AUDUSD_full_1min.txt
+    - data/raw/currencies/minute_bars/CHFUSD_full_1min.txt
+    - data/raw/currencies/minute_bars/HKDUSD_full_1min.txt
+    - data/raw/currencies/minute_bars/NOKUSD_full_1min.txt
+    - data/raw/currencies/minute_bars/SEKUSD_full_1min.txt
+    - data/raw/currencies/minute_bars/DKKUSD_full_1min.txt
+    - data/raw/close_time_offsets.csv
     params:
-      - start_date
-      - end_date
+    - start_date
+    - end_date
     outs:
-      - data/processed/models/with_us_stocks/features_extended
+    - data/processed/models/with_us_stocks/features_extended
 
   pcr_train_models:
-    cmd: python src/train_russell_experiment_models.py --model-kind pcr --features-dir data/processed/models/with_us_stocks/features_extended --output-dir data/processed/models/with_us_stocks/pcr --train-months ${russell_model_train_months} --val-months ${russell_model_val_months} --min-train-months ${russell_model_min_train_months} --min-model-date ${min_model_date} --market-cap-file data/raw/russell1000/russell1000_CUR_MKT_CAP.csv --pcr-max-components 50
+    cmd: python src/train_russell_experiment_models.py --model-kind pcr 
+      --features-dir data/processed/models/with_us_stocks/features_extended 
+      --output-dir data/processed/models/with_us_stocks/pcr --train-months 
+      ${russell_model_train_months} --val-months ${russell_model_val_months} 
+      --min-train-months ${russell_model_min_train_months} --min-model-date 
+      ${min_model_date} --market-cap-file 
+      data/raw/russell1000/russell1000_CUR_MKT_CAP.csv --pcr-max-components 50
     deps:
-      - src/train_russell_experiment_models.py
-      - data/processed/models/with_us_stocks/features_extended
-      - data/raw/historical_russell_1000.csv
-      - data/raw/russell1000/russell1000_turnover.csv
-      - data/raw/russell1000/russell1000_CUR_MKT_CAP.csv
+    - src/train_russell_experiment_models.py
+    - data/processed/models/with_us_stocks/features_extended
+    - data/raw/historical_russell_1000.csv
+    - data/raw/russell1000/russell1000_turnover.csv
+    - data/raw/russell1000/russell1000_CUR_MKT_CAP.csv
     params:
-      - min_model_date
-      - russell_model_train_months
-      - russell_model_val_months
-      - russell_model_min_train_months
+    - min_model_date
+    - russell_model_train_months
+    - russell_model_val_months
+    - russell_model_min_train_months
     outs:
-      - data/processed/models/with_us_stocks/pcr
+    - data/processed/models/with_us_stocks/pcr
 
   pcr_old_universe_train_models:
-    cmd: python src/train_russell_experiment_models.py --model-kind pcr_mcap --features-dir data/processed/models/with_us_stocks/features_extended_old_universe --output-dir data/processed/models/with_us_stocks/pcr_old_universe --train-months ${russell_model_train_months} --val-months ${russell_model_val_months} --min-train-months ${russell_model_min_train_months} --min-model-date ${min_model_date} --universe-file data/raw/old_russell1000_tickers.csv --market-cap-file data/raw/russell1000/russell1000_CUR_MKT_CAP.csv --pcr-max-components 10
+    cmd: python src/train_russell_experiment_models.py --model-kind pcr_mcap 
+      --features-dir 
+      data/processed/models/with_us_stocks/features_extended_old_universe 
+      --output-dir data/processed/models/with_us_stocks/pcr_old_universe 
+      --train-months ${russell_model_train_months} --val-months 
+      ${russell_model_val_months} --min-train-months 
+      ${russell_model_min_train_months} --min-model-date ${min_model_date} 
+      --universe-file data/raw/old_russell1000_tickers.csv --market-cap-file 
+      data/raw/russell1000/russell1000_CUR_MKT_CAP.csv --pcr-max-components 10
     deps:
-      - src/train_russell_experiment_models.py
-      - data/processed/models/with_us_stocks/features_extended_old_universe
-      - data/raw/historical_russell_1000.csv
-      - data/raw/russell1000/russell1000_turnover.csv
-      - data/raw/russell1000/russell1000_CUR_MKT_CAP.csv
-      - data/raw/old_russell1000_tickers.csv
+    - src/train_russell_experiment_models.py
+    - data/processed/models/with_us_stocks/features_extended_old_universe
+    - data/raw/historical_russell_1000.csv
+    - data/raw/russell1000/russell1000_turnover.csv
+    - data/raw/russell1000/russell1000_CUR_MKT_CAP.csv
+    - data/raw/old_russell1000_tickers.csv
     params:
-      - min_model_date
-      - russell_model_train_months
-      - russell_model_val_months
-      - russell_model_min_train_months
+    - min_model_date
+    - russell_model_train_months
+    - russell_model_val_months
+    - russell_model_min_train_months
     outs:
-      - data/processed/models/with_us_stocks/pcr_old_universe
+    - data/processed/models/with_us_stocks/pcr_old_universe
 
   index_russell_pcr_signal:
-    cmd: python src/index_russell_experiment_signal.py --model-kind pcr --model-dir data/processed/models/with_us_stocks/pcr --output-dir data/processed/index_russell_pcr_signal --exchange-workers 3
+    cmd: python src/index_russell_experiment_signal.py --model-kind pcr 
+      --model-dir data/processed/models/with_us_stocks/pcr --output-dir 
+      data/processed/index_russell_pcr_signal --exchange-workers 3
     deps:
-      - src/index_russell_experiment_signal.py
-      - data/processed/models/with_us_stocks/pcr
-      - data/processed/futures/converted_minute_bars
-      - data/raw/adr_info.csv
-      - data/raw/futures_symbols.csv
-      - data/raw/russell1000/ohlcv-1m
-      - data/processed/russell1000/russell_betas
-      - data/processed/futures_only_signal
+    - src/index_russell_experiment_signal.py
+    - data/processed/models/with_us_stocks/pcr
+    - data/processed/futures/converted_minute_bars
+    - data/raw/adr_info.csv
+    - data/raw/futures_symbols.csv
+    - data/raw/russell1000/ohlcv-1m
+    - data/processed/russell1000/russell_betas
+    - data/processed/futures_only_signal
     params:
-      - start_date
-      - end_date
+    - start_date
+    - end_date
     outs:
-      - data/processed/index_russell_pcr_signal
+    - data/processed/index_russell_pcr_signal
 
   index_russell_pcr_signal_30m:
-    cmd: python src/index_russell_experiment_signal.py --model-kind pcr --model-dir data/processed/models/with_us_stocks/pcr --output-dir data/processed/index_russell_pcr_signal_30m --eval-times-only --exchange-workers 3
+    cmd: python src/index_russell_experiment_signal.py --model-kind pcr 
+      --model-dir data/processed/models/with_us_stocks/pcr --output-dir 
+      data/processed/index_russell_pcr_signal_30m --eval-times-only 
+      --exchange-workers 3
     deps:
-      - src/index_russell_experiment_signal.py
-      - data/processed/models/with_us_stocks/pcr
-      - data/processed/futures/converted_minute_bars
-      - data/raw/adr_info.csv
-      - data/raw/futures_symbols.csv
-      - data/raw/russell1000/ohlcv-1m
-      - data/processed/russell1000/russell_betas
-      - data/processed/futures_only_signal
+    - src/index_russell_experiment_signal.py
+    - data/processed/models/with_us_stocks/pcr
+    - data/processed/futures/converted_minute_bars
+    - data/raw/adr_info.csv
+    - data/raw/futures_symbols.csv
+    - data/raw/russell1000/ohlcv-1m
+    - data/processed/russell1000/russell_betas
+    - data/processed/futures_only_signal
     params:
-      - start_date
-      - end_date
+    - start_date
+    - end_date
     outs:
-      - data/processed/index_russell_pcr_signal_30m
+    - data/processed/index_russell_pcr_signal_30m
 
   index_russell_pcr_old_universe_signal:
-    cmd: python src/index_russell_experiment_signal.py --model-kind pcr --model-dir data/processed/models/with_us_stocks/pcr_old_universe --output-dir data/processed/index_russell_pcr_signal_old_universe
+    cmd: python src/index_russell_experiment_signal.py --model-kind pcr 
+      --model-dir data/processed/models/with_us_stocks/pcr_old_universe 
+      --output-dir data/processed/index_russell_pcr_signal_old_universe
     deps:
-      - src/index_russell_experiment_signal.py
-      - data/processed/models/with_us_stocks/pcr_old_universe
-      - data/processed/futures/converted_minute_bars
-      - data/raw/adr_info.csv
-      - data/raw/futures_symbols.csv
-      - data/raw/russell1000/ohlcv-1m
-      - data/processed/russell1000/russell_betas
-      - data/processed/futures_only_signal
+    - src/index_russell_experiment_signal.py
+    - data/processed/models/with_us_stocks/pcr_old_universe
+    - data/processed/futures/converted_minute_bars
+    - data/raw/adr_info.csv
+    - data/raw/futures_symbols.csv
+    - data/raw/russell1000/ohlcv-1m
+    - data/processed/russell1000/russell_betas
+    - data/processed/futures_only_signal
     params:
-      - start_date
-      - end_date
+    - start_date
+    - end_date
     outs:
-      - data/processed/index_russell_pcr_signal_old_universe
+    - data/processed/index_russell_pcr_signal_old_universe
 
   index_russell_pcr_old_universe_signal_30m:
-    cmd: python src/index_russell_experiment_signal.py --model-kind pcr --model-dir data/processed/models/with_us_stocks/pcr_old_universe --output-dir data/processed/index_russell_pcr_signal_old_universe_30m --eval-times-only --exchange-workers 3
+    cmd: python src/index_russell_experiment_signal.py --model-kind pcr 
+      --model-dir data/processed/models/with_us_stocks/pcr_old_universe 
+      --output-dir data/processed/index_russell_pcr_signal_old_universe_30m 
+      --eval-times-only --exchange-workers 3
     deps:
-      - src/index_russell_experiment_signal.py
-      - data/processed/models/with_us_stocks/pcr_old_universe
-      - data/processed/futures/converted_minute_bars
-      - data/raw/adr_info.csv
-      - data/raw/futures_symbols.csv
-      - data/raw/russell1000/ohlcv-1m
-      - data/processed/russell1000/russell_betas
-      - data/processed/futures_only_signal
+    - src/index_russell_experiment_signal.py
+    - data/processed/models/with_us_stocks/pcr_old_universe
+    - data/processed/futures/converted_minute_bars
+    - data/raw/adr_info.csv
+    - data/raw/futures_symbols.csv
+    - data/raw/russell1000/ohlcv-1m
+    - data/processed/russell1000/russell_betas
+    - data/processed/futures_only_signal
     params:
-      - start_date
-      - end_date
+    - start_date
+    - end_date
     outs:
-      - data/processed/index_russell_pcr_signal_old_universe_30m
+    - data/processed/index_russell_pcr_signal_old_universe_30m
 
   index_russell_pcr_signal_gated:
-    cmd: python src/gate_russell_experiment_signal.py --model-dir data/processed/models/with_us_stocks/pcr --model-signal-dir data/processed/index_russell_pcr_signal --baseline-signal-dir data/processed/futures_only_signal --output-dir data/processed/index_russell_pcr_signal_gated
+    cmd: python src/gate_russell_experiment_signal.py --model-dir 
+      data/processed/models/with_us_stocks/pcr --model-signal-dir 
+      data/processed/index_russell_pcr_signal --baseline-signal-dir 
+      data/processed/futures_only_signal --output-dir 
+      data/processed/index_russell_pcr_signal_gated
     deps:
-      - src/gate_russell_experiment_signal.py
-      - data/processed/models/with_us_stocks/pcr
-      - data/processed/index_russell_pcr_signal
-      - data/processed/futures_only_signal
+    - src/gate_russell_experiment_signal.py
+    - data/processed/models/with_us_stocks/pcr
+    - data/processed/index_russell_pcr_signal
+    - data/processed/futures_only_signal
     outs:
-      - data/processed/index_russell_pcr_signal_gated
+    - data/processed/index_russell_pcr_signal_gated
 
   index_russell_pcr_signal_gated_intraday:
-    cmd: python src/gate_russell_intraday_ic_signal.py --model-signal-dir data/processed/index_russell_pcr_signal --baseline-signal-dir data/processed/futures_only_signal --output-dir data/processed/index_russell_pcr_signal_gated_intraday --entry-time ${intraday_gate_entry_time} --lookback-months ${intraday_gate_lookback_months} --min-obs ${intraday_gate_min_obs} --min-output-date ${min_model_date}
+    cmd: python src/gate_russell_intraday_ic_signal.py --model-signal-dir 
+      data/processed/index_russell_pcr_signal --baseline-signal-dir 
+      data/processed/futures_only_signal --output-dir 
+      data/processed/index_russell_pcr_signal_gated_intraday --entry-time 
+      ${intraday_gate_entry_time} --lookback-months 
+      ${intraday_gate_lookback_months} --min-obs ${intraday_gate_min_obs} 
+      --min-output-date ${min_model_date}
     deps:
-      - src/gate_russell_intraday_ic_signal.py
-      - data/processed/index_russell_pcr_signal
-      - data/processed/futures_only_signal
-      - data/raw/adrs/bbo-1m/nbbo
-      - data/raw/adrs/adr_PX_LAST_adjust_none.csv
+    - src/gate_russell_intraday_ic_signal.py
+    - data/processed/index_russell_pcr_signal
+    - data/processed/futures_only_signal
+    - data/raw/adrs/bbo-1m/nbbo
+    - data/raw/adrs/adr_PX_LAST_adjust_none.csv
     params:
-      - min_model_date
-      - intraday_gate_entry_time
-      - intraday_gate_lookback_months
-      - intraday_gate_min_obs
+    - min_model_date
+    - intraday_gate_entry_time
+    - intraday_gate_lookback_months
+    - intraday_gate_min_obs
     outs:
-      - data/processed/index_russell_pcr_signal_gated_intraday
+    - data/processed/index_russell_pcr_signal_gated_intraday
 
   index_russell_pcr_signal_gated_30m:
-    cmd: python src/gate_russell_experiment_signal.py --model-dir data/processed/models/with_us_stocks/pcr --model-signal-dir data/processed/index_russell_pcr_signal_30m --baseline-signal-dir data/processed/futures_only_signal --output-dir data/processed/index_russell_pcr_signal_gated_30m
+    cmd: python src/gate_russell_experiment_signal.py --model-dir 
+      data/processed/models/with_us_stocks/pcr --model-signal-dir 
+      data/processed/index_russell_pcr_signal_30m --baseline-signal-dir 
+      data/processed/futures_only_signal --output-dir 
+      data/processed/index_russell_pcr_signal_gated_30m
     deps:
-      - src/gate_russell_experiment_signal.py
-      - data/processed/models/with_us_stocks/pcr
-      - data/processed/index_russell_pcr_signal_30m
-      - data/processed/futures_only_signal
+    - src/gate_russell_experiment_signal.py
+    - data/processed/models/with_us_stocks/pcr
+    - data/processed/index_russell_pcr_signal_30m
+    - data/processed/futures_only_signal
     outs:
-      - data/processed/index_russell_pcr_signal_gated_30m
+    - data/processed/index_russell_pcr_signal_gated_30m
 
   evaluate_pcr_notebook:
-    cmd: MODEL_KEY=pcr MODEL_TRAIN_DIR=data/processed/models/with_us_stocks/pcr DATE_FILTER_MODE=trained_months REFERENCE_SIGNAL_DIR=data/processed/index_russell_pcr_signal_30m REQUIRE_REFERENCE_OVERLAP=1 RETURNS_MODE=hedged jupyter nbconvert --to notebook --execute notebooks/signal_ic_analysis_template.ipynb --output-dir notebooks/reports --output pcr_ic_report_hedged_from_template.ipynb && python src/hardcode_report_notebook_env.py --notebook notebooks/reports/pcr_ic_report_hedged_from_template.ipynb --model-key pcr --model-name PCR --model-signal-dir data/processed/index_russell_pcr_signal_30m --returns-mode hedged --model-train-dir data/processed/models/with_us_stocks/pcr --date-filter-mode trained_months --reference-signal-dir data/processed/index_russell_pcr_signal_30m --require-reference-overlap 1 && MODEL_KEY=pcr MODEL_TRAIN_DIR=data/processed/models/with_us_stocks/pcr DATE_FILTER_MODE=trained_months REFERENCE_SIGNAL_DIR=data/processed/index_russell_pcr_signal_30m REQUIRE_REFERENCE_OVERLAP=1 RETURNS_MODE=unhedged jupyter nbconvert --to notebook --execute notebooks/signal_ic_analysis_template.ipynb --output-dir notebooks/reports --output pcr_ic_report_unhedged_from_template.ipynb && python src/hardcode_report_notebook_env.py --notebook notebooks/reports/pcr_ic_report_unhedged_from_template.ipynb --model-key pcr --model-name PCR --model-signal-dir data/processed/index_russell_pcr_signal_30m --returns-mode unhedged --model-train-dir data/processed/models/with_us_stocks/pcr --date-filter-mode trained_months --reference-signal-dir data/processed/index_russell_pcr_signal_30m --require-reference-overlap 1
+    cmd: MODEL_KEY=pcr MODEL_TRAIN_DIR=data/processed/models/with_us_stocks/pcr 
+      DATE_FILTER_MODE=trained_months 
+      REFERENCE_SIGNAL_DIR=data/processed/index_russell_pcr_signal_30m 
+      REQUIRE_REFERENCE_OVERLAP=1 RETURNS_MODE=hedged jupyter nbconvert --to 
+      notebook --execute notebooks/signal_ic_analysis_template.ipynb 
+      --output-dir notebooks/reports --output 
+      pcr_ic_report_hedged_from_template.ipynb && python 
+      src/hardcode_report_notebook_env.py --notebook 
+      notebooks/reports/pcr_ic_report_hedged_from_template.ipynb --model-key pcr
+      --model-name PCR --model-signal-dir 
+      data/processed/index_russell_pcr_signal_30m --returns-mode hedged 
+      --model-train-dir data/processed/models/with_us_stocks/pcr 
+      --date-filter-mode trained_months --reference-signal-dir 
+      data/processed/index_russell_pcr_signal_30m --require-reference-overlap 1 
+      && MODEL_KEY=pcr MODEL_TRAIN_DIR=data/processed/models/with_us_stocks/pcr 
+      DATE_FILTER_MODE=trained_months 
+      REFERENCE_SIGNAL_DIR=data/processed/index_russell_pcr_signal_30m 
+      REQUIRE_REFERENCE_OVERLAP=1 RETURNS_MODE=unhedged jupyter nbconvert --to 
+      notebook --execute notebooks/signal_ic_analysis_template.ipynb 
+      --output-dir notebooks/reports --output 
+      pcr_ic_report_unhedged_from_template.ipynb && python 
+      src/hardcode_report_notebook_env.py --notebook 
+      notebooks/reports/pcr_ic_report_unhedged_from_template.ipynb --model-key 
+      pcr --model-name PCR --model-signal-dir 
+      data/processed/index_russell_pcr_signal_30m --returns-mode unhedged 
+      --model-train-dir data/processed/models/with_us_stocks/pcr 
+      --date-filter-mode trained_months --reference-signal-dir 
+      data/processed/index_russell_pcr_signal_30m --require-reference-overlap 1
     deps:
-      - notebooks/signal_ic_analysis_template.ipynb
-      - src/hardcode_report_notebook_env.py
-      - data/processed/index_russell_pcr_signal_30m
-      - data/processed/futures_only_signal
-      - data/raw/adrs/bbo-1m/nbbo
-      - data/raw/etfs/market/bbo-1m/nbbo
-      - data/raw/adrs/adr_PX_LAST_adjust_none.csv
-      - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
-      - data/processed/market_etf_hedge_ratios.csv
+    - notebooks/signal_ic_analysis_template.ipynb
+    - src/hardcode_report_notebook_env.py
+    - data/processed/index_russell_pcr_signal_30m
+    - data/processed/futures_only_signal
+    - data/raw/adrs/bbo-1m/nbbo
+    - data/raw/etfs/market/bbo-1m/nbbo
+    - data/raw/adrs/adr_PX_LAST_adjust_none.csv
+    - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
+    - data/processed/market_etf_hedge_ratios.csv
     outs:
-      - notebooks/reports/pcr_ic_report_hedged_from_template.ipynb
-      - notebooks/reports/pcr_ic_report_unhedged_from_template.ipynb
+    - notebooks/reports/pcr_ic_report_hedged_from_template.ipynb
+    - notebooks/reports/pcr_ic_report_unhedged_from_template.ipynb
 
   evaluate_pcr_gated_notebook:
-    cmd: MODEL_SIGNAL_DIR=data/processed/index_russell_pcr_signal_gated_30m MODEL_NAME="PCR Gated" MODEL_TRAIN_DIR=data/processed/models/with_us_stocks/pcr DATE_FILTER_MODE=trained_months REFERENCE_SIGNAL_DIR=data/processed/index_russell_pcr_signal_30m REQUIRE_REFERENCE_OVERLAP=1 RETURNS_MODE=hedged jupyter nbconvert --to notebook --execute notebooks/signal_ic_analysis_template.ipynb --output-dir notebooks/reports --output pcr_gated_ic_report_hedged_from_template.ipynb && python src/hardcode_report_notebook_env.py --notebook notebooks/reports/pcr_gated_ic_report_hedged_from_template.ipynb --model-key pcr_gated --model-name "PCR Gated" --model-signal-dir data/processed/index_russell_pcr_signal_gated_30m --returns-mode hedged --model-train-dir data/processed/models/with_us_stocks/pcr --date-filter-mode trained_months --reference-signal-dir data/processed/index_russell_pcr_signal_30m --require-reference-overlap 1 && MODEL_SIGNAL_DIR=data/processed/index_russell_pcr_signal_gated_30m MODEL_NAME="PCR Gated" MODEL_TRAIN_DIR=data/processed/models/with_us_stocks/pcr DATE_FILTER_MODE=trained_months REFERENCE_SIGNAL_DIR=data/processed/index_russell_pcr_signal_30m REQUIRE_REFERENCE_OVERLAP=1 RETURNS_MODE=unhedged jupyter nbconvert --to notebook --execute notebooks/signal_ic_analysis_template.ipynb --output-dir notebooks/reports --output pcr_gated_ic_report_unhedged_from_template.ipynb && python src/hardcode_report_notebook_env.py --notebook notebooks/reports/pcr_gated_ic_report_unhedged_from_template.ipynb --model-key pcr_gated --model-name "PCR Gated" --model-signal-dir data/processed/index_russell_pcr_signal_gated_30m --returns-mode unhedged --model-train-dir data/processed/models/with_us_stocks/pcr --date-filter-mode trained_months --reference-signal-dir data/processed/index_russell_pcr_signal_30m --require-reference-overlap 1
+    cmd: MODEL_SIGNAL_DIR=data/processed/index_russell_pcr_signal_gated_30m 
+      MODEL_NAME="PCR Gated" 
+      MODEL_TRAIN_DIR=data/processed/models/with_us_stocks/pcr 
+      DATE_FILTER_MODE=trained_months 
+      REFERENCE_SIGNAL_DIR=data/processed/index_russell_pcr_signal_30m 
+      REQUIRE_REFERENCE_OVERLAP=1 RETURNS_MODE=hedged jupyter nbconvert --to 
+      notebook --execute notebooks/signal_ic_analysis_template.ipynb 
+      --output-dir notebooks/reports --output 
+      pcr_gated_ic_report_hedged_from_template.ipynb && python 
+      src/hardcode_report_notebook_env.py --notebook 
+      notebooks/reports/pcr_gated_ic_report_hedged_from_template.ipynb 
+      --model-key pcr_gated --model-name "PCR Gated" --model-signal-dir 
+      data/processed/index_russell_pcr_signal_gated_30m --returns-mode hedged 
+      --model-train-dir data/processed/models/with_us_stocks/pcr 
+      --date-filter-mode trained_months --reference-signal-dir 
+      data/processed/index_russell_pcr_signal_30m --require-reference-overlap 1 
+      && MODEL_SIGNAL_DIR=data/processed/index_russell_pcr_signal_gated_30m 
+      MODEL_NAME="PCR Gated" 
+      MODEL_TRAIN_DIR=data/processed/models/with_us_stocks/pcr 
+      DATE_FILTER_MODE=trained_months 
+      REFERENCE_SIGNAL_DIR=data/processed/index_russell_pcr_signal_30m 
+      REQUIRE_REFERENCE_OVERLAP=1 RETURNS_MODE=unhedged jupyter nbconvert --to 
+      notebook --execute notebooks/signal_ic_analysis_template.ipynb 
+      --output-dir notebooks/reports --output 
+      pcr_gated_ic_report_unhedged_from_template.ipynb && python 
+      src/hardcode_report_notebook_env.py --notebook 
+      notebooks/reports/pcr_gated_ic_report_unhedged_from_template.ipynb 
+      --model-key pcr_gated --model-name "PCR Gated" --model-signal-dir 
+      data/processed/index_russell_pcr_signal_gated_30m --returns-mode unhedged 
+      --model-train-dir data/processed/models/with_us_stocks/pcr 
+      --date-filter-mode trained_months --reference-signal-dir 
+      data/processed/index_russell_pcr_signal_30m --require-reference-overlap 1
     deps:
-      - notebooks/signal_ic_analysis_template.ipynb
-      - src/hardcode_report_notebook_env.py
-      - data/processed/index_russell_pcr_signal_gated_30m
-      - data/processed/futures_only_signal
-      - data/raw/adrs/bbo-1m/nbbo
-      - data/raw/etfs/market/bbo-1m/nbbo
-      - data/raw/adrs/adr_PX_LAST_adjust_none.csv
-      - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
-      - data/processed/market_etf_hedge_ratios.csv
+    - notebooks/signal_ic_analysis_template.ipynb
+    - src/hardcode_report_notebook_env.py
+    - data/processed/index_russell_pcr_signal_gated_30m
+    - data/processed/futures_only_signal
+    - data/raw/adrs/bbo-1m/nbbo
+    - data/raw/etfs/market/bbo-1m/nbbo
+    - data/raw/adrs/adr_PX_LAST_adjust_none.csv
+    - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
+    - data/processed/market_etf_hedge_ratios.csv
     outs:
-      - notebooks/reports/pcr_gated_ic_report_hedged_from_template.ipynb
-      - notebooks/reports/pcr_gated_ic_report_unhedged_from_template.ipynb
+    - notebooks/reports/pcr_gated_ic_report_hedged_from_template.ipynb
+    - notebooks/reports/pcr_gated_ic_report_unhedged_from_template.ipynb
 
   evaluate_pcr_gated_model_used_notebook:
-    cmd: MODEL_SIGNAL_DIR=data/processed/index_russell_pcr_signal_gated_30m MODEL_NAME="PCR Gated (Model-Used Months)" MODEL_TRAIN_DIR=data/processed/models/with_us_stocks/pcr DATE_FILTER_MODE=model_used_months RETURNS_MODE=hedged jupyter nbconvert --to notebook --execute notebooks/signal_ic_analysis_template.ipynb --output-dir notebooks/reports --output pcr_gated_model_used_ic_report_hedged_from_template.ipynb && python src/hardcode_report_notebook_env.py --notebook notebooks/reports/pcr_gated_model_used_ic_report_hedged_from_template.ipynb --model-key pcr_gated_model_used --model-name "PCR Gated (Model-Used Months)" --model-signal-dir data/processed/index_russell_pcr_signal_gated_30m --returns-mode hedged --model-train-dir data/processed/models/with_us_stocks/pcr --date-filter-mode model_used_months && MODEL_SIGNAL_DIR=data/processed/index_russell_pcr_signal_gated_30m MODEL_NAME="PCR Gated (Model-Used Months)" MODEL_TRAIN_DIR=data/processed/models/with_us_stocks/pcr DATE_FILTER_MODE=model_used_months RETURNS_MODE=unhedged jupyter nbconvert --to notebook --execute notebooks/signal_ic_analysis_template.ipynb --output-dir notebooks/reports --output pcr_gated_model_used_ic_report_unhedged_from_template.ipynb && python src/hardcode_report_notebook_env.py --notebook notebooks/reports/pcr_gated_model_used_ic_report_unhedged_from_template.ipynb --model-key pcr_gated_model_used --model-name "PCR Gated (Model-Used Months)" --model-signal-dir data/processed/index_russell_pcr_signal_gated_30m --returns-mode unhedged --model-train-dir data/processed/models/with_us_stocks/pcr --date-filter-mode model_used_months
+    cmd: MODEL_SIGNAL_DIR=data/processed/index_russell_pcr_signal_gated_30m 
+      MODEL_NAME="PCR Gated (Model-Used Months)" 
+      MODEL_TRAIN_DIR=data/processed/models/with_us_stocks/pcr 
+      DATE_FILTER_MODE=model_used_months RETURNS_MODE=hedged jupyter nbconvert 
+      --to notebook --execute notebooks/signal_ic_analysis_template.ipynb 
+      --output-dir notebooks/reports --output 
+      pcr_gated_model_used_ic_report_hedged_from_template.ipynb && python 
+      src/hardcode_report_notebook_env.py --notebook 
+      notebooks/reports/pcr_gated_model_used_ic_report_hedged_from_template.ipynb
+      --model-key pcr_gated_model_used --model-name "PCR Gated (Model-Used 
+      Months)" --model-signal-dir 
+      data/processed/index_russell_pcr_signal_gated_30m --returns-mode hedged 
+      --model-train-dir data/processed/models/with_us_stocks/pcr 
+      --date-filter-mode model_used_months && 
+      MODEL_SIGNAL_DIR=data/processed/index_russell_pcr_signal_gated_30m 
+      MODEL_NAME="PCR Gated (Model-Used Months)" 
+      MODEL_TRAIN_DIR=data/processed/models/with_us_stocks/pcr 
+      DATE_FILTER_MODE=model_used_months RETURNS_MODE=unhedged jupyter nbconvert
+      --to notebook --execute notebooks/signal_ic_analysis_template.ipynb 
+      --output-dir notebooks/reports --output 
+      pcr_gated_model_used_ic_report_unhedged_from_template.ipynb && python 
+      src/hardcode_report_notebook_env.py --notebook 
+      notebooks/reports/pcr_gated_model_used_ic_report_unhedged_from_template.ipynb
+      --model-key pcr_gated_model_used --model-name "PCR Gated (Model-Used 
+      Months)" --model-signal-dir 
+      data/processed/index_russell_pcr_signal_gated_30m --returns-mode unhedged 
+      --model-train-dir data/processed/models/with_us_stocks/pcr 
+      --date-filter-mode model_used_months
     deps:
-      - notebooks/signal_ic_analysis_template.ipynb
-      - src/hardcode_report_notebook_env.py
-      - data/processed/index_russell_pcr_signal_gated_30m
-      - data/processed/models/with_us_stocks/pcr
-      - data/processed/futures_only_signal
-      - data/raw/adrs/bbo-1m/nbbo
-      - data/raw/etfs/market/bbo-1m/nbbo
-      - data/raw/adrs/adr_PX_LAST_adjust_none.csv
-      - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
-      - data/processed/market_etf_hedge_ratios.csv
+    - notebooks/signal_ic_analysis_template.ipynb
+    - src/hardcode_report_notebook_env.py
+    - data/processed/index_russell_pcr_signal_gated_30m
+    - data/processed/models/with_us_stocks/pcr
+    - data/processed/futures_only_signal
+    - data/raw/adrs/bbo-1m/nbbo
+    - data/raw/etfs/market/bbo-1m/nbbo
+    - data/raw/adrs/adr_PX_LAST_adjust_none.csv
+    - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
+    - data/processed/market_etf_hedge_ratios.csv
     outs:
-      - notebooks/reports/pcr_gated_model_used_ic_report_hedged_from_template.ipynb
-      - notebooks/reports/pcr_gated_model_used_ic_report_unhedged_from_template.ipynb
+    - notebooks/reports/pcr_gated_model_used_ic_report_hedged_from_template.ipynb
+    - notebooks/reports/pcr_gated_model_used_ic_report_unhedged_from_template.ipynb
 
   evaluate_pcr_old_universe_notebook:
-    cmd: MODEL_SIGNAL_DIR=data/processed/index_russell_pcr_signal_old_universe_30m MODEL_NAME="PCR Old Universe" MODEL_TRAIN_DIR=data/processed/models/with_us_stocks/pcr_old_universe DATE_FILTER_MODE=trained_months REFERENCE_SIGNAL_DIR=data/processed/index_russell_pcr_signal_old_universe_30m REQUIRE_REFERENCE_OVERLAP=1 RETURNS_MODE=hedged jupyter nbconvert --to notebook --execute notebooks/signal_ic_analysis_template.ipynb --output-dir notebooks/reports --output pcr_old_universe_ic_report_hedged_from_template.ipynb && python src/hardcode_report_notebook_env.py --notebook notebooks/reports/pcr_old_universe_ic_report_hedged_from_template.ipynb --model-key pcr_old_universe --model-name "PCR Old Universe" --model-signal-dir data/processed/index_russell_pcr_signal_old_universe_30m --returns-mode hedged --model-train-dir data/processed/models/with_us_stocks/pcr_old_universe --date-filter-mode trained_months --reference-signal-dir data/processed/index_russell_pcr_signal_old_universe_30m --require-reference-overlap 1 && MODEL_SIGNAL_DIR=data/processed/index_russell_pcr_signal_old_universe_30m MODEL_NAME="PCR Old Universe" MODEL_TRAIN_DIR=data/processed/models/with_us_stocks/pcr_old_universe DATE_FILTER_MODE=trained_months REFERENCE_SIGNAL_DIR=data/processed/index_russell_pcr_signal_old_universe_30m REQUIRE_REFERENCE_OVERLAP=1 RETURNS_MODE=unhedged jupyter nbconvert --to notebook --execute notebooks/signal_ic_analysis_template.ipynb --output-dir notebooks/reports --output pcr_old_universe_ic_report_unhedged_from_template.ipynb && python src/hardcode_report_notebook_env.py --notebook notebooks/reports/pcr_old_universe_ic_report_unhedged_from_template.ipynb --model-key pcr_old_universe --model-name "PCR Old Universe" --model-signal-dir data/processed/index_russell_pcr_signal_old_universe_30m --returns-mode unhedged --model-train-dir data/processed/models/with_us_stocks/pcr_old_universe --date-filter-mode trained_months --reference-signal-dir data/processed/index_russell_pcr_signal_old_universe_30m --require-reference-overlap 1
+    cmd: 
+      MODEL_SIGNAL_DIR=data/processed/index_russell_pcr_signal_old_universe_30m 
+      MODEL_NAME="PCR Old Universe" 
+      MODEL_TRAIN_DIR=data/processed/models/with_us_stocks/pcr_old_universe 
+      DATE_FILTER_MODE=trained_months 
+      REFERENCE_SIGNAL_DIR=data/processed/index_russell_pcr_signal_old_universe_30m
+      REQUIRE_REFERENCE_OVERLAP=1 RETURNS_MODE=hedged jupyter nbconvert --to 
+      notebook --execute notebooks/signal_ic_analysis_template.ipynb 
+      --output-dir notebooks/reports --output 
+      pcr_old_universe_ic_report_hedged_from_template.ipynb && python 
+      src/hardcode_report_notebook_env.py --notebook 
+      notebooks/reports/pcr_old_universe_ic_report_hedged_from_template.ipynb 
+      --model-key pcr_old_universe --model-name "PCR Old Universe" 
+      --model-signal-dir 
+      data/processed/index_russell_pcr_signal_old_universe_30m --returns-mode 
+      hedged --model-train-dir 
+      data/processed/models/with_us_stocks/pcr_old_universe --date-filter-mode 
+      trained_months --reference-signal-dir 
+      data/processed/index_russell_pcr_signal_old_universe_30m 
+      --require-reference-overlap 1 && 
+      MODEL_SIGNAL_DIR=data/processed/index_russell_pcr_signal_old_universe_30m 
+      MODEL_NAME="PCR Old Universe" 
+      MODEL_TRAIN_DIR=data/processed/models/with_us_stocks/pcr_old_universe 
+      DATE_FILTER_MODE=trained_months 
+      REFERENCE_SIGNAL_DIR=data/processed/index_russell_pcr_signal_old_universe_30m
+      REQUIRE_REFERENCE_OVERLAP=1 RETURNS_MODE=unhedged jupyter nbconvert --to 
+      notebook --execute notebooks/signal_ic_analysis_template.ipynb 
+      --output-dir notebooks/reports --output 
+      pcr_old_universe_ic_report_unhedged_from_template.ipynb && python 
+      src/hardcode_report_notebook_env.py --notebook 
+      notebooks/reports/pcr_old_universe_ic_report_unhedged_from_template.ipynb 
+      --model-key pcr_old_universe --model-name "PCR Old Universe" 
+      --model-signal-dir 
+      data/processed/index_russell_pcr_signal_old_universe_30m --returns-mode 
+      unhedged --model-train-dir 
+      data/processed/models/with_us_stocks/pcr_old_universe --date-filter-mode 
+      trained_months --reference-signal-dir 
+      data/processed/index_russell_pcr_signal_old_universe_30m 
+      --require-reference-overlap 1
     deps:
-      - notebooks/signal_ic_analysis_template.ipynb
-      - src/hardcode_report_notebook_env.py
-      - data/processed/index_russell_pcr_signal_old_universe_30m
-      - data/processed/futures_only_signal
-      - data/raw/adrs/bbo-1m/nbbo
-      - data/raw/etfs/market/bbo-1m/nbbo
-      - data/raw/adrs/adr_PX_LAST_adjust_none.csv
-      - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
-      - data/processed/market_etf_hedge_ratios.csv
+    - notebooks/signal_ic_analysis_template.ipynb
+    - src/hardcode_report_notebook_env.py
+    - data/processed/index_russell_pcr_signal_old_universe_30m
+    - data/processed/futures_only_signal
+    - data/raw/adrs/bbo-1m/nbbo
+    - data/raw/etfs/market/bbo-1m/nbbo
+    - data/raw/adrs/adr_PX_LAST_adjust_none.csv
+    - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
+    - data/processed/market_etf_hedge_ratios.csv
     outs:
-      - notebooks/reports/pcr_old_universe_ic_report_hedged_from_template.ipynb
-      - notebooks/reports/pcr_old_universe_ic_report_unhedged_from_template.ipynb
+    - notebooks/reports/pcr_old_universe_ic_report_hedged_from_template.ipynb
+    - notebooks/reports/pcr_old_universe_ic_report_unhedged_from_template.ipynb
 
   index_russell_pcr_old_universe_signal_gated:
-    cmd: python src/gate_russell_experiment_signal.py --model-dir data/processed/models/with_us_stocks/pcr_old_universe --model-signal-dir data/processed/index_russell_pcr_signal_old_universe --baseline-signal-dir data/processed/futures_only_signal --output-dir data/processed/index_russell_pcr_signal_old_universe_gated
+    cmd: python src/gate_russell_experiment_signal.py --model-dir 
+      data/processed/models/with_us_stocks/pcr_old_universe --model-signal-dir 
+      data/processed/index_russell_pcr_signal_old_universe --baseline-signal-dir
+      data/processed/futures_only_signal --output-dir 
+      data/processed/index_russell_pcr_signal_old_universe_gated
     deps:
-      - src/gate_russell_experiment_signal.py
-      - data/processed/models/with_us_stocks/pcr_old_universe
-      - data/processed/index_russell_pcr_signal_old_universe
-      - data/processed/futures_only_signal
+    - src/gate_russell_experiment_signal.py
+    - data/processed/models/with_us_stocks/pcr_old_universe
+    - data/processed/index_russell_pcr_signal_old_universe
+    - data/processed/futures_only_signal
     outs:
-      - data/processed/index_russell_pcr_signal_old_universe_gated
+    - data/processed/index_russell_pcr_signal_old_universe_gated
 
   index_russell_pcr_old_universe_signal_gated_30m:
-    cmd: python src/gate_russell_experiment_signal.py --model-dir data/processed/models/with_us_stocks/pcr_old_universe --model-signal-dir data/processed/index_russell_pcr_signal_old_universe_30m --baseline-signal-dir data/processed/futures_only_signal --output-dir data/processed/index_russell_pcr_signal_old_universe_gated_30m
+    cmd: python src/gate_russell_experiment_signal.py --model-dir 
+      data/processed/models/with_us_stocks/pcr_old_universe --model-signal-dir 
+      data/processed/index_russell_pcr_signal_old_universe_30m 
+      --baseline-signal-dir data/processed/futures_only_signal --output-dir 
+      data/processed/index_russell_pcr_signal_old_universe_gated_30m
     deps:
-      - src/gate_russell_experiment_signal.py
-      - data/processed/models/with_us_stocks/pcr_old_universe
-      - data/processed/index_russell_pcr_signal_old_universe_30m
-      - data/processed/futures_only_signal
+    - src/gate_russell_experiment_signal.py
+    - data/processed/models/with_us_stocks/pcr_old_universe
+    - data/processed/index_russell_pcr_signal_old_universe_30m
+    - data/processed/futures_only_signal
     outs:
-      - data/processed/index_russell_pcr_signal_old_universe_gated_30m
+    - data/processed/index_russell_pcr_signal_old_universe_gated_30m
 
   evaluate_pcr_old_universe_gated_notebook:
-    cmd: MODEL_SIGNAL_DIR=data/processed/index_russell_pcr_signal_old_universe_gated_30m MODEL_NAME="PCR Old Universe Gated" MODEL_TRAIN_DIR=data/processed/models/with_us_stocks/pcr_old_universe DATE_FILTER_MODE=trained_months RETURNS_MODE=hedged jupyter nbconvert --to notebook --execute notebooks/signal_ic_analysis_template.ipynb --output-dir notebooks/reports --output pcr_old_universe_gated_ic_report_hedged_from_template.ipynb && python src/hardcode_report_notebook_env.py --notebook notebooks/reports/pcr_old_universe_gated_ic_report_hedged_from_template.ipynb --model-key pcr_old_universe_gated --model-name "PCR Old Universe Gated" --model-signal-dir data/processed/index_russell_pcr_signal_old_universe_gated_30m --returns-mode hedged --model-train-dir data/processed/models/with_us_stocks/pcr_old_universe --date-filter-mode trained_months && MODEL_SIGNAL_DIR=data/processed/index_russell_pcr_signal_old_universe_gated_30m MODEL_NAME="PCR Old Universe Gated" MODEL_TRAIN_DIR=data/processed/models/with_us_stocks/pcr_old_universe DATE_FILTER_MODE=trained_months RETURNS_MODE=unhedged jupyter nbconvert --to notebook --execute notebooks/signal_ic_analysis_template.ipynb --output-dir notebooks/reports --output pcr_old_universe_gated_ic_report_unhedged_from_template.ipynb && python src/hardcode_report_notebook_env.py --notebook notebooks/reports/pcr_old_universe_gated_ic_report_unhedged_from_template.ipynb --model-key pcr_old_universe_gated --model-name "PCR Old Universe Gated" --model-signal-dir data/processed/index_russell_pcr_signal_old_universe_gated_30m --returns-mode unhedged --model-train-dir data/processed/models/with_us_stocks/pcr_old_universe --date-filter-mode trained_months
+    cmd: 
+      MODEL_SIGNAL_DIR=data/processed/index_russell_pcr_signal_old_universe_gated_30m
+      MODEL_NAME="PCR Old Universe Gated" 
+      MODEL_TRAIN_DIR=data/processed/models/with_us_stocks/pcr_old_universe 
+      DATE_FILTER_MODE=trained_months RETURNS_MODE=hedged jupyter nbconvert --to
+      notebook --execute notebooks/signal_ic_analysis_template.ipynb 
+      --output-dir notebooks/reports --output 
+      pcr_old_universe_gated_ic_report_hedged_from_template.ipynb && python 
+      src/hardcode_report_notebook_env.py --notebook 
+      notebooks/reports/pcr_old_universe_gated_ic_report_hedged_from_template.ipynb
+      --model-key pcr_old_universe_gated --model-name "PCR Old Universe Gated" 
+      --model-signal-dir 
+      data/processed/index_russell_pcr_signal_old_universe_gated_30m 
+      --returns-mode hedged --model-train-dir 
+      data/processed/models/with_us_stocks/pcr_old_universe --date-filter-mode 
+      trained_months && 
+      MODEL_SIGNAL_DIR=data/processed/index_russell_pcr_signal_old_universe_gated_30m
+      MODEL_NAME="PCR Old Universe Gated" 
+      MODEL_TRAIN_DIR=data/processed/models/with_us_stocks/pcr_old_universe 
+      DATE_FILTER_MODE=trained_months RETURNS_MODE=unhedged jupyter nbconvert 
+      --to notebook --execute notebooks/signal_ic_analysis_template.ipynb 
+      --output-dir notebooks/reports --output 
+      pcr_old_universe_gated_ic_report_unhedged_from_template.ipynb && python 
+      src/hardcode_report_notebook_env.py --notebook 
+      notebooks/reports/pcr_old_universe_gated_ic_report_unhedged_from_template.ipynb
+      --model-key pcr_old_universe_gated --model-name "PCR Old Universe Gated" 
+      --model-signal-dir 
+      data/processed/index_russell_pcr_signal_old_universe_gated_30m 
+      --returns-mode unhedged --model-train-dir 
+      data/processed/models/with_us_stocks/pcr_old_universe --date-filter-mode 
+      trained_months
     deps:
-      - notebooks/signal_ic_analysis_template.ipynb
-      - src/hardcode_report_notebook_env.py
-      - data/processed/index_russell_pcr_signal_old_universe_gated_30m
-      - data/processed/futures_only_signal
-      - data/raw/adrs/bbo-1m/nbbo
-      - data/raw/etfs/market/bbo-1m/nbbo
-      - data/raw/adrs/adr_PX_LAST_adjust_none.csv
-      - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
-      - data/processed/market_etf_hedge_ratios.csv
+    - notebooks/signal_ic_analysis_template.ipynb
+    - src/hardcode_report_notebook_env.py
+    - data/processed/index_russell_pcr_signal_old_universe_gated_30m
+    - data/processed/futures_only_signal
+    - data/raw/adrs/bbo-1m/nbbo
+    - data/raw/etfs/market/bbo-1m/nbbo
+    - data/raw/adrs/adr_PX_LAST_adjust_none.csv
+    - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
+    - data/processed/market_etf_hedge_ratios.csv
     outs:
-      - notebooks/reports/pcr_old_universe_gated_ic_report_hedged_from_template.ipynb
-      - notebooks/reports/pcr_old_universe_gated_ic_report_unhedged_from_template.ipynb
+    - notebooks/reports/pcr_old_universe_gated_ic_report_hedged_from_template.ipynb
+    - notebooks/reports/pcr_old_universe_gated_ic_report_unhedged_from_template.ipynb
 
   evaluate_pcr_old_universe_gated_model_used_notebook:
-    cmd: MODEL_SIGNAL_DIR=data/processed/index_russell_pcr_signal_old_universe_gated_30m MODEL_NAME="PCR Old Universe Gated (Model-Used Months)" MODEL_TRAIN_DIR=data/processed/models/with_us_stocks/pcr_old_universe DATE_FILTER_MODE=model_used_months RETURNS_MODE=hedged jupyter nbconvert --to notebook --execute notebooks/signal_ic_analysis_template.ipynb --output-dir notebooks/reports --output pcr_old_universe_gated_model_used_ic_report_hedged_from_template.ipynb && python src/hardcode_report_notebook_env.py --notebook notebooks/reports/pcr_old_universe_gated_model_used_ic_report_hedged_from_template.ipynb --model-key pcr_old_universe_gated_model_used --model-name "PCR Old Universe Gated (Model-Used Months)" --model-signal-dir data/processed/index_russell_pcr_signal_old_universe_gated_30m --returns-mode hedged --model-train-dir data/processed/models/with_us_stocks/pcr_old_universe --date-filter-mode model_used_months && MODEL_SIGNAL_DIR=data/processed/index_russell_pcr_signal_old_universe_gated_30m MODEL_NAME="PCR Old Universe Gated (Model-Used Months)" MODEL_TRAIN_DIR=data/processed/models/with_us_stocks/pcr_old_universe DATE_FILTER_MODE=model_used_months RETURNS_MODE=unhedged jupyter nbconvert --to notebook --execute notebooks/signal_ic_analysis_template.ipynb --output-dir notebooks/reports --output pcr_old_universe_gated_model_used_ic_report_unhedged_from_template.ipynb && python src/hardcode_report_notebook_env.py --notebook notebooks/reports/pcr_old_universe_gated_model_used_ic_report_unhedged_from_template.ipynb --model-key pcr_old_universe_gated_model_used --model-name "PCR Old Universe Gated (Model-Used Months)" --model-signal-dir data/processed/index_russell_pcr_signal_old_universe_gated_30m --returns-mode unhedged --model-train-dir data/processed/models/with_us_stocks/pcr_old_universe --date-filter-mode model_used_months
+    cmd: 
+      MODEL_SIGNAL_DIR=data/processed/index_russell_pcr_signal_old_universe_gated_30m
+      MODEL_NAME="PCR Old Universe Gated (Model-Used Months)" 
+      MODEL_TRAIN_DIR=data/processed/models/with_us_stocks/pcr_old_universe 
+      DATE_FILTER_MODE=model_used_months RETURNS_MODE=hedged jupyter nbconvert 
+      --to notebook --execute notebooks/signal_ic_analysis_template.ipynb 
+      --output-dir notebooks/reports --output 
+      pcr_old_universe_gated_model_used_ic_report_hedged_from_template.ipynb && 
+      python src/hardcode_report_notebook_env.py --notebook 
+      notebooks/reports/pcr_old_universe_gated_model_used_ic_report_hedged_from_template.ipynb
+      --model-key pcr_old_universe_gated_model_used --model-name "PCR Old 
+      Universe Gated (Model-Used Months)" --model-signal-dir 
+      data/processed/index_russell_pcr_signal_old_universe_gated_30m 
+      --returns-mode hedged --model-train-dir 
+      data/processed/models/with_us_stocks/pcr_old_universe --date-filter-mode 
+      model_used_months && 
+      MODEL_SIGNAL_DIR=data/processed/index_russell_pcr_signal_old_universe_gated_30m
+      MODEL_NAME="PCR Old Universe Gated (Model-Used Months)" 
+      MODEL_TRAIN_DIR=data/processed/models/with_us_stocks/pcr_old_universe 
+      DATE_FILTER_MODE=model_used_months RETURNS_MODE=unhedged jupyter nbconvert
+      --to notebook --execute notebooks/signal_ic_analysis_template.ipynb 
+      --output-dir notebooks/reports --output 
+      pcr_old_universe_gated_model_used_ic_report_unhedged_from_template.ipynb 
+      && python src/hardcode_report_notebook_env.py --notebook 
+      notebooks/reports/pcr_old_universe_gated_model_used_ic_report_unhedged_from_template.ipynb
+      --model-key pcr_old_universe_gated_model_used --model-name "PCR Old 
+      Universe Gated (Model-Used Months)" --model-signal-dir 
+      data/processed/index_russell_pcr_signal_old_universe_gated_30m 
+      --returns-mode unhedged --model-train-dir 
+      data/processed/models/with_us_stocks/pcr_old_universe --date-filter-mode 
+      model_used_months
     deps:
-      - notebooks/signal_ic_analysis_template.ipynb
-      - src/hardcode_report_notebook_env.py
-      - data/processed/index_russell_pcr_signal_old_universe_gated_30m
-      - data/processed/models/with_us_stocks/pcr_old_universe
-      - data/processed/futures_only_signal
-      - data/raw/adrs/bbo-1m/nbbo
-      - data/raw/etfs/market/bbo-1m/nbbo
-      - data/raw/adrs/adr_PX_LAST_adjust_none.csv
-      - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
-      - data/processed/market_etf_hedge_ratios.csv
+    - notebooks/signal_ic_analysis_template.ipynb
+    - src/hardcode_report_notebook_env.py
+    - data/processed/index_russell_pcr_signal_old_universe_gated_30m
+    - data/processed/models/with_us_stocks/pcr_old_universe
+    - data/processed/futures_only_signal
+    - data/raw/adrs/bbo-1m/nbbo
+    - data/raw/etfs/market/bbo-1m/nbbo
+    - data/raw/adrs/adr_PX_LAST_adjust_none.csv
+    - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
+    - data/processed/market_etf_hedge_ratios.csv
     outs:
-      - notebooks/reports/pcr_old_universe_gated_model_used_ic_report_hedged_from_template.ipynb
-      - notebooks/reports/pcr_old_universe_gated_model_used_ic_report_unhedged_from_template.ipynb
+    - notebooks/reports/pcr_old_universe_gated_model_used_ic_report_hedged_from_template.ipynb
+    - notebooks/reports/pcr_old_universe_gated_model_used_ic_report_unhedged_from_template.ipynb
 
   pls_train_models:
-    cmd: python src/train_russell_experiment_models.py --model-kind pls --features-dir data/processed/models/with_us_stocks/features_extended --output-dir data/processed/models/with_us_stocks/pls --train-months 14 --val-months 6
+    cmd: python src/train_russell_experiment_models.py --model-kind pls 
+      --features-dir data/processed/models/with_us_stocks/features_extended 
+      --output-dir data/processed/models/with_us_stocks/pls --train-months 14 
+      --val-months 6
     deps:
-      - src/train_russell_experiment_models.py
-      - data/processed/models/with_us_stocks/features_extended
-      - data/raw/historical_russell_1000.csv
-      - data/raw/russell1000/russell1000_turnover.csv
+    - src/train_russell_experiment_models.py
+    - data/processed/models/with_us_stocks/features_extended
+    - data/raw/historical_russell_1000.csv
+    - data/raw/russell1000/russell1000_turnover.csv
     outs:
-      - data/processed/models/with_us_stocks/pls
+    - data/processed/models/with_us_stocks/pls
 
   index_russell_pls_signal:
-    cmd: python src/index_russell_experiment_signal.py --model-kind pls --model-dir data/processed/models/with_us_stocks/pls --output-dir data/processed/index_russell_pls_signal
+    cmd: python src/index_russell_experiment_signal.py --model-kind pls 
+      --model-dir data/processed/models/with_us_stocks/pls --output-dir 
+      data/processed/index_russell_pls_signal
     deps:
-      - src/index_russell_experiment_signal.py
-      - data/processed/models/with_us_stocks/pls
-      - data/processed/futures/converted_minute_bars
-      - data/raw/adr_info.csv
-      - data/raw/futures_symbols.csv
-      - data/raw/russell1000/ohlcv-1m
-      - data/processed/russell1000/russell_betas
-      - data/processed/futures_only_signal
+    - src/index_russell_experiment_signal.py
+    - data/processed/models/with_us_stocks/pls
+    - data/processed/futures/converted_minute_bars
+    - data/raw/adr_info.csv
+    - data/raw/futures_symbols.csv
+    - data/raw/russell1000/ohlcv-1m
+    - data/processed/russell1000/russell_betas
+    - data/processed/futures_only_signal
     params:
-      - start_date
-      - end_date
+    - start_date
+    - end_date
     outs:
-      - data/processed/index_russell_pls_signal
+    - data/processed/index_russell_pls_signal
 
   robust_pcr_train_models:
-    cmd: python src/train_russell_experiment_models.py --model-kind robust_pcr --features-dir data/processed/models/with_us_stocks/features_extended --output-dir data/processed/models/with_us_stocks/robust_pcr --train-months 14 --val-months 6
+    cmd: python src/train_russell_experiment_models.py --model-kind robust_pcr 
+      --features-dir data/processed/models/with_us_stocks/features_extended 
+      --output-dir data/processed/models/with_us_stocks/robust_pcr 
+      --train-months 14 --val-months 6
     deps:
-      - src/train_russell_experiment_models.py
-      - data/processed/models/with_us_stocks/features_extended
-      - data/raw/historical_russell_1000.csv
-      - data/raw/russell1000/russell1000_turnover.csv
+    - src/train_russell_experiment_models.py
+    - data/processed/models/with_us_stocks/features_extended
+    - data/raw/historical_russell_1000.csv
+    - data/raw/russell1000/russell1000_turnover.csv
     outs:
-      - data/processed/models/with_us_stocks/robust_pcr
+    - data/processed/models/with_us_stocks/robust_pcr
 
   index_russell_robust_pcr_signal:
-    cmd: python src/index_russell_experiment_signal.py --model-kind robust_pcr --model-dir data/processed/models/with_us_stocks/robust_pcr --output-dir data/processed/index_russell_robust_pcr_signal
+    cmd: python src/index_russell_experiment_signal.py --model-kind robust_pcr 
+      --model-dir data/processed/models/with_us_stocks/robust_pcr --output-dir 
+      data/processed/index_russell_robust_pcr_signal
     deps:
-      - src/index_russell_experiment_signal.py
-      - data/processed/models/with_us_stocks/robust_pcr
-      - data/processed/futures/converted_minute_bars
-      - data/raw/adr_info.csv
-      - data/raw/futures_symbols.csv
-      - data/raw/russell1000/ohlcv-1m
-      - data/processed/russell1000/russell_betas
-      - data/processed/futures_only_signal
+    - src/index_russell_experiment_signal.py
+    - data/processed/models/with_us_stocks/robust_pcr
+    - data/processed/futures/converted_minute_bars
+    - data/raw/adr_info.csv
+    - data/raw/futures_symbols.csv
+    - data/raw/russell1000/ohlcv-1m
+    - data/processed/russell1000/russell_betas
+    - data/processed/futures_only_signal
     params:
-      - start_date
-      - end_date
+    - start_date
+    - end_date
     outs:
-      - data/processed/index_russell_robust_pcr_signal
+    - data/processed/index_russell_robust_pcr_signal
 
   evaluate_robust_pcr_notebook:
-    cmd: MODEL_KEY=robust_pcr RETURNS_MODE=hedged jupyter nbconvert --to notebook --execute notebooks/signal_ic_analysis_template.ipynb --output-dir notebooks/reports --output robust_pcr_ic_report_hedged_from_template.ipynb && python src/hardcode_report_notebook_env.py --notebook notebooks/reports/robust_pcr_ic_report_hedged_from_template.ipynb --model-key robust_pcr --model-name "Robust PCR" --model-signal-dir data/processed/index_russell_robust_pcr_signal --returns-mode hedged && MODEL_KEY=robust_pcr RETURNS_MODE=unhedged jupyter nbconvert --to notebook --execute notebooks/signal_ic_analysis_template.ipynb --output-dir notebooks/reports --output robust_pcr_ic_report_unhedged_from_template.ipynb && python src/hardcode_report_notebook_env.py --notebook notebooks/reports/robust_pcr_ic_report_unhedged_from_template.ipynb --model-key robust_pcr --model-name "Robust PCR" --model-signal-dir data/processed/index_russell_robust_pcr_signal --returns-mode unhedged
+    cmd: MODEL_KEY=robust_pcr RETURNS_MODE=hedged jupyter nbconvert --to 
+      notebook --execute notebooks/signal_ic_analysis_template.ipynb 
+      --output-dir notebooks/reports --output 
+      robust_pcr_ic_report_hedged_from_template.ipynb && python 
+      src/hardcode_report_notebook_env.py --notebook 
+      notebooks/reports/robust_pcr_ic_report_hedged_from_template.ipynb 
+      --model-key robust_pcr --model-name "Robust PCR" --model-signal-dir 
+      data/processed/index_russell_robust_pcr_signal --returns-mode hedged && 
+      MODEL_KEY=robust_pcr RETURNS_MODE=unhedged jupyter nbconvert --to notebook
+      --execute notebooks/signal_ic_analysis_template.ipynb --output-dir 
+      notebooks/reports --output 
+      robust_pcr_ic_report_unhedged_from_template.ipynb && python 
+      src/hardcode_report_notebook_env.py --notebook 
+      notebooks/reports/robust_pcr_ic_report_unhedged_from_template.ipynb 
+      --model-key robust_pcr --model-name "Robust PCR" --model-signal-dir 
+      data/processed/index_russell_robust_pcr_signal --returns-mode unhedged
     deps:
-      - notebooks/signal_ic_analysis_template.ipynb
-      - src/hardcode_report_notebook_env.py
-      - data/processed/index_russell_robust_pcr_signal
-      - data/processed/futures_only_signal
-      - data/raw/adrs/bbo-1m/nbbo
-      - data/raw/etfs/market/bbo-1m/nbbo
-      - data/raw/adrs/adr_PX_LAST_adjust_none.csv
-      - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
-      - data/processed/market_etf_hedge_ratios.csv
+    - notebooks/signal_ic_analysis_template.ipynb
+    - src/hardcode_report_notebook_env.py
+    - data/processed/index_russell_robust_pcr_signal
+    - data/processed/futures_only_signal
+    - data/raw/adrs/bbo-1m/nbbo
+    - data/raw/etfs/market/bbo-1m/nbbo
+    - data/raw/adrs/adr_PX_LAST_adjust_none.csv
+    - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
+    - data/processed/market_etf_hedge_ratios.csv
     outs:
-      - notebooks/reports/robust_pcr_ic_report_hedged_from_template.ipynb
-      - notebooks/reports/robust_pcr_ic_report_unhedged_from_template.ipynb
+    - notebooks/reports/robust_pcr_ic_report_hedged_from_template.ipynb
+    - notebooks/reports/robust_pcr_ic_report_unhedged_from_template.ipynb
 
   evaluate_pls_notebook:
-    cmd: MODEL_KEY=pls RETURNS_MODE=hedged jupyter nbconvert --to notebook --execute notebooks/signal_ic_analysis_template.ipynb --output-dir notebooks/reports --output pls_ic_report_hedged_from_template.ipynb && python src/hardcode_report_notebook_env.py --notebook notebooks/reports/pls_ic_report_hedged_from_template.ipynb --model-key pls --model-name PLS --model-signal-dir data/processed/index_russell_pls_signal --returns-mode hedged && MODEL_KEY=pls RETURNS_MODE=unhedged jupyter nbconvert --to notebook --execute notebooks/signal_ic_analysis_template.ipynb --output-dir notebooks/reports --output pls_ic_report_unhedged_from_template.ipynb && python src/hardcode_report_notebook_env.py --notebook notebooks/reports/pls_ic_report_unhedged_from_template.ipynb --model-key pls --model-name PLS --model-signal-dir data/processed/index_russell_pls_signal --returns-mode unhedged
+    cmd: MODEL_KEY=pls RETURNS_MODE=hedged jupyter nbconvert --to notebook 
+      --execute notebooks/signal_ic_analysis_template.ipynb --output-dir 
+      notebooks/reports --output pls_ic_report_hedged_from_template.ipynb && 
+      python src/hardcode_report_notebook_env.py --notebook 
+      notebooks/reports/pls_ic_report_hedged_from_template.ipynb --model-key pls
+      --model-name PLS --model-signal-dir 
+      data/processed/index_russell_pls_signal --returns-mode hedged && 
+      MODEL_KEY=pls RETURNS_MODE=unhedged jupyter nbconvert --to notebook 
+      --execute notebooks/signal_ic_analysis_template.ipynb --output-dir 
+      notebooks/reports --output pls_ic_report_unhedged_from_template.ipynb && 
+      python src/hardcode_report_notebook_env.py --notebook 
+      notebooks/reports/pls_ic_report_unhedged_from_template.ipynb --model-key 
+      pls --model-name PLS --model-signal-dir 
+      data/processed/index_russell_pls_signal --returns-mode unhedged
     deps:
-      - notebooks/signal_ic_analysis_template.ipynb
-      - src/hardcode_report_notebook_env.py
-      - data/processed/index_russell_pls_signal
-      - data/processed/futures_only_signal
-      - data/raw/adrs/bbo-1m/nbbo
-      - data/raw/etfs/market/bbo-1m/nbbo
-      - data/raw/adrs/adr_PX_LAST_adjust_none.csv
-      - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
-      - data/processed/market_etf_hedge_ratios.csv
+    - notebooks/signal_ic_analysis_template.ipynb
+    - src/hardcode_report_notebook_env.py
+    - data/processed/index_russell_pls_signal
+    - data/processed/futures_only_signal
+    - data/raw/adrs/bbo-1m/nbbo
+    - data/raw/etfs/market/bbo-1m/nbbo
+    - data/raw/adrs/adr_PX_LAST_adjust_none.csv
+    - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
+    - data/processed/market_etf_hedge_ratios.csv
     outs:
-      - notebooks/reports/pls_ic_report_hedged_from_template.ipynb
-      - notebooks/reports/pls_ic_report_unhedged_from_template.ipynb
+    - notebooks/reports/pls_ic_report_hedged_from_template.ipynb
+    - notebooks/reports/pls_ic_report_unhedged_from_template.ipynb
 
   elasticnet_train_models:
-    cmd: python src/train_russell_experiment_models.py --model-kind elasticnet --features-dir data/processed/models/with_us_stocks/features_extended --output-dir data/processed/models/with_us_stocks/elasticnet --train-months 14 --val-months 6
+    cmd: python src/train_russell_experiment_models.py --model-kind elasticnet 
+      --features-dir data/processed/models/with_us_stocks/features_extended 
+      --output-dir data/processed/models/with_us_stocks/elasticnet 
+      --train-months 14 --val-months 6
     deps:
-      - src/train_russell_experiment_models.py
-      - data/processed/models/with_us_stocks/features_extended
-      - data/raw/historical_russell_1000.csv
-      - data/raw/russell1000/russell1000_turnover.csv
+    - src/train_russell_experiment_models.py
+    - data/processed/models/with_us_stocks/features_extended
+    - data/raw/historical_russell_1000.csv
+    - data/raw/russell1000/russell1000_turnover.csv
     outs:
-      - data/processed/models/with_us_stocks/elasticnet
+    - data/processed/models/with_us_stocks/elasticnet
 
   index_russell_elasticnet_signal:
-    cmd: python src/index_russell_experiment_signal.py --model-kind elasticnet --model-dir data/processed/models/with_us_stocks/elasticnet --output-dir data/processed/index_russell_elasticnet_signal
+    cmd: python src/index_russell_experiment_signal.py --model-kind elasticnet 
+      --model-dir data/processed/models/with_us_stocks/elasticnet --output-dir 
+      data/processed/index_russell_elasticnet_signal
     deps:
-      - src/index_russell_experiment_signal.py
-      - data/processed/models/with_us_stocks/elasticnet
-      - data/processed/futures/converted_minute_bars
-      - data/raw/adr_info.csv
-      - data/raw/futures_symbols.csv
-      - data/raw/russell1000/ohlcv-1m
-      - data/processed/russell1000/russell_betas
-      - data/processed/futures_only_signal
+    - src/index_russell_experiment_signal.py
+    - data/processed/models/with_us_stocks/elasticnet
+    - data/processed/futures/converted_minute_bars
+    - data/raw/adr_info.csv
+    - data/raw/futures_symbols.csv
+    - data/raw/russell1000/ohlcv-1m
+    - data/processed/russell1000/russell_betas
+    - data/processed/futures_only_signal
     params:
-      - start_date
-      - end_date
+    - start_date
+    - end_date
     outs:
-      - data/processed/index_russell_elasticnet_signal
+    - data/processed/index_russell_elasticnet_signal
 
   evaluate_elasticnet_notebook:
-    cmd: jupyter nbconvert --to notebook --execute --inplace notebooks/elasticnet_signal_ic_comparison.ipynb
+    cmd: jupyter nbconvert --to notebook --execute --inplace 
+      notebooks/elasticnet_signal_ic_comparison.ipynb
     deps:
-      - notebooks/elasticnet_signal_ic_comparison.ipynb
-      - data/processed/index_russell_elasticnet_signal
-      - data/processed/futures_only_signal
-      - data/raw/adrs/bbo-1m/nbbo
-      - data/raw/etfs/market/bbo-1m/nbbo
-      - data/raw/adrs/adr_PX_LAST_adjust_none.csv
-      - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
-      - data/processed/market_etf_hedge_ratios.csv
+    - notebooks/elasticnet_signal_ic_comparison.ipynb
+    - data/processed/index_russell_elasticnet_signal
+    - data/processed/futures_only_signal
+    - data/raw/adrs/bbo-1m/nbbo
+    - data/raw/etfs/market/bbo-1m/nbbo
+    - data/raw/adrs/adr_PX_LAST_adjust_none.csv
+    - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
+    - data/processed/market_etf_hedge_ratios.csv
 
   rrr_train_models:
-    cmd: python src/train_russell_experiment_models.py --model-kind rrr --features-dir data/processed/models/with_us_stocks/features_extended --output-dir data/processed/models/with_us_stocks/rrr --train-months 14 --val-months 6
+    cmd: python src/train_russell_experiment_models.py --model-kind rrr 
+      --features-dir data/processed/models/with_us_stocks/features_extended 
+      --output-dir data/processed/models/with_us_stocks/rrr --train-months 14 
+      --val-months 6
     deps:
-      - src/train_russell_experiment_models.py
-      - data/processed/models/with_us_stocks/features_extended
-      - data/raw/adr_info.csv
-      - data/raw/historical_russell_1000.csv
-      - data/raw/russell1000/russell1000_turnover.csv
+    - src/train_russell_experiment_models.py
+    - data/processed/models/with_us_stocks/features_extended
+    - data/raw/adr_info.csv
+    - data/raw/historical_russell_1000.csv
+    - data/raw/russell1000/russell1000_turnover.csv
     outs:
-      - data/processed/models/with_us_stocks/rrr
+    - data/processed/models/with_us_stocks/rrr
 
   index_russell_rrr_signal:
-    cmd: python src/index_russell_experiment_signal.py --model-kind rrr --model-dir data/processed/models/with_us_stocks/rrr --output-dir data/processed/index_russell_rrr_signal
+    cmd: python src/index_russell_experiment_signal.py --model-kind rrr 
+      --model-dir data/processed/models/with_us_stocks/rrr --output-dir 
+      data/processed/index_russell_rrr_signal
     deps:
-      - src/index_russell_experiment_signal.py
-      - data/processed/models/with_us_stocks/rrr
-      - data/processed/futures/converted_minute_bars
-      - data/raw/adr_info.csv
-      - data/raw/futures_symbols.csv
-      - data/raw/russell1000/ohlcv-1m
-      - data/processed/russell1000/russell_betas
-      - data/processed/futures_only_signal
+    - src/index_russell_experiment_signal.py
+    - data/processed/models/with_us_stocks/rrr
+    - data/processed/futures/converted_minute_bars
+    - data/raw/adr_info.csv
+    - data/raw/futures_symbols.csv
+    - data/raw/russell1000/ohlcv-1m
+    - data/processed/russell1000/russell_betas
+    - data/processed/futures_only_signal
     params:
-      - start_date
-      - end_date
+    - start_date
+    - end_date
     outs:
-      - data/processed/index_russell_rrr_signal
+    - data/processed/index_russell_rrr_signal
 
   evaluate_rrr_notebook:
-    cmd: jupyter nbconvert --to notebook --execute --inplace notebooks/rrr_signal_ic_comparison.ipynb
+    cmd: jupyter nbconvert --to notebook --execute --inplace 
+      notebooks/rrr_signal_ic_comparison.ipynb
     deps:
-      - notebooks/rrr_signal_ic_comparison.ipynb
-      - data/processed/index_russell_rrr_signal
-      - data/processed/futures_only_signal
-      - data/raw/adrs/bbo-1m/nbbo
-      - data/raw/etfs/market/bbo-1m/nbbo
-      - data/raw/adrs/adr_PX_LAST_adjust_none.csv
-      - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
-      - data/processed/market_etf_hedge_ratios.csv
+    - notebooks/rrr_signal_ic_comparison.ipynb
+    - data/processed/index_russell_rrr_signal
+    - data/processed/futures_only_signal
+    - data/raw/adrs/bbo-1m/nbbo
+    - data/raw/etfs/market/bbo-1m/nbbo
+    - data/raw/adrs/adr_PX_LAST_adjust_none.csv
+    - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
+    - data/processed/market_etf_hedge_ratios.csv
 
   random_forest_train_models:
-    cmd: python src/train_russell_experiment_models.py --model-kind rf --features-dir data/processed/models/with_us_stocks/features_extended --output-dir data/processed/models/with_us_stocks/random_forest --train-months 14 --val-months 6
+    cmd: python src/train_russell_experiment_models.py --model-kind rf 
+      --features-dir data/processed/models/with_us_stocks/features_extended 
+      --output-dir data/processed/models/with_us_stocks/random_forest 
+      --train-months 14 --val-months 6
     deps:
-      - src/train_russell_experiment_models.py
-      - data/processed/models/with_us_stocks/features_extended
-      - data/raw/historical_russell_1000.csv
-      - data/raw/russell1000/russell1000_turnover.csv
+    - src/train_russell_experiment_models.py
+    - data/processed/models/with_us_stocks/features_extended
+    - data/raw/historical_russell_1000.csv
+    - data/raw/russell1000/russell1000_turnover.csv
     outs:
-      - data/processed/models/with_us_stocks/random_forest
+    - data/processed/models/with_us_stocks/random_forest
 
   index_russell_random_forest_signal:
-    cmd: python src/index_russell_experiment_signal.py --model-kind rf --model-dir data/processed/models/with_us_stocks/random_forest --output-dir data/processed/index_russell_random_forest_signal
+    cmd: python src/index_russell_experiment_signal.py --model-kind rf 
+      --model-dir data/processed/models/with_us_stocks/random_forest 
+      --output-dir data/processed/index_russell_random_forest_signal
     deps:
-      - src/index_russell_experiment_signal.py
-      - data/processed/models/with_us_stocks/random_forest
-      - data/processed/futures/converted_minute_bars
-      - data/raw/adr_info.csv
-      - data/raw/futures_symbols.csv
-      - data/raw/russell1000/ohlcv-1m
-      - data/processed/russell1000/russell_betas
-      - data/processed/futures_only_signal
+    - src/index_russell_experiment_signal.py
+    - data/processed/models/with_us_stocks/random_forest
+    - data/processed/futures/converted_minute_bars
+    - data/raw/adr_info.csv
+    - data/raw/futures_symbols.csv
+    - data/raw/russell1000/ohlcv-1m
+    - data/processed/russell1000/russell_betas
+    - data/processed/futures_only_signal
     params:
-      - start_date
-      - end_date
+    - start_date
+    - end_date
     outs:
-      - data/processed/index_russell_random_forest_signal
+    - data/processed/index_russell_random_forest_signal
 
   evaluate_random_forest_notebook:
-    cmd: jupyter nbconvert --to notebook --execute --inplace notebooks/random_forest_signal_ic_comparison.ipynb
+    cmd: jupyter nbconvert --to notebook --execute --inplace 
+      notebooks/random_forest_signal_ic_comparison.ipynb
     deps:
-      - notebooks/random_forest_signal_ic_comparison.ipynb
-      - data/processed/index_russell_random_forest_signal
-      - data/processed/futures_only_signal
-      - data/raw/adrs/bbo-1m/nbbo
-      - data/raw/etfs/market/bbo-1m/nbbo
-      - data/raw/adrs/adr_PX_LAST_adjust_none.csv
-      - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
-      - data/processed/market_etf_hedge_ratios.csv
+    - notebooks/random_forest_signal_ic_comparison.ipynb
+    - data/processed/index_russell_random_forest_signal
+    - data/processed/futures_only_signal
+    - data/raw/adrs/bbo-1m/nbbo
+    - data/raw/etfs/market/bbo-1m/nbbo
+    - data/raw/adrs/adr_PX_LAST_adjust_none.csv
+    - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
+    - data/processed/market_etf_hedge_ratios.csv
 
   huber_train_models:
-    cmd: python src/train_russell_experiment_models.py --model-kind huber --features-dir data/processed/models/with_us_stocks/features_extended --output-dir data/processed/models/with_us_stocks/huber --train-months 14 --val-months 6
+    cmd: python src/train_russell_experiment_models.py --model-kind huber 
+      --features-dir data/processed/models/with_us_stocks/features_extended 
+      --output-dir data/processed/models/with_us_stocks/huber --train-months 14 
+      --val-months 6
     deps:
-      - src/train_russell_experiment_models.py
-      - data/processed/models/with_us_stocks/features_extended
-      - data/raw/historical_russell_1000.csv
-      - data/raw/russell1000/russell1000_turnover.csv
+    - src/train_russell_experiment_models.py
+    - data/processed/models/with_us_stocks/features_extended
+    - data/raw/historical_russell_1000.csv
+    - data/raw/russell1000/russell1000_turnover.csv
     outs:
-      - data/processed/models/with_us_stocks/huber
+    - data/processed/models/with_us_stocks/huber
 
   index_russell_huber_signal:
-    cmd: python src/index_russell_experiment_signal.py --model-kind huber --model-dir data/processed/models/with_us_stocks/huber --output-dir data/processed/index_russell_huber_signal
+    cmd: python src/index_russell_experiment_signal.py --model-kind huber 
+      --model-dir data/processed/models/with_us_stocks/huber --output-dir 
+      data/processed/index_russell_huber_signal
     deps:
-      - src/index_russell_experiment_signal.py
-      - data/processed/models/with_us_stocks/huber
-      - data/processed/futures/converted_minute_bars
-      - data/raw/adr_info.csv
-      - data/raw/futures_symbols.csv
-      - data/raw/russell1000/ohlcv-1m
-      - data/processed/russell1000/russell_betas
-      - data/processed/futures_only_signal
+    - src/index_russell_experiment_signal.py
+    - data/processed/models/with_us_stocks/huber
+    - data/processed/futures/converted_minute_bars
+    - data/raw/adr_info.csv
+    - data/raw/futures_symbols.csv
+    - data/raw/russell1000/ohlcv-1m
+    - data/processed/russell1000/russell_betas
+    - data/processed/futures_only_signal
     params:
-      - start_date
-      - end_date
+    - start_date
+    - end_date
     outs:
-      - data/processed/index_russell_huber_signal
+    - data/processed/index_russell_huber_signal
 
   evaluate_huber_notebook:
-    cmd: jupyter nbconvert --to notebook --execute --inplace notebooks/huber_signal_ic_comparison.ipynb
+    cmd: jupyter nbconvert --to notebook --execute --inplace 
+      notebooks/huber_signal_ic_comparison.ipynb
     deps:
-      - notebooks/huber_signal_ic_comparison.ipynb
-      - data/processed/index_russell_huber_signal
-      - data/processed/futures_only_signal
-      - data/raw/adrs/bbo-1m/nbbo
-      - data/raw/etfs/market/bbo-1m/nbbo
-      - data/raw/adrs/adr_PX_LAST_adjust_none.csv
-      - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
-      - data/processed/market_etf_hedge_ratios.csv
+    - notebooks/huber_signal_ic_comparison.ipynb
+    - data/processed/index_russell_huber_signal
+    - data/processed/futures_only_signal
+    - data/raw/adrs/bbo-1m/nbbo
+    - data/raw/etfs/market/bbo-1m/nbbo
+    - data/raw/adrs/adr_PX_LAST_adjust_none.csv
+    - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
+    - data/processed/market_etf_hedge_ratios.csv
