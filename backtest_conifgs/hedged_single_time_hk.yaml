@@ -1,6 +1,6 @@
 output:
   formats: ["csv", "json"]
-  path: "./adr_results/unhedged_single_time_hk/"
+  path: "./adr_results/1e-4_unhedged_single_time_hk_to_march26/"
 
 strategy:
   module: src/backtest_strategies/hedged_single_time_ADR.py
@@ -12,7 +12,7 @@ strategy:
     position_limit: 2e6
     skip_earnings: false
     turnover_lookback: 90
-    var_penalty: 0.00001
+    var_penalty: 0.0001
     vol_lookback: 100
 
 stock_split_file: data/raw/all_splits.csv
@@ -55,8 +55,8 @@ market_impact:
 initial_positions: {}
 
 # Date range for backtest
-start_date: "2022-07-02"
-end_date: "2026-02-13"
+start_date: "2025-01-02"
+end_date: "2026-03-06"
 
 # Symbols to trade
 symbols:

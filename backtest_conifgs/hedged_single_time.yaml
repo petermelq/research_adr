@@ -1,17 +1,18 @@
 output:
   formats: ["csv", "json"]
-  path: "./adr_results/march_26_matching_test"
+  path: "./adr_results/march_26_matching_test_hedged/"
 
 strategy:
   module: src/backtest_strategies/hedged_single_time_ADR.py
   class: "hedged_single_time_ADR" # Will map to MinimalStrategy class
   parameters:
     adr_info_filename: data/raw/adr_info.csv
-    hedged: false
-    p_volume: 0.02
+    hedged: True
+    p_volume: 0.005
+    position_limit: 2e6
     skip_earnings: false
     turnover_lookback: 90
-    var_penalty: 0.0001
+    var_penalty: 0.00001
     vol_lookback: 100
 
 stock_split_file: data/raw/all_splits.csv
