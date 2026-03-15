@@ -4,6 +4,18 @@ from pathlib import Path
 import pandas as pd
 
 
+def _format_time_for_output(time_values: pd.Series) -> pd.Series:
+    cleaned = time_values.astype(str).str.strip()
+    has_colon = cleaned.str.contains(":", regex=False)
+    normalized = cleaned.where(has_colon, cleaned.str.zfill(6))
+    normalized = normalized.where(~has_colon, normalized.str.replace(":", "", regex=False))
+    return normalized.str.replace(
+        r"^(\d{2})(\d{2})(\d{2})$",
+        r"\1:\2:\3",
+        regex=True,
+    )
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Invert FX minute bar files (e.g. USDJPY -> JPYUSD).")
     parser.add_argument(
@@ -25,7 +37,10 @@ def invert_file(input_path: Path, output_path: Path) -> None:
         input_path,
         header=None,
         names=["date", "time", "open", "high", "low", "close", "volume"],
+        dtype={"date": "string", "time": "string"},
     )
+    bars["date"] = bars["date"].str.zfill(8)
+    bars["time"] = _format_time_for_output(bars["time"])
     bars[["open", "close"]] = 1.0 / bars[["open", "close"]]
     bars[["high", "low"]] = 1.0 / bars[["low", "high"]]
     bars.to_csv(output_path, index=False, header=False)

@@ -68,6 +68,8 @@ class hedged_single_time_ADR(BaseStrategy):
                 skip_earnings: bool = False,
                 hedged: bool = True,
                 position_limit: float = 1e6,
+                trade_time_hours: int = None,
+                trade_time_min: int = None,
         ):
         """
         Initialize the minimal strategy.
@@ -82,8 +84,12 @@ class hedged_single_time_ADR(BaseStrategy):
         self.vol_lookback = vol_lookback
         self.hedged = hedged
         params = utils.load_params()
-        self.trade_time = pd.Timedelta(hours=params['fixed_trade_time_hours'],
-                                        minutes=params['fixed_trade_time_min'])
+        if trade_time_hours is None:
+            trade_time_hours = params['fixed_trade_time_hours']
+        if trade_time_min is None:
+            trade_time_min = params['fixed_trade_time_min']
+        self.trade_time = pd.Timedelta(hours=trade_time_hours,
+                                        minutes=trade_time_min)
         # setting up adr_info
         self.adr_info = pd.read_csv(adr_info_filename)
         schedules = []
@@ -148,7 +154,7 @@ class hedged_single_time_ADR(BaseStrategy):
 
             adr_signal = adr_signal[cols]
             adr_signal = adr_signal.dropna(how='all',axis=1) # dropping columns that are all nan (adrs that don't exist yet)
-            # import IPython; IPython.embed()
+            
             merged_prices = pd.merge(adr_trade_price.iloc[-self.vol_lookback-1:-1].stack().rename('trade_price'),
                                     adr_close.iloc[-self.vol_lookback-1:-1].stack().rename('close'),
                                     right_index=True,
@@ -176,7 +182,6 @@ class hedged_single_time_ADR(BaseStrategy):
             res = pd.concat([res.loc[:'2025-04-03'], res.loc['2025-04-09':]])
             res = res[adr_signal.columns] # making sure columns are aligned
             Cov = res.fillna(0).cov().values
-            # import IPython; IPython.embed()
             # Cov = res.cov().values
 
             tickers = adr_signal.columns.tolist()
@@ -198,7 +203,7 @@ class hedged_single_time_ADR(BaseStrategy):
             try:
                 result = prob.solve(solver='CLARABEL', max_iter=100000)
             except Exception as e:
-                import IPython; IPython.embed()
+                raise RuntimeError(f"Optimization failed for {trading_day}") from e
             
             weights = pd.DataFrame({'weight': w.value}, index=tickers)
             weights['weight'] = weights['weight'].clip(lower=-2e6, upper=2e6)
@@ -213,14 +218,15 @@ class hedged_single_time_ADR(BaseStrategy):
             weights['hedge_weight'] = weights['weight'] * weights['hedge_ratio'] * (-1)
             etf_weights = weights.groupby('hedge_ticker')['hedge_weight'].sum()
             shares = (weights['weight']/weights['trade_price']).round()
-            
+
             try:
                 etf_shares = (etf_weights/etf_trade_price.loc[trading_day]).round()
-            except:
-                import IPython; IPython.embed()
+            except Exception as e:
+                raise RuntimeError(f"Failed to compute ETF shares for {trading_day}") from e
                 
             if shares.isnull().any():
-                import IPython; IPython.embed()
+                missing = shares[shares.isnull()].index.tolist()
+                raise RuntimeError(f"NaN share counts for {trading_day}: {missing}")
 
             trades = []
             for ticker in tickers:
@@ -243,9 +249,6 @@ class hedged_single_time_ADR(BaseStrategy):
                                         price=adr_close.loc[trading_day, ticker],
                                     )
                                 )
-                    import numpy as np
-                    if adr_close.loc[trading_day, ticker] == np.nan:
-                        import IPython; IPython.embed()
 
             if self.hedged:
                 for etf_ticker, size in etf_shares.items():

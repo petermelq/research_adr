@@ -1,0 +1,109 @@
+output:
+  formats: ["csv", "json"]
+  path: "./adr_results/morning_futures_hedged_next_open_single_time_asia/"
+
+strategy:
+  module: src/backtest_strategies/futures_hedged_next_open_single_time_ADR.py
+  class: "futures_hedged_next_open_single_time_ADR"
+  parameters:
+    adr_info_filename: data/raw/adr_info.csv
+    ord_open_none_filename: data/processed/ordinary/ord_open_to_usd_adr_PX_OPEN_adjust_none.csv
+    ord_open_all_filename: data/processed/ordinary/ord_open_to_usd_adr_PX_OPEN_adjust_all.csv
+    betas_filename: data/processed/models/ordinary_betas_index_only.csv
+    futures_symbols_filename: data/raw/futures_symbols.csv
+    futures_dir: data/processed/futures/converted_minute_bars
+    hedged: true
+    p_volume: 0.005
+    position_limit: 2e6
+    skip_earnings: false
+    turnover_lookback: 90
+    var_penalty: 0.0001
+    vol_lookback: 100
+    trade_time_hours: 11
+    trade_time_min: 0
+
+stock_split_file: data/raw/all_splits.csv
+
+data_loaders:
+  adr_trade_price:
+    class: HistoricalDailyCSVDataLoader
+    csv_path: data/processed/adrs/adr_morning_fixed_time_mid.csv
+    start_date: 2018-05-01
+  adr_signal:
+    class: HistoricalDailyCSVDataLoader
+    csv_path: data/processed/morning_fixed_time_signal.csv
+    start_date: 2018-05-01
+  turnover_df:
+    class: HistoricalDailyCSVDataLoader
+    csv_path: data/raw/adrs/adr_turnover.csv
+    start_date: 2018-05-01
+
+market_impact:
+  class: "MinimalMarketImpactModel"
+  slippage_bps: 0.0
+
+initial_positions: {}
+
+start_date: "2025-01-02"
+end_date: "2026-03-06"
+
+symbols:
+  - TAK
+  - SONY
+  - TM
+  - HMC
+  - MUFG
+  - SMFG
+  - MFG
+  - BHP
+  - WDS
+  - TME
+  - BEKE
+  - BABA
+  - BIDU
+  - JD
+  - NIO
+  - TCOM
+  - XPEV
+  - LI
+  - ONC
+  - NTES
+  - GDS
+  - BILI
+  - HTHT
+  - EDU
+  - ZTO
+  - KC
+  - ZLAB
+  - MNSO
+  - WB
+  - FTUK
+  - NIY
+  - MME
+
+market_calendar: NYSE
+
+evaluation:
+  plot_pnl:
+    parameters:
+      reassign_dates: False
+      price_filename:
+        - data/raw/adrs/adr_PX_LAST_adjust_none.csv
+        - data/processed/futures/futures_usd_notional_ny_close_by_symbol.csv
+      market_calendar: NYSE
+
+  return_on_median_gmv:
+    parameters:
+      reassign_dates: False
+      price_filename:
+        - data/raw/adrs/adr_PX_LAST_adjust_none.csv
+        - data/processed/futures/futures_usd_notional_ny_close_by_symbol.csv
+      market_calendar: NYSE
+
+  return_on_max_gmv:
+    parameters:
+      reassign_dates: False
+      price_filename:
+        - data/raw/adrs/adr_PX_LAST_adjust_none.csv
+        - data/processed/futures/futures_usd_notional_ny_close_by_symbol.csv
+      market_calendar: NYSE

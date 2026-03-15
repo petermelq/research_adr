@@ -66,7 +66,10 @@ def load_fx_minute(
         header=None,
         index_col=None,
         names=["date", "time", "open", "high", "low", "close", "volume"],
+        dtype={"date": "string", "time": "string"},
     )
+    fx_df["date"] = fx_df["date"].str.zfill(8)
+    fx_df["time"] = fx_df["time"].str.zfill(6)
     fx_df["timestamp"] = pd.to_datetime(
         fx_df["date"].astype(str) + " " + fx_df["time"].astype(str)
     ).dt.tz_localize("America/New_York")

@@ -1,13 +1,18 @@
 output:
   formats: ["csv", "json"]
-  path: "./adr_results/2025_intraday_for_compare/"
+  path: "./adr_results/futures_hedged_next_open_single_time/"
 
 strategy:
-  module: src/backtest_strategies/hedged_single_time_ADR.py
-  class: "hedged_single_time_ADR" # Will map to MinimalStrategy class
+  module: src/backtest_strategies/futures_hedged_next_open_single_time_ADR.py
+  class: "futures_hedged_next_open_single_time_ADR"
   parameters:
     adr_info_filename: data/raw/adr_info.csv
-    hedged: False
+    ord_open_none_filename: data/processed/ordinary/ord_open_to_usd_adr_PX_OPEN_adjust_none.csv
+    ord_open_all_filename: data/processed/ordinary/ord_open_to_usd_adr_PX_OPEN_adjust_all.csv
+    betas_filename: data/processed/models/ordinary_betas_index_only.csv
+    futures_symbols_filename: data/raw/futures_symbols.csv
+    futures_dir: data/processed/futures/converted_minute_bars
+    hedged: true
     p_volume: 0.005
     position_limit: 2e6
     skip_earnings: false
@@ -24,47 +29,27 @@ data_loaders:
     start_date: 2018-05-01
   adr_signal:
     class: HistoricalDailyCSVDataLoader
-    csv_path:  data/processed/fixed_time_signal.csv
+    csv_path: data/processed/fixed_time_signal.csv
     start_date: 2018-05-01
   turnover_df:
     class: HistoricalDailyCSVDataLoader
     csv_path: data/raw/adrs/adr_turnover.csv
     start_date: 2018-05-01
-  adr_close:
-    class: HistoricalDailyCSVDataLoader
-    csv_path: data/raw/adrs/adr_PX_LAST_adjust_none.csv
-    start_date: 2018-05-01
-  etf_trade_price:
-    class: HistoricalDailyCSVDataLoader
-    csv_path: data/processed/etfs/market/market_etf_daily_fixed_time_mid.csv
-    start_date: 2018-05-01
-  etf_close:
-    class: HistoricalDailyCSVDataLoader
-    csv_path: data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
-    start_date: 2018-05-01
-  hedge_ratios:
-    class: HistoricalDailyCSVDataLoader
-    csv_path: data/processed/market_etf_hedge_ratios.csv
-    start_date: 2018-05-01
 
 market_impact:
   class: "MinimalMarketImpactModel"
-  slippage_bps: 0.0  # 5 basis points slippage
+  slippage_bps: 0.0
 
-# Initial positions (empty means starting with no positions)
 initial_positions: {}
 
-# Date range for backtest
 start_date: "2025-01-02"
 end_date: "2026-03-06"
 
-# Symbols to trade
 symbols:
   - BUD
   - AEG
   - ARGX
   - ASML
-  #- AZN
   - BCS
   - BTI
   - BBVA
@@ -87,7 +72,6 @@ symbols:
   - RELX
   - RIO
   - RTO
-  #- RYAAY
   - SNY
   - SAN
   - SAP
@@ -99,11 +83,8 @@ symbols:
   - VOD
   - WPP
   - DB
-  - EWU
-  - FEZ
   - EQNR
   - ERIC
-  #- GMAB
   - NVS
   - NVO
   - UBS
@@ -116,9 +97,6 @@ symbols:
   - MFG
   - BHP
   - WDS
-  - EWA
-  - EWJ
-  - EEM
   - TME
   - BEKE
   - MT
@@ -141,30 +119,35 @@ symbols:
   - ZLAB
   - MNSO
   - WB
+  - FTUK
+  - FESX
+  - FXXP
+  - NIY
+  - MME
 
 market_calendar: NYSE
 
 evaluation:
   plot_pnl:
-      parameters:
-        reassign_dates: False
-        price_filename:
-          - data/raw/adrs/adr_PX_LAST_adjust_none.csv
-          - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
-        market_calendar: NYSE
+    parameters:
+      reassign_dates: False
+      price_filename:
+        - data/raw/adrs/adr_PX_LAST_adjust_none.csv
+        - data/processed/futures/futures_usd_notional_ny_close_by_symbol.csv
+      market_calendar: NYSE
 
   return_on_median_gmv:
     parameters:
       reassign_dates: False
       price_filename:
         - data/raw/adrs/adr_PX_LAST_adjust_none.csv
-        - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
+        - data/processed/futures/futures_usd_notional_ny_close_by_symbol.csv
       market_calendar: NYSE
 
   return_on_max_gmv:
     parameters:
       reassign_dates: False
-      price_filename: 
+      price_filename:
         - data/raw/adrs/adr_PX_LAST_adjust_none.csv
-        - data/raw/etfs/market/market_etf_PX_LAST_adjust_none.csv
+        - data/processed/futures/futures_usd_notional_ny_close_by_symbol.csv
       market_calendar: NYSE

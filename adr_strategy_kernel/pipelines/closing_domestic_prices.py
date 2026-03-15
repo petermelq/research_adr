@@ -97,6 +97,7 @@ def load_fx_prices(
         fx_df["timestamp"] = pd.to_datetime(
             fx_df["date"].astype(str) + " " + fx_df["time"].astype(str)
         ).dt.tz_localize("America/New_York")
+
         if currency == "GBp":
             fx_df[["open", "high", "low", "close"]] = fx_df[["open", "high", "low", "close"]] / 100
         fx_df["currency"] = currency
@@ -105,7 +106,6 @@ def load_fx_prices(
     if not all_fx_data:
         return pd.DataFrame(columns=["timestamp", "close", "currency"])
     return pd.concat(all_fx_data, ignore_index=True)
-
 
 def convert_ordinary_closes_to_usd(
     raw_ordinary_dir: str | Path | None = None,

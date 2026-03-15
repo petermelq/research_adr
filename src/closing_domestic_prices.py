@@ -13,6 +13,5 @@ from adr_strategy_kernel.pipelines.closing_domestic_prices import (
 
 __all__ = ["convert_ordinary_closes_to_usd", "get_sh_per_adr", "main"]
 
-
 if __name__ == "__main__":
     main()

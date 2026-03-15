@@ -44,8 +44,8 @@ stages:
     deps:
     - path: adr_strategy_kernel
       hash: md5
-      md5: 7a3637fbf7e71feb835be6004c810a6d.dir
-      size: 190708
+      md5: 2b3f64a6e870d5a9a63c63001feeb47b.dir
+      size: 191115
       nfiles: 28
     - path: data/raw/adr_info.csv
       hash: md5
@@ -81,8 +81,8 @@ stages:
       size: 324008632
     - path: data/raw/currencies/minute_bars/HKDUSD_full_1min.txt
       hash: md5
-      md5: f50fc7a499999bed057cb56ec938736c
-      size: 396348181
+      md5: 1ef2bbc522da0b5bbce7e9299730a2e0
+      size: 304155877
     - path: data/raw/currencies/minute_bars/JPYUSD_full_1min.txt
       hash: md5
       md5: 4686cbf0f9bff5ccdb6c3672e357cf62
@@ -106,12 +106,12 @@ stages:
     outs:
     - path: data/processed/ordinary/ord_close_to_usd_adr_PX_LAST_adjust_all.csv
       hash: md5
-      md5: a36f2487f471baf2ec404e07c1393f67
-      size: 2161741
+      md5: 7b54f8c5aa0864558a1edd74ea5a8002
+      size: 2166753
     - path: data/processed/ordinary/ord_close_to_usd_adr_PX_LAST_adjust_none.csv
       hash: md5
-      md5: 35724371bab276e26288d9ef946a09e3
-      size: 2067736
+      md5: 9e73563e28313ce3111786de1da4b02d
+      size: 2072858
   download_adr_close:
     cmd: python -m data_tools.cli.download_bbg_daily data/raw/adr_info.csv 
       data/raw/adrs/adr_PX_LAST_adjust_none.csv --tickers_columns=adr 
@@ -194,8 +194,8 @@ stages:
     deps:
     - path: adr_strategy_kernel
       hash: md5
-      md5: 7a3637fbf7e71feb835be6004c810a6d.dir
-      size: 190708
+      md5: 2b3f64a6e870d5a9a63c63001feeb47b.dir
+      size: 191115
       nfiles: 28
     - path: data/processed/adrs/adr_adjustment_factors.csv
       hash: md5
@@ -232,8 +232,8 @@ stages:
     deps:
     - path: adr_strategy_kernel
       hash: md5
-      md5: 7a3637fbf7e71feb835be6004c810a6d.dir
-      size: 190708
+      md5: 2b3f64a6e870d5a9a63c63001feeb47b.dir
+      size: 191115
       nfiles: 28
     - path: data/raw/currencies/minute_bars/EURUSD_full_1min.txt
       hash: md5
@@ -467,8 +467,8 @@ stages:
       size: 321427136
     - path: src/invert_fx_minute_bars.py
       hash: md5
-      md5: 23e6a861a4eab25420d6c39e00edb2da
-      size: 1540
+      md5: a0b7f1cc70cb58ab973f5ef55aeb67fb
+      size: 2141
     outs:
     - path: data/raw/currencies/minute_bars/CHFUSD_full_1min.txt
       hash: md5
@@ -480,17 +480,17 @@ stages:
     deps:
     - path: data/raw/currencies/minute_bars/USDHKD_full_1min.txt
       hash: md5
-      md5: 37ec63b7f704f048eee3eb408ad35df6
-      size: 210937354
+      md5: 20af09ef159c3394d00bbc790b7ad9af
+      size: 172493902
     - path: src/invert_fx_minute_bars.py
       hash: md5
-      md5: 23e6a861a4eab25420d6c39e00edb2da
-      size: 1540
+      md5: a0b7f1cc70cb58ab973f5ef55aeb67fb
+      size: 2141
     outs:
     - path: data/raw/currencies/minute_bars/HKDUSD_full_1min.txt
       hash: md5
-      md5: f50fc7a499999bed057cb56ec938736c
-      size: 396348181
+      md5: 1ef2bbc522da0b5bbce7e9299730a2e0
+      size: 304155877
   download_scandi_usd_fx_bars:
     cmd: python src/download_histdata_fx_minute_bars.py --pairs USDNOK USDSEK 
       USDDKK --start-year 2015 --output-dir data/raw/currencies/minute_bars
@@ -531,8 +531,8 @@ stages:
       size: 213648777
     - path: src/invert_fx_minute_bars.py
       hash: md5
-      md5: 23e6a861a4eab25420d6c39e00edb2da
-      size: 1540
+      md5: a0b7f1cc70cb58ab973f5ef55aeb67fb
+      size: 2141
     outs:
     - path: data/raw/currencies/minute_bars/DKKUSD_full_1min.txt
       hash: md5
@@ -611,8 +611,8 @@ stages:
     deps:
     - path: adr_strategy_kernel
       hash: md5
-      md5: 7a3637fbf7e71feb835be6004c810a6d.dir
-      size: 190708
+      md5: 2b3f64a6e870d5a9a63c63001feeb47b.dir
+      size: 191115
       nfiles: 28
     - path: data/raw/adr_info.csv
       hash: md5
@@ -674,8 +674,8 @@ stages:
     deps:
     - path: adr_strategy_kernel
       hash: md5
-      md5: 7a3637fbf7e71feb835be6004c810a6d.dir
-      size: 190708
+      md5: 2b3f64a6e870d5a9a63c63001feeb47b.dir
+      size: 191115
       nfiles: 28
     - path: data/processed/aligned_index_prices.csv
       hash: md5
@@ -711,8 +711,8 @@ stages:
       size: 324008632
     - path: data/raw/currencies/minute_bars/HKDUSD_full_1min.txt
       hash: md5
-      md5: f50fc7a499999bed057cb56ec938736c
-      size: 396348181
+      md5: 1ef2bbc522da0b5bbce7e9299730a2e0
+      size: 304155877
     - path: data/raw/currencies/minute_bars/JPYUSD_full_1min.txt
       hash: md5
       md5: 4686cbf0f9bff5ccdb6c3672e357cf62
@@ -735,8 +735,8 @@ stages:
     outs:
     - path: data/processed/models/ordinary_betas_index_only.csv
       hash: md5
-      md5: 4c568a6db750fbf9552cebaeebbe794f
-      size: 2395661
+      md5: 441a61211ee62948a56859c25c41d12d
+      size: 2395572
   only_futures_full_signal:
     cmd: PYTHONPATH=. python -m 
       adr_strategy_kernel.pipelines.only_futures_full_signal 
@@ -745,8 +745,8 @@ stages:
     deps:
     - path: adr_strategy_kernel
       hash: md5
-      md5: 7a3637fbf7e71feb835be6004c810a6d.dir
-      size: 190708
+      md5: 2b3f64a6e870d5a9a63c63001feeb47b.dir
+      size: 191115
       nfiles: 28
     - path: data/processed/adrs/adr_mid_at_ord_auction_adjust_none.csv
       hash: md5
@@ -763,12 +763,12 @@ stages:
       nfiles: 8
     - path: data/processed/models/ordinary_betas_index_only.csv
       hash: md5
-      md5: 4c568a6db750fbf9552cebaeebbe794f
-      size: 2395661
+      md5: 441a61211ee62948a56859c25c41d12d
+      size: 2395572
     - path: data/processed/ordinary/ord_close_to_usd_adr_PX_LAST_adjust_none.csv
       hash: md5
-      md5: 35724371bab276e26288d9ef946a09e3
-      size: 2067736
+      md5: 9e73563e28313ce3111786de1da4b02d
+      size: 2072858
     - path: data/raw/adr_info.csv
       hash: md5
       md5: b96a1cc90a7c358ac39329f8c6b68fc9
@@ -791,8 +791,8 @@ stages:
     outs:
     - path: data/processed/futures_only_signal/
       hash: md5
-      md5: 7978f6a91d2a0522f9572bc2246195e8.dir
-      size: 580098907
+      md5: 5b5acf8eb3aaa3695dd51a625ac40fa5.dir
+      size: 580807908
       nfiles: 76
   fixed_time_signal:
     cmd: PYTHONPATH=. python -m adr_strategy_kernel.pipelines.fixed_time_signal 
@@ -803,13 +803,13 @@ stages:
     deps:
     - path: adr_strategy_kernel
       hash: md5
-      md5: 7a3637fbf7e71feb835be6004c810a6d.dir
-      size: 190708
+      md5: 2b3f64a6e870d5a9a63c63001feeb47b.dir
+      size: 191115
       nfiles: 28
     - path: data/processed/futures_only_signal/
       hash: md5
-      md5: 7978f6a91d2a0522f9572bc2246195e8.dir
-      size: 580098907
+      md5: 5b5acf8eb3aaa3695dd51a625ac40fa5.dir
+      size: 580807908
       nfiles: 76
     - path: data/raw/adr_info.csv
       hash: md5
@@ -824,8 +824,8 @@ stages:
     outs:
     - path: data/processed/fixed_time_signal.csv
       hash: md5
-      md5: 201e3d71561ca6b8363d0ce157387066
-      size: 2500208
+      md5: eac3b2cdded3b2342ce09c3680e7e813
+      size: 2504343
   adr_daily_mid:
     cmd: PYTHONPATH=. python -m adr_strategy_kernel.pipelines.fixed_time_mid 
       --nbbo-dir=data/raw/adrs/bbo-1m/nbbo --tickers-csv data/raw/adr_info.csv 
@@ -835,8 +835,8 @@ stages:
     deps:
     - path: adr_strategy_kernel
       hash: md5
-      md5: 7a3637fbf7e71feb835be6004c810a6d.dir
-      size: 190708
+      md5: 2b3f64a6e870d5a9a63c63001feeb47b.dir
+      size: 191115
       nfiles: 28
     - path: data/raw/adr_info.csv
       hash: md5
@@ -886,8 +886,8 @@ stages:
     deps:
     - path: adr_strategy_kernel
       hash: md5
-      md5: 7a3637fbf7e71feb835be6004c810a6d.dir
-      size: 190708
+      md5: 2b3f64a6e870d5a9a63c63001feeb47b.dir
+      size: 191115
       nfiles: 28
     - path: data/raw/adr_info.csv
       hash: md5
@@ -934,8 +934,8 @@ stages:
     deps:
     - path: adr_strategy_kernel
       hash: md5
-      md5: 7a3637fbf7e71feb835be6004c810a6d.dir
-      size: 190708
+      md5: 2b3f64a6e870d5a9a63c63001feeb47b.dir
+      size: 191115
       nfiles: 28
     - path: data/raw/adr_info.csv
       hash: md5
@@ -959,8 +959,8 @@ stages:
     deps:
     - path: backtest_conifgs/hedged_single_time.yaml
       hash: md5
-      md5: 945a48cee4d45c4afe699e5b79082807
-      size: 3198
+      md5: 8bba147235a81b7e25616307b1d1a133
+      size: 3174
     - path: data/processed/adrs/adr_daily_fixed_time_mid.csv
       hash: md5
       md5: f7717317515b10a9e5cf9f4bc3de3724
@@ -971,8 +971,8 @@ stages:
       size: 124127
     - path: data/processed/fixed_time_signal.csv
       hash: md5
-      md5: 201e3d71561ca6b8363d0ce157387066
-      size: 2500208
+      md5: dc89797347a7b9c4f698361f6d5c8b3a
+      size: 2502319
     - path: data/processed/market_etf_hedge_ratios.csv
       hash: md5
       md5: c5b65a31aeeef62b3d42c2377190060a
@@ -995,8 +995,8 @@ stages:
       size: 79932
     - path: src/backtest_strategies/hedged_single_time_ADR.py
       hash: md5
-      md5: 13151539fe42554835227f81bdfea797
-      size: 12969
+      md5: e1f7e4bf8910d68d9361d75d17c45ae4
+      size: 12913
   download_usd_hkd_fx_bars:
     cmd: python -m data_tools.cli.download_histdata_fx_minute_bars_with_bbg_fill
       --pairs USDHKD --start-year 2015 --output-dir 
@@ -1009,5 +1009,25 @@ stages:
     outs:
     - path: data/raw/currencies/minute_bars/USDHKD_full_1min.txt
       hash: md5
-      md5: 527fb4b06e87d1bb8cdf6c38936702e5
-      size: 165775789
+      md5: 20af09ef159c3394d00bbc790b7ad9af
+      size: 172493902
+  download_adr_tcbbo:
+    cmd: python -m data_tools.cli.batch_download_to_parquet_with_append 
+      --schema=tcbbo --datasets XNAS.BASIC --tickers=data/raw/adr_info.csv 
+      --tickers_columns=adr --output_dir=data/raw/adrs/tcbbo/exchange=XNAS.BASIC
+      --start_date=2024-07-01 --end_date=2026-03-06 --partition_period=date
+    deps:
+    - path: data/raw/adr_info.csv
+      hash: md5
+      md5: b96a1cc90a7c358ac39329f8c6b68fc9
+      size: 13988
+    params:
+      params.yaml:
+        end_date: '2026-03-06'
+        start_date: '2018-05-01'
+    outs:
+    - path: data/raw/adrs/tcbbo/exchange=XNAS.BASIC
+      hash: md5
+      md5: 6053271aa277b93c5f567c82a246fe06.dir
+      size: 12885025707
+      nfiles: 31859

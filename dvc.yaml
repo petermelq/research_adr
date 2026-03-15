@@ -60,7 +60,7 @@ stages:
   download_adr_tcbbo:
     cmd: python -m data_tools.cli.batch_download_to_parquet_with_append 
       --schema=tcbbo --datasets XNAS.BASIC --tickers=data/raw/adr_info.csv 
-      --tickers_columns=adr --output_dir=data/raw/adrs/tcbbo 
+      --tickers_columns=adr --output_dir=data/raw/adrs/tcbbo/exchange=XNAS.BASIC
       --start_date=2024-07-01 --end_date=${end_date} --partition_period=date
     deps:
     - data/raw/adr_info.csv
@@ -68,13 +68,13 @@ stages:
     - start_date
     - end_date
     outs:
-    - data/raw/adrs/tcbbo:
+    - data/raw/adrs/tcbbo/exchange=XNAS.BASIC:
         persist: true
 
   download_market_etf_tcbbo:
     cmd: python -m data_tools.cli.batch_download_to_parquet_with_append 
       --schema=tcbbo --datasets XNAS.BASIC --tickers=data/raw/adr_info.csv 
-      --tickers_columns=market_etf_hedge --output_dir=data/raw/etfs/market/tcbbo
+      --tickers_columns=market_etf_hedge --output_dir=data/raw/etfs/market/tcbb/exchange=XNAS.BASIC
       --start_date=2024-07-01 --end_date=${end_date} --partition_period=date
     deps:
     - data/raw/adr_info.csv
@@ -82,7 +82,7 @@ stages:
     - start_date
     - end_date
     outs:
-    - data/raw/etfs/market/tcbbo:
+    - data/raw/etfs/market/tcbbo/exchange=XNAS.BASIC:
         persist: true
 
   # 1-minute BBO data download
@@ -635,6 +635,14 @@ stages:
     - data/raw/currencies/minute_bars/USDSEK_full_1min.txt
     - data/raw/currencies/minute_bars/USDDKK_full_1min.txt
 
+  download_usd_hkd_fx_bars:
+    cmd: python -m data_tools.cli.download_histdata_fx_minute_bars_with_bbg_fill --pairs USDHKD 
+      --start-year 2015 --output-dir data/raw/currencies/minute_bars
+    deps:
+    - src/download_histdata_fx_minute_bars.py
+    outs:
+    - data/raw/currencies/minute_bars/USDHKD_full_1min.txt
+
   invert_scandi_usd_fx_bars:
     cmd: python src/invert_fx_minute_bars.py --data-dir 
       data/raw/currencies/minute_bars --pair USDNOK:NOKUSD --pair USDSEK:SEKUSD 
@@ -748,6 +756,25 @@ stages:
     outs:
     - data/processed/adrs/adr_daily_fixed_time_mid.csv
 
+  morning_adr_daily_mid:
+    cmd: PYTHONPATH=. python -m adr_strategy_kernel.pipelines.fixed_time_mid 
+      --nbbo-dir=data/raw/adrs/bbo-1m/nbbo --tickers-csv data/raw/adr_info.csv 
+      --tickers-columns adr --time-to-save-hours=${morning_fixed_trade_time_hours} 
+      --time-to-save-minutes=${morning_fixed_trade_time_min} 
+      --start-date=${start_date} --end-date=${end_date} 
+      --output=data/processed/adrs/adr_morning_fixed_time_mid.csv
+    deps:
+    - adr_strategy_kernel
+    - data/raw/adrs/bbo-1m/nbbo
+    - data/raw/adr_info.csv
+    params:
+    - start_date
+    - end_date
+    - morning_fixed_trade_time_hours
+    - morning_fixed_trade_time_min
+    outs:
+    - data/processed/adrs/adr_morning_fixed_time_mid.csv
+
   adr_open_mid:
     cmd: PYTHONPATH=. python -m adr_strategy_kernel.pipelines.fixed_time_mid 
       --nbbo-dir=data/raw/adrs/bbo-1m/nbbo --tickers-csv data/raw/adr_info.csv 
@@ -829,6 +856,26 @@ stages:
     outs:
     - data/processed/etfs/market/market_etf_daily_fixed_time_mid.csv
 
+  morning_market_etf_daily_fixed_time_mid:
+    cmd: PYTHONPATH=. python -m adr_strategy_kernel.pipelines.fixed_time_mid 
+      --nbbo-dir=data/raw/etfs/market/bbo-1m/nbbo --tickers-csv 
+      data/raw/adr_info.csv --tickers-columns market_etf_hedge 
+      --time-to-save-hours=${morning_fixed_trade_time_hours} 
+      --time-to-save-minutes=${morning_fixed_trade_time_min} 
+      --start-date=${start_date} --end-date=${end_date} 
+      --output=data/processed/etfs/market/market_etf_morning_fixed_time_mid.csv
+    deps:
+    - adr_strategy_kernel
+    - data/raw/etfs/market/bbo-1m/nbbo
+    - data/raw/adr_info.csv
+    params:
+    - start_date
+    - end_date
+    - morning_fixed_trade_time_hours
+    - morning_fixed_trade_time_min
+    outs:
+    - data/processed/etfs/market/market_etf_morning_fixed_time_mid.csv
+
   # fixed_time_signal:
   #   cmd: python src/futures_fixed_time_signal.py
   #   deps:
@@ -865,6 +912,25 @@ stages:
     - end_date
     outs:
     - data/processed/fixed_time_signal.csv
+
+  morning_fixed_time_signal:
+    cmd: PYTHONPATH=. python -m adr_strategy_kernel.pipelines.fixed_time_signal 
+      data/processed/futures_only_signal data/processed/morning_fixed_time_signal.csv 
+      --tickers-csv data/raw/adr_info.csv --tickers-columns adr 
+      --time-to-save-hours=${morning_fixed_trade_time_hours} 
+      --time-to-save-minutes=${morning_fixed_trade_time_min} 
+      --start-date=${start_date} --end-date=${end_date}
+    deps:
+    - adr_strategy_kernel
+    - data/processed/futures_only_signal/
+    - data/raw/adr_info.csv
+    params:
+    - morning_fixed_trade_time_hours
+    - morning_fixed_trade_time_min
+    - start_date
+    - end_date
+    outs:
+    - data/processed/morning_fixed_time_signal.csv
 
   pcr_fixed_time_signal:
     cmd: PYTHONPATH=. python -m adr_strategy_kernel.pipelines.fixed_time_signal 
